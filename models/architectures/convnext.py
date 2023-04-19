@@ -50,9 +50,9 @@ from tensorflow.keras import backend as K
 from .utils import _obtain_input_shape
 
 try:
-  from .layers.stochastic_depth import StochasticDepth
+      from ..layers.stochastic_depth import StochasticDepth
 except ImportError:
-  from .layers.stochastic_depth import StochasticDepth2 as StochasticDepth
+      from ..layers.stochastic_depth import StochasticDepth2 as StochasticDepth
 
 kernel_initial = tf.keras.initializers.TruncatedNormal(stddev=0.2)
 bias_initial = tf.keras.initializers.Constant(value=0)
