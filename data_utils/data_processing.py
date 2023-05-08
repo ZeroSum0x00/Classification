@@ -64,7 +64,7 @@ def get_data(data_dir, classes, data_type=None, phase='train', check_data=False,
     return dict_data
 
 
-class Normalizer():
+class Normalizer:
     def __init__(self, mode="divide", mean=None, std=None):
         self.mode = mode
         self.mean = mean
@@ -78,12 +78,12 @@ class Normalizer():
                 else:
                     img[..., i] -= self.mean[i]
 
-                if self.std is not None:
-                    for i in range(img.shape[-1]):
-                        if isinstance(self.std, float) or isinstance(self.std, int):
-                            img[..., i] /= (self.std + 1e-20)
-                        else:
-                            img[..., i] /= (self.std[i] + 1e-20)
+        if self.std is not None:
+            for i in range(img.shape[-1]):
+                if isinstance(self.std, float) or isinstance(self.std, int):
+                    img[..., i] /= (self.std + 1e-20)
+                else:
+                    img[..., i] /= (self.std[i] + 1e-20)
         return img
     
     def _sub_divide(self, image, target_size=None, interpolation=None):
