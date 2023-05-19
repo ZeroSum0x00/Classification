@@ -24,8 +24,13 @@ def get_train_test_data(data_zipfile,
                         data_type,
                         check_data, 
                         load_memory,
+                        dataloader_mode=0,
                         *args, **kwargs):
-                        
+    """
+        dataloader_mode = 0:   train - validation - test
+        dataloader_mode = 1:   train - validation
+        dataloader_mode = 2:   train
+    """
     data_folder = extract_data_folder(data_zipfile, dst_dir)
     data_train = get_data(data_folder,
                           classes           = classes,
@@ -47,29 +52,54 @@ def get_train_test_data(data_zipfile,
                                     std_norm                = std_norm,
                                     phase                   = "train",
                                     *args, **kwargs)
-
-    data_valid = get_data(data_folder,
-                          classes           = classes,
-                          data_type         = data_type,
-                          phase             = 'validation', 
-                          check_data        = check_data,
-                          load_memory       = load_memory)
-    valid_generator = Data_Sequence(data_valid, 
-                                    target_size             = target_size, 
-                                    batch_size              = batch_size, 
-                                    classes                 = classes,
-                                    color_space             = color_space,
-                                    augmentor               = augmentor,
-                                    init_epoch              = init_epoch,
-                                    end_epoch               = end_epoch,
-                                    normalizer              = normalizer,
-                                    mean_norm               = mean_norm,
-                                    std_norm                = std_norm,
-                                    phase                   = "valid",
-                                    *args, **kwargs)
-
+    if dataloader_mode != 2:
+        data_valid = get_data(data_folder,
+                              classes           = classes,
+                              data_type         = data_type,
+                              phase             = 'validation', 
+                              check_data        = check_data,
+                              load_memory       = load_memory)
+        valid_generator = Data_Sequence(data_valid, 
+                                        target_size             = target_size, 
+                                        batch_size              = batch_size, 
+                                        classes                 = classes,
+                                        color_space             = color_space,
+                                        augmentor               = augmentor,
+                                        init_epoch              = init_epoch,
+                                        end_epoch               = end_epoch,
+                                        normalizer              = normalizer,
+                                        mean_norm               = mean_norm,
+                                        std_norm                = std_norm,
+                                        phase                   = "valid",
+                                        *args, **kwargs)
+    else:
+        valid_generator = None
+        
+    if dataloader_mode == 1:
+        data_test = get_data(data_folder,
+                             classes           = classes,
+                             data_type         = data_type,
+                             phase             = 'test', 
+                             check_data        = check_data,
+                             load_memory       = load_memory)
+        test_generator = Data_Sequence(data_valid, 
+                                       target_size             = target_size, 
+                                       batch_size              = batch_size, 
+                                       classes                 = classes,
+                                       color_space             = color_space,
+                                       augmentor               = augmentor,
+                                       init_epoch              = init_epoch,
+                                       end_epoch               = end_epoch,
+                                       normalizer              = normalizer,
+                                       mean_norm               = mean_norm,
+                                       std_norm                = std_norm,
+                                       phase                   = "test",
+                                       *args, **kwargs)
+    else:
+        test_generator = None
+        
     logger.info('Load data successfully')
-    return train_generator, valid_generator
+    return train_generator, valid_generator, test_generator
 
 
 class Data_Sequence(Sequence):
