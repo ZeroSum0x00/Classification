@@ -31,10 +31,10 @@ def get_data(data_dir, classes, data_type=None, phase='train', check_data=False,
     data_dir = verify_folder(data_dir) + phase + '/'
 
     data_extraction = []
-    for idx, name in enumerate(classes):
+    for idx, name in enumerate(tqdm(classes, desc=f"Load {phase} dataset")):
         files_name = get_files(f"{data_dir}{name}", extensions=['jpg', 'jpeg', 'png'])
-        for image_name in tqdm(files_name, desc="Load dataset"):
-
+        
+        for image_name in files_name:
             if check_data:
                 image_path = os.path.join(data_dir, name, image_name)
                 try:
