@@ -1,6 +1,7 @@
 import os
 import cv2
 import xml
+import types
 import numpy as np
 from tqdm import tqdm
 
@@ -65,10 +66,10 @@ def get_data(data_dir, classes, data_type=None, phase='train', check_data=False,
 
 
 class Normalizer:
-    def __init__(self, mode="divide", mean=None, std=None):
-        self.mode = mode
-        self.mean = mean
-        self.std  = std
+    def __init__(self, norm_type="divide", mean=None, std=None):
+        self.norm_type = norm_type
+        self.mean      = mean
+        self.std       = std
         
     def __get_standard_deviation(self, img):
         if self.mean is not None:
@@ -112,10 +113,19 @@ class Normalizer:
         image = np.clip(image, 0, 255)
         return image
 
+    def _func_calc(self, image, func, target_size, interpolation=None):
+        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
+            image = cv2.resize(image, (target_size[0], target_size[1]), interpolation=interpolation)
+        image = func(image)
+        return image
+        
     def __call__(self, input, *args, **kargs):
-        if self.mode == "divide":
-            return self._divide(input, *args, **kargs)
-        elif self.mode == "sub_divide":
-            return self._sub_divide(input, *args, **kargs)
+        if isinstance(self.norm_type, str):
+            if self.norm_type == "divide":
+                return self._divide(input, *args, **kargs)
+            elif self.norm_type == "sub_divide":
+                return self._sub_divide(input, *args, **kargs)
+        elif isinstance(self.norm_type, types.FunctionType):
+            return self._func_calc(input, self.norm_type, *args, **kargs)
         else:
             return self._basic(input, *args, **kargs)
