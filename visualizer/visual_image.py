@@ -13,7 +13,7 @@ def visual_image(imgs, titles=None, rows=1, columns=2, size=(10, 10), mode=None)
         else:
             show_titles = [idx for idx in range(len(imgs))]
 
-    for index, (img, title) in enumerate(zip(imgs, titles)):
+    for index, (img, title) in enumerate(zip(show_imgs, show_titles)):
         plt.subplot(rows, columns, index + 1)
 
         if not (np.min(img) > -1 and np.max(img) < 1):
@@ -28,9 +28,6 @@ def visual_image(imgs, titles=None, rows=1, columns=2, size=(10, 10), mode=None)
                 plt.imshow(img)
         else:
             plt.imshow(img)
-
-    # plt.axis('off')
-    plt.show()
 
 
 def draw_boxes_on_image(image, boxes):
