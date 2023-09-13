@@ -4,6 +4,14 @@ from matplotlib import pyplot as plt
 
 def visual_image(imgs, titles=None, rows=1, columns=2, size=(10, 10), mode=None):
     figure = plt.figure(figsize=size)
+    show_imgs = [imgs] if not isinstance(imgs, list) else imgs
+    if titles is not None:
+        show_titles = [titles] if not isinstance(titles, list) else titles
+    else:
+        if not isinstance(imgs, list):
+            show_titles = ["show screen"]
+        else:
+            show_titles = [idx for idx in range(len(imgs))]
 
     for index, (img, title) in enumerate(zip(imgs, titles)):
         plt.subplot(rows, columns, index + 1)
