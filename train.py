@@ -78,30 +78,30 @@ def train(data_path,
         lr_limit_min    = 5e-4
         Init_lr_fit     = min(max(batch_size / nbs * lr_init, lr_limit_min), lr_limit_max)
         Min_lr_fit      = min(max(batch_size / nbs * lr_end, lr_limit_min * 1e-2), lr_limit_max * 1e-2)
-        
-        loss_history = LossHistory(result_path=TRAINING_TIME_PATH)
-        
-        accuracy_history = AccuracyHistory(result_path=TRAINING_TIME_PATH, save_best=True)
-        
-        warmup_lr = AdvanceWarmUpLearningRate(lr_init=Init_lr_fit, lr_end=Min_lr_fit, epochs=end_epoch, result_path=TRAINING_TIME_PATH)
-        
-        callbacks = [accuracy_history, loss_history, warmup_lr]
-
-        optimizer = SGD(learning_rate=Init_lr_fit, momentum=0.9, nesterov=True)
-        
+              
         if num_classes == 2:
             loss = BinaryCrossentropy()
             entropy_metric = BinaryAccuracy()
         else:
             loss = CategoricalCrossentropy()
             entropy_metric = CategoricalAccuracy()
-                  
+
+        loss_history = LossHistory(result_path=TRAINING_TIME_PATH)
+        
+        accuracy_history = AccuracyHistory(entropy_metric, result_path=TRAINING_TIME_PATH, save_best=True)
+        
+        warmup_lr = AdvanceWarmUpLearningRate(lr_init=Init_lr_fit, lr_end=Min_lr_fit, epochs=end_epoch, result_path=TRAINING_TIME_PATH)
+        
+        callbacks = [accuracy_history, loss_history, warmup_lr]
+
+        optimizer = SGD(learning_rate=Init_lr_fit, momentum=0.9, nesterov=True)
+
         model.compile(optimizer=optimizer, loss=loss, metrics=[entropy_metric])
         
         model.fit(train_generator,
                   steps_per_epoch     = train_generator.n // batch_size,
-                  validation_data     = val_generator,
-                  validation_steps    = val_generator.n // batch_size,
+                  validation_data     = valid_generator,
+                  validation_steps    = valid_generator.n // batch_size,
                   epochs              = end_epoch,
                   initial_epoch       = init_epoch,
                   callbacks           = callbacks)
