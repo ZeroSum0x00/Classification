@@ -122,12 +122,12 @@ if __name__ == '__main__':
     data_std_norm = None
     data_augmentation = {
                 "train": [
-                            ResizePadded((224, 224, 3), flexible=True, padding_color=128), 
+                            ResizePadded(input_shape, flexible=True, padding_color=128), 
                             RandomFlip(mode='horizontal'), 
                             RandomRotate(angle_range=20, prob=0.5, padding_color=128),
                             LightIntensityChange(),
                 ],
-                "valid": [ResizePadded((224, 224, 3), flexible=False, padding_color=128)],
+                "valid": [ResizePadded(input_shape, flexible=False, padding_color=128)],
                 "test": None
     }
     
