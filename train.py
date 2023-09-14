@@ -47,21 +47,21 @@ def train(data_path,
         TRAINING_TIME_PATH = create_folder_weights(saved_path)
         num_classes = len(classes)
 
-        train_generator, val_generator = get_train_test_data(data_zipfile            = data_path, 
-                                                             dst_dir                 = data_dst_path,
-                                                             classes                 = classes, 
-                                                             target_size             = input_shape, 
-                                                             batch_size              = batch_size, 
-                                                             init_epoch              = init_epoch,
-                                                             end_epoch               = end_epoch,
-                                                             color_space             = color_space,
-                                                             augmentor               = data_augmentation,
-                                                             normalizer              = data_normalizer,
-                                                             mean_norm               = data_mean_norm,
-                                                             std_norm                = data_std_norm,
-                                                             data_type               = data_type,
-                                                             check_data              = check_data, 
-                                                             load_memory             = load_memory)
+        train_generator, valid_generator, test_generator = get_train_test_data(data_zipfile            = data_path, 
+                                                                               dst_dir                 = data_dst_path,
+                                                                               classes                 = classes, 
+                                                                               target_size             = input_shape, 
+                                                                               batch_size              = batch_size, 
+                                                                               init_epoch              = init_epoch,
+                                                                               end_epoch               = end_epoch,
+                                                                               color_space             = color_space,
+                                                                               augmentor               = data_augmentation,
+                                                                               normalizer              = data_normalizer,
+                                                                               mean_norm               = data_mean_norm,
+                                                                               std_norm                = data_std_norm,
+                                                                               data_type               = data_type,
+                                                                               check_data              = check_data, 
+                                                                               load_memory             = load_memory)
         
         architecture = VGG16(input_shape=input_shape, classes=num_classes, weights=None)
 
