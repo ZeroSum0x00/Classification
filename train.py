@@ -4,9 +4,9 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.callbacks import CSVLogger
-from tensorflow.keras.losses import CategoricalCrossentropy
+from tensorflow.keras.losses import CategoricalCrossentropy, BinaryCrossentropy
+from tensorflow.keras.metrics import CategoricalAccuracy, BinaryAccuracy
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.metrics import CategoricalAccuracy
 
 from models.architectures.xception import Xception
 from models.architectures.vgg import VGG16
@@ -72,8 +72,6 @@ def train(data_path,
                 model.load_weights(weight_objects)
             elif weight_type == "models":
                 model.load_models(weight_objects)
-        
-        loss = CategoricalCrossentropy()
 
         nbs             = 64
         lr_limit_max    = 1e-1
@@ -91,8 +89,13 @@ def train(data_path,
 
         optimizer = SGD(learning_rate=Init_lr_fit, momentum=0.9, nesterov=True)
         
-        entropy_metric = CategoricalAccuracy()
-
+        if num_classes == 2:
+            loss = BinaryCrossentropy()
+            entropy_metric = BinaryAccuracy()
+        else:
+            loss = CategoricalCrossentropy()
+            entropy_metric = CategoricalAccuracy()
+                  
         model.compile(optimizer=optimizer, loss=loss, metrics=[entropy_metric])
         
         model.fit(train_generator,
