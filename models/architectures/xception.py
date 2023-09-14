@@ -50,6 +50,7 @@ def Xception(include_top=True,
              input_tensor=None, 
              input_shape=None,
              pooling=None,
+             final_activation="softmax",
              classes=1000):
 
     if weights not in {'imagenet', None}:
@@ -200,7 +201,7 @@ def Xception(include_top=True,
     # Final Block
     if include_top:
         x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dense(classes, activation='softmax', name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)
@@ -251,12 +252,13 @@ def Xception_backbone(input_shape=(299, 299, 3),
                       weights='imagenet', 
                       input_tensor=None, 
                       pooling=None, 
+                      final_activation="softmax",
                       classes=1000,
                       custom_layers=None) -> Model:
 
     model = Xception(include_top=include_top, weights=weights,
                      input_tensor=input_tensor, input_shape=input_shape,
-                     pooling=pooling, classes=classes)
+                     pooling=pooling, final_activation=final_activation, classes=classes)
 
     for l in model.layers:
         l.trainable = True
@@ -281,12 +283,13 @@ def Xception_backbone2(input_shape=(299, 299, 3),
                        weights='imagenet', 
                        input_tensor=None, 
                        pooling=None, 
+                       final_activation="softmax",
                        classes=1000,
                        custom_layers=None) -> Model:
     
     model = Xception(include_top=include_top, weights=weights,
                      input_tensor=input_tensor, input_shape=input_shape,
-                     pooling=pooling, classes=classes)
+                     pooling=pooling, final_activation=final_activation, classes=classes)
 
     for l in model.layers:
         l.trainable = True
