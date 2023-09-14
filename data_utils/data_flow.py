@@ -155,10 +155,13 @@ class Data_Sequence(Sequence):
                                     interpolation=cv2.INTER_NEAREST)
 
             label_index = self.classes.index(label_name)
-            label = np.zeros(self.num_class, dtype=np.float32)
-            label[label_index] = 1
+            if self.num_class == 2:
+                batch_label.append(label_index)
+            else:
+                label = np.zeros(self.num_class, dtype=np.float32)
+                label[label_index] = 1
+                batch_label.append(label)
             batch_image.append(image)
-            batch_label.append(label)
             
             if self.debug_mode:
                 debug_image.append(img_path)
