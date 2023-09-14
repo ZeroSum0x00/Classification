@@ -13,12 +13,16 @@ from matplotlib import pyplot as plt
 
 
 class AccuracyHistory(tf.keras.callbacks.Callback):
-    def __init__(self, 
+    def __init__(self,
+                 accuracy_caculator=None,
                  result_path=None, 
                  save_best=False,
                  min_ratio=0.2):
         super(AccuracyHistory, self).__init__()
-
+        if accuracy_caculator is None:
+            raise Exception("accuracy_caculator param is not None")
+        self.train_caculator_name   = accuracy_caculator.name
+        self.valid_caculator_name   = 'val_' + self.train_caculator_name
         self.result_path            = result_path
         self.save_best              = save_best
         self.min_ratio              = min_ratio
@@ -28,18 +32,18 @@ class AccuracyHistory(tf.keras.callbacks.Callback):
         self.epoches                = [0]
         self.current_train_accuracy = 0.0
         self.current_valid_accuracy = 0.0
-   
+
     def on_epoch_end(self, epoch, logs={}):
-        train_accuracy = logs.get('categorical_accuracy')
-        valid_accuracy = logs.get('val_categorical_accuracy')
+        train_accuracy = logs.get(self.train_caculator_name)
+        valid_accuracy = logs.get(self.valid_caculator_name)
         self.train_accuracy_list.append(train_accuracy)
         self.valid_accuracy_list.append(valid_accuracy)
         
         with open(os.path.join(self.result_path, "train_accuracy.txt"), 'a') as f:
-            f.write(f"Train accuracy in epoch {epoch + 1}: {str(logs.get('categorical_accuracy'))}")
+            f.write(f"Train accuracy in epoch {epoch + 1}: {str(logs.get(self.train_caculator_name))}")
             f.write("\n")
         with open(os.path.join(self.result_path, "val_accuracy.txt"), 'a') as f:
-            f.write(f"Train accuracy in epoch {epoch + 1}: {str(logs.get('val_categorical_accuracy'))}")
+            f.write(f"Train accuracy in epoch {epoch + 1}: {str(logs.get(self.valid_caculator_name))}")
             f.write("\n")
             
         iters = range(len(self.train_accuracy_list))
