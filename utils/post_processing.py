@@ -5,6 +5,7 @@ import colorsys
 import numpy as np
 import tensorflow as tf
 from utils.logger import logger
+from utils.auxiliary_processing import change_color_space
 
 
 def get_labels(label_file):
@@ -31,5 +32,42 @@ def resize_image(image, target_size, letterbox_image):
 
 
 def preprocess_input(image):
-    image /= 255.0
+    image = image / 127.5 - 1
     return image
+
+
+def decode_predictions(preds, class_names, top_k=5):
+    results = []
+    for pred in preds:
+        top_indices = tf.argsort(pred)[-top_k:][::-1]
+        result = [(class_names[i], pred[i].numpy()) for i in top_indices]
+        result.sort(key=lambda x: x[1], reverse=True)
+        results.extend(result)
+    return results
+
+
+def detect_image(image, model, target_shape, class_names, top_k=5):
+    if isinstance(image, str):
+        image = cv2.imread(image)
+        image = change_color_space(image, 'bgr', 'rgb')
+    image_data  = resize_image(image, target_shape, letterbox_image=True)
+    image_data  = preprocess_input(image_data.astype(np.float32))
+    image_data  = np.expand_dims(image_data, axis=0)
+    predictions = model.predict(image_data)
+    if len(class_names) == 2:
+        score = predictions[0][0].numpy()
+        if score < 0.5:
+            correct_label_idx = 0
+            imprecise_label_idx = 1
+        else:
+            correct_label_idx = 1
+            imprecise_label_idx = 0
+            
+        top1 = (class_names[correct_label_idx], (1 - score) if correct_label_idx == 0 else score)
+        predictions = [(top1), (class_names[imprecise_label_idx], (1 - score) if correct_label_idx == 1 else score)]
+    else:
+        predictions = decode_predictions(predictions, class_names, top_k=5)
+        top1 = predictions[0]
+    
+    # visual_image([image], [f'{top1[0]}: {top1[1]}'])
+    return top1, predictions
