@@ -5,7 +5,7 @@ from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.callbacks import CSVLogger
 from tensorflow.keras.losses import CategoricalCrossentropy, BinaryCrossentropy
-from tensorflow.keras.metrics import CategoricalAccuracy, BinaryAccuracy
+from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy, BinaryAccuracy
 from tensorflow.keras.optimizers import Adam
 
 from models.architectures.xception import Xception
@@ -81,10 +81,13 @@ def train(data_path,
               
         if num_classes == 2:
             loss = BinaryCrossentropy()
-            entropy_metric = BinaryAccuracy()
+            accuracy_metric = BinaryAccuracy(name="accuracy")
+            metrics = [accuracy_metric]
         else:
             loss = CategoricalCrossentropy()
-            entropy_metric = CategoricalAccuracy()
+            accuracy_metric = CategoricalAccuracy(name="accuracy")
+            top_k_accuracy_metric = TopKCategoricalAccuracy(5, name="top-5-accuracy")
+            metrics = [accuracy_metric, top_k_accuracy_metric]
 
         loss_history = LossHistory(result_path=TRAINING_TIME_PATH)
         
@@ -96,7 +99,7 @@ def train(data_path,
 
         optimizer = SGD(learning_rate=Init_lr_fit, momentum=0.9, nesterov=True)
 
-        model.compile(optimizer=optimizer, loss=loss, metrics=[entropy_metric])
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         
         model.fit(train_generator,
                   steps_per_epoch     = train_generator.n // batch_size,
