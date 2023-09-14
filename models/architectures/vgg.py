@@ -69,6 +69,7 @@ def VGG(layers,
         input_tensor=None,
         input_shape=None,
         pooling=None,
+        final_activation="softmax",
         classes=1000):
 
     if weights not in {'imagenet', None}:
@@ -121,7 +122,7 @@ def VGG(layers,
         x = Flatten(name='flatten')(x)
         x = Dense(4096, activation='relu', name='fc1')(x)
         x = Dense(4096, activation='relu', name='fc2')(x)
-        x = Dense(classes, activation='softmax', name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D()(x)
@@ -205,6 +206,7 @@ def VGG11(include_top=True,
           input_tensor=None,
           input_shape=None,
           pooling=None,
+          final_activation="softmax",
           classes=1000) -> Model:
     
     model = VGG(layers=[1, 1, 2, 2, 2],
@@ -214,6 +216,7 @@ def VGG11(include_top=True,
                 input_tensor=input_tensor, 
                 input_shape=input_shape, 
                 pooling=pooling, 
+                final_activation=final_activation,
                 classes=classes)
     return model
 
@@ -223,6 +226,7 @@ def VGG13(include_top=True,
           input_tensor=None,
           input_shape=None,
           pooling=None,
+          final_activation="softmax",
           classes=1000) -> Model:
     
     model = VGG(layers=[2, 2, 2, 2, 2],
@@ -232,6 +236,7 @@ def VGG13(include_top=True,
                 input_tensor=input_tensor, 
                 input_shape=input_shape, 
                 pooling=pooling, 
+                final_activation=final_activation,
                 classes=classes)
     return model
 
@@ -241,6 +246,7 @@ def VGG16(include_top=True,
           input_tensor=None,
           input_shape=None,
           pooling=None,
+          final_activation="softmax",
           classes=1000) -> Model:
     
     model = VGG(layers=[2, 2, 3, 3, 3],
@@ -250,6 +256,7 @@ def VGG16(include_top=True,
                 input_tensor=input_tensor, 
                 input_shape=input_shape, 
                 pooling=pooling, 
+                final_activation=final_activation,
                 classes=classes)
     return model
 
@@ -259,6 +266,7 @@ def VGG19(include_top=True,
           input_tensor=None,
           input_shape=None,
           pooling=None,
+          final_activation="softmax",
           classes=1000) -> Model:
     
     model = VGG(layers=[2, 2, 4, 4, 4],
@@ -268,5 +276,6 @@ def VGG19(include_top=True,
                 input_tensor=input_tensor, 
                 input_shape=input_shape, 
                 pooling=pooling, 
+                final_activation=final_activation,
                 classes=classes)
     return model
