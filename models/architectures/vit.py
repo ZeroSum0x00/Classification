@@ -31,6 +31,7 @@ from __future__ import absolute_import
 
 import warnings
 import tensorflow as tf
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
@@ -40,9 +41,8 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.utils import get_source_inputs, get_file
-from tensorflow.keras import backend as K
-from .utils import _obtain_input_shape
-from .layers.transformer import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock
+from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock
+from utils.model_processing import _obtain_input_shape
 
 
 def ViT(num_layers=12,
