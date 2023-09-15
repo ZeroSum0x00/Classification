@@ -47,12 +47,13 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from tensorflow.keras import backend as K
-from .utils import _obtain_input_shape
+from utils.model_processing import _obtain_input_shape
 
 try:
-      from ..layers.stochastic_depth import StochasticDepth
+      from models.layers import StochasticDepth
 except ImportError:
-      from ..layers.stochastic_depth import StochasticDepth2 as StochasticDepth
+      from models.layers import StochasticDepth2 as StochasticDepth
+
 
 kernel_initial = tf.keras.initializers.TruncatedNormal(stddev=0.2)
 bias_initial = tf.keras.initializers.Constant(value=0)
