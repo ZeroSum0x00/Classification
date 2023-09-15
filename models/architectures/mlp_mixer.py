@@ -1,0 +1,388 @@
+"""
+  # Description:
+    - The following table comparing the params of the MLP-Mixer in Pytorch Source 
+    with Tensorflow convert Source on size 224 x 224 x 3:
+      
+       ----------------------------------------------------------------------
+      |    Library     |      Model Name     |    Params       |   Greater   |
+      |--------------------------------------------------------|-------------|
+      |   Pytorch      |     MLPMixer-S16    |   18,528,264    |      =      |
+      |   Tensorflow   |     MLPMixer-S16    |   18,528,264    |      =      |
+      |----------------|---------------------|-----------------|-------------|
+      |   Pytorch      |     MLPMixer-S32    |   19,104,624    |      =      |
+      |   Tensorflow   |     MLPMixer-S32    |   19,104,624    |      =      |
+      |----------------|---------------------|-----------------|-------------|
+      |   Pytorch      |     MLPMixer-B16    |   59,880,472    |      =      |
+      |   Tensorflow   |     MLPMixer-B16    |   59,880,472    |      =      |
+      |----------------|---------------------|-----------------|-------------|
+      |   Pytorch      |     MLPMixer-B32    |   60,293,428    |      =      |
+      |   Tensorflow   |     MLPMixer-B32    |   60,293,428    |      =      |
+      |----------------|---------------------|-----------------|-------------|
+      |   Pytorch      |     MLPMixer-L16    |   208,196,168   |      =      |
+      |   Tensorflow   |     MLPMixer-L16    |   208,196,168   |      =      |
+      |----------------|---------------------|-----------------|-------------|
+      |   Pytorch      |     MLPMixer-L32    |   206,939,264   |      =      |
+      |   Tensorflow   |     MLPMixer-L32    |   206,939,264   |      =      |
+      |----------------|---------------------|-----------------|-------------|
+      |   Pytorch      |     MLPMixer-H14    |   432,350,952   |      =      |
+      |   Tensorflow   |     MLPMixer-H14    |   432,350,952   |      =      |
+       ----------------------------------------------------------------------
+
+  # Reference:
+    - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/pdf/2105.01601.pdf)
+    - Source: https://github.com/google-research/vision_transformer
+              https://github.com/isaaccorley/mlp-mixer-pytorch
+
+"""
+
+from __future__ import print_function
+from __future__ import absolute_import
+
+import warnings
+import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import LayerNormalization
+from tensorflow.keras.layers import GlobalAveragePooling1D
+from tensorflow.keras.layers import GlobalMaxPooling1D
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock
+from utils.model_processing import _obtain_input_shape
+
+
+class MixerBlock(tf.keras.layers.Layer):
+    def __init__(self, tokens_mlp_dim, channels_mlp_dim, norm_eps=1e-6, drop_rate=0.1):
+        super(MixerBlock, self).__init__()
+        self.tokens_mlp_dim = tokens_mlp_dim
+        self.channels_mlp_dim = channels_mlp_dim
+        self.norm_eps = norm_eps
+        self.drop_rate = drop_rate
+
+    def build(self, input_shape):
+        self.token_mlp_block = MLPBlock(self.tokens_mlp_dim, self.drop_rate)
+        self.channel_mlp_block = MLPBlock(self.channels_mlp_dim, self.drop_rate)
+        self.layerNorm1 = LayerNormalization(epsilon=self.norm_eps)
+        self.layerNorm2 = LayerNormalization(epsilon=self.norm_eps)
+
+    def __token_mixing(self, x):
+        # Token-mixing block
+        y = tf.transpose(self.layerNorm1(x), perm=(0, 2, 1))  
+        y = self.token_mlp_block(y)
+        y = tf.transpose(y, perm=(0, 2, 1)) + x
+        return y
+    
+    def __channel_mixing(self, x):
+        # Channel-minxing block
+        y = self.layerNorm2(x)
+        y = self.channel_mlp_block(y) + x
+        return y
+
+    @tf.autograph.experimental.do_not_convert
+    def call(self, inputs, training=False):
+        tok = self.__token_mixing(inputs)
+        output = self.__channel_mixing(tok)
+        return output
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+                "tokens_mlp_dim": self.tokens_mlp_dim,
+                "channels_mlp_dim": self.channels_mlp_dim,
+                "norm_eps": self.norm_eps,
+                "drop_rate": self.drop_rate
+            })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+def MLPMixer(patch_size, 
+             num_blocks, 
+             hidden_dim, 
+             tokens_mlp_dim, 
+             channels_mlp_dim, 
+             include_top=True,
+             weights='imagenet',
+             input_tensor=None,
+             input_shape=None,
+             pooling=None,
+             final_activation="softmax",
+             classes=1000,
+             norm_eps=1e-6,
+             drop_rate=0.1):
+
+    if weights not in {'imagenet', None}:
+        raise ValueError('The `weights` argument should be either '
+                         '`None` (random initialization) or `imagenet` '
+                         '(pre-training on ImageNet).')
+
+    if weights == 'imagenet' and include_top and classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_top`'
+                         ' as true, `classes` should be 1000')
+
+    # Determine proper input shape
+    input_shape = _obtain_input_shape(input_shape,
+                                      default_size=224,
+                                      min_size=32,
+                                      data_format=K.image_data_format(),
+                                      require_flatten=include_top,
+                                      weights=weights)
+
+    if input_tensor is None:
+        img_input = Input(shape=input_shape)
+    else:
+        if not K.is_keras_tensor(input_tensor):
+            img_input = Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+    if K.image_data_format() == 'channels_last':
+        bn_axis = 3
+    else:
+        bn_axis = 1 
+
+    x = ExtractPatches(patch_size, hidden_dim)(img_input)
+
+    for i in range(num_blocks):
+        x = MixerBlock(tokens_mlp_dim, channels_mlp_dim, norm_eps, drop_rate)(x)
+    x = LayerNormalization(epsilon=norm_eps)(x)
+    
+    if include_top:
+        x = GlobalAveragePooling1D()(x)
+        x = Dropout(rate=drop_rate)(x)
+        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+    else:
+        if pooling == 'avg':
+            x = GlobalAveragePooling1D()(x)
+        elif pooling == 'max':
+            x = GlobalMaxPooling1D()(x)
+
+    # Ensure that the model takes into account
+    # any potential predecessors of `input_tensor`.
+    if input_tensor is not None:
+        inputs = get_source_inputs(input_tensor)
+    else:
+        inputs = img_input
+
+    # Create model.
+    if patch_size == 16 and num_blocks == 8:
+        model = Model(inputs, x, name='MLPMixer-S16')
+    elif patch_size == 32 and num_blocks == 8:
+        model = Model(inputs, x, name='MLPMixer-S32')
+    elif patch_size == 16 and num_blocks == 12:
+        model = Model(inputs, x, name='MLPMixer-B16')
+    elif patch_size == 32 and num_blocks == 12:
+        model = Model(inputs, x, name='MLPMixer-B32')
+    elif patch_size == 16 and num_blocks == 24:
+        model = Model(inputs, x, name='MLPMixer-L16')
+    elif patch_size == 32 and num_blocks == 24:
+        model = Model(inputs, x, name='MLPMixer-L32')
+    elif patch_size == 14 and num_blocks == 32:
+        model = Model(inputs, x, name='MLPMixer-H14')
+    else:
+        model = Model(inputs, x, name='MLPMixer')
+
+    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
+        warnings.warn('You are using the TensorFlow backend, yet you '
+                      'are using the Theano '
+                      'image data format convention '
+                      '(`image_data_format="channels_first"`). '
+                      'For best performance, set '
+                      '`image_data_format="channels_last"` in '
+                      'your Keras config '
+                      'at ~/.keras/keras.json.')
+    return model
+
+
+def MLPMixer_S16(include_top=True,
+                 weights='imagenet',
+                 input_tensor=None,
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 norm_eps=1e-6,
+                 drop_rate=0.1) -> Model:
+    
+    model = MLPMixer(patch_size=16, 
+                     num_blocks=8, 
+                     hidden_dim=512, 
+                     tokens_mlp_dim=256, 
+                     channels_mlp_dim=2048,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor, 
+                     input_shape=input_shape, 
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def MLPMixer_S32(include_top=True,
+                 weights='imagenet',
+                 input_tensor=None,
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 norm_eps=1e-6,
+                 drop_rate=0.1) -> Model:
+    
+    model = MLPMixer(patch_size=32, 
+                     num_blocks=8, 
+                     hidden_dim=512, 
+                     tokens_mlp_dim=256, 
+                     channels_mlp_dim=2048,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor, 
+                     input_shape=input_shape, 
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def MLPMixer_B16(include_top=True,
+                 weights='imagenet',
+                 input_tensor=None,
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 norm_eps=1e-6,
+                 drop_rate=0.1) -> Model:
+    
+    model = MLPMixer(patch_size=16, 
+                     num_blocks=12, 
+                     hidden_dim=768, 
+                     tokens_mlp_dim=384, 
+                     channels_mlp_dim=3072,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor, 
+                     input_shape=input_shape, 
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def MLPMixer_B32(include_top=True,
+                 weights='imagenet',
+                 input_tensor=None,
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 norm_eps=1e-6,
+                 drop_rate=0.1) -> Model:
+    
+    model = MLPMixer(patch_size=32, 
+                     num_blocks=12, 
+                     hidden_dim=768, 
+                     tokens_mlp_dim=384, 
+                     channels_mlp_dim=3072,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor, 
+                     input_shape=input_shape, 
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def MLPMixer_L16(include_top=True,
+                 weights='imagenet',
+                 input_tensor=None,
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 norm_eps=1e-6,
+                 drop_rate=0.1) -> Model:
+    
+    model = MLPMixer(patch_size=16, 
+                     num_blocks=24, 
+                     hidden_dim=1024, 
+                     tokens_mlp_dim=512, 
+                     channels_mlp_dim=4096,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor, 
+                     input_shape=input_shape, 
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def MLPMixer_L32(include_top=True,
+                 weights='imagenet',
+                 input_tensor=None,
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 norm_eps=1e-6,
+                 drop_rate=0.1) -> Model:
+    
+    model = MLPMixer(patch_size=32,
+                     num_blocks=24, 
+                     hidden_dim=1024, 
+                     tokens_mlp_dim=512, 
+                     channels_mlp_dim=4096,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor, 
+                     input_shape=input_shape, 
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def MLPMixer_H14(include_top=True,
+                 weights='imagenet',
+                 input_tensor=None,
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 norm_eps=1e-6,
+                 drop_rate=0.1) -> Model:
+    
+    model = MLPMixer(patch_size=14,
+                     num_blocks=32, 
+                     hidden_dim=1280, 
+                     tokens_mlp_dim=640, 
+                     channels_mlp_dim=5120,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor, 
+                     input_shape=input_shape, 
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
