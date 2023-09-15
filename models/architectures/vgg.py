@@ -29,6 +29,7 @@ from __future__ import absolute_import
 import warnings
 
 import tensorflow as tf
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
@@ -38,8 +39,7 @@ from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
-from tensorflow.keras import backend as K
-from .utils import _obtain_input_shape
+from utils.model_processing import _obtain_input_shape
 
 
 BASE_WEIGTHS_PATH = ('https://github.com/fchollet/deep-learning-models/releases/download/v0.1/')
