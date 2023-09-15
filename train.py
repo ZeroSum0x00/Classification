@@ -8,15 +8,11 @@ from tensorflow.keras.losses import CategoricalCrossentropy, BinaryCrossentropy
 from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy, BinaryAccuracy
 from tensorflow.keras.optimizers import Adam
 
-from models.architectures.xception import Xception
-from models.architectures.vgg import VGG16
-
-from models.classification import CLS
+from models import CLS, Xception, VGG16
 from callbacks import AdvanceWarmUpLearningRate, AccuracyHistory, LossHistory
-
 from data_utils.data_flow import get_train_test_data
-from utils.logger import logger
 from utils.train_processing import create_folder_weights, train_prepare
+from utils.logger import logger
 
 
 def train(data_path,
@@ -63,7 +59,7 @@ def train(data_path,
                                                                                check_data              = check_data, 
                                                                                load_memory             = load_memory)
         
-        architecture = VGG16(input_shape=input_shape, classes=num_classes, weights=None)
+        architecture = Xception(input_shape=input_shape, classes=num_classes, weights=None)
 
         model = CLS(architecture, input_shape)
         
@@ -91,7 +87,7 @@ def train(data_path,
 
         loss_history = LossHistory(result_path=TRAINING_TIME_PATH)
         
-        accuracy_history = AccuracyHistory(entropy_metric, result_path=TRAINING_TIME_PATH, save_best=True)
+        accuracy_history = AccuracyHistory(accuracy_metric, result_path=TRAINING_TIME_PATH, save_best=True)
         
         warmup_lr = AdvanceWarmUpLearningRate(lr_init=Init_lr_fit, lr_end=Min_lr_fit, epochs=end_epoch, result_path=TRAINING_TIME_PATH)
         
