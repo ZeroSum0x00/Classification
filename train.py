@@ -104,8 +104,11 @@ def train(data_path,
                   epochs              = end_epoch,
                   initial_epoch       = init_epoch,
                   callbacks           = callbacks)
-        
-        
+              
+        if test_generator is not None:
+            model.evaluate(test_generator)
+
+
 if __name__ == '__main__':
     from augmenter import *
 
