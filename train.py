@@ -9,7 +9,7 @@ from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccurac
 from tensorflow.keras.optimizers import Adam
 
 from models import CLS, Xception, VGG16
-from callbacks import AdvanceWarmUpLearningRate, AccuracyHistory, LossHistory
+from callbacks import AdvanceWarmUpLearningRate, LossHistory, MetricHistory
 from data_utils.data_flow import get_train_test_data
 from utils.train_processing import create_folder_weights, train_prepare
 from utils.logger import logger
@@ -87,11 +87,11 @@ def train(data_path,
 
         loss_history = LossHistory(result_path=TRAINING_TIME_PATH)
         
-        accuracy_history = AccuracyHistory(accuracy_metric, result_path=TRAINING_TIME_PATH, save_best=True)
+        metric_history = MetricHistory(result_path=TRAINING_TIME_PATH, save_best=True)
         
         warmup_lr = AdvanceWarmUpLearningRate(lr_init=Init_lr_fit, lr_end=Min_lr_fit, epochs=end_epoch, result_path=TRAINING_TIME_PATH)
         
-        callbacks = [accuracy_history, loss_history, warmup_lr]
+        callbacks = [metric_history, loss_history, warmup_lr]
 
         optimizer = SGD(learning_rate=Init_lr_fit, momentum=0.9, nesterov=True)
 
