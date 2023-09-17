@@ -10,8 +10,10 @@ from tensorflow.keras.optimizers import Adam
 
 from models import CLS, Xception, VGG16
 from callbacks import AdvanceWarmUpLearningRate, LossHistory, MetricHistory
+from utils.post_processing import get_labels
 from data_utils.data_flow import get_train_test_data
 from utils.train_processing import create_folder_weights, train_prepare
+from configs.general_config import *
 from utils.logger import logger
 
 
@@ -110,74 +112,28 @@ def train(data_path,
 
 
 if __name__ == '__main__':
-    from augmenter import *
-
-    input_shape = (224, 224, 3)
-    
-    data_path = "/home/vbpo/Desktop/TuNIT/working/Datasets/full_animals"
-    data_dst_path = None
-    color_space = 'rgb'
-    data_normalizer = 'sub_divide'
-    # data_mean_norm = [0.485, 0.456, 0.406]
-    # data_std_norm = [0.229, 0.224, 0.225]
-    data_mean_norm = None
-    data_std_norm = None
-    data_augmentation = {
-                "train": [
-                            ResizePadded(input_shape, flexible=True, padding_color=128), 
-                            RandomFlip(mode='horizontal'), 
-                            RandomRotate(angle_range=20, prob=0.5, padding_color=128),
-                            LightIntensityChange(),
-                ],
-                "valid": [ResizePadded(input_shape, flexible=False, padding_color=128)],
-                "test": None
-    }
-    
-    data_type = None
-    check_data = False
-    load_memory = False
-
-    from utils.post_processing import get_labels
-    classes, num_classes = get_labels("./configs/classes.names")
-    batch_size = 16
-    init_epoch = 0
-    end_epoch = 200
-    lr_init = 1e-2
-    lr_end = lr_init * 0.01
-    weight_type = None
-    weight_objects = [        
-                                    {
-                                      'path': './saved_weights/20220926-100327/best_weights_mAP',
-                                      'stage': 'full',
-                                      'custom_objects': None
-                                    }
-                                  ]
-
-    show_frequency = 10
-    saved_weight_frequency = 100
-    saved_path = './saved_weights/'
-    training_mode = 'graph'
-    
-    train(data_path,
-          data_dst_path,
-          color_space,
-          data_normalizer,
-          data_mean_norm,
-          data_std_norm,
-          data_augmentation,
-          data_type,
-          check_data,
-          load_memory,
+    classes, num_classes = get_labels(DATA_ANNOTATION_PATH)
+     
+    train(DATA_PATH,
+          DATA_DESTINATION_PATH,
+          DATA_COLOR_SPACE,
+          DATA_NORMALIZER,
+          DATA_MEAN_NORMALIZATION,
+          DATA_STD_NORMALIZATION,
+          DATA_AUGMENTATION,
+          DATA_TYPE,
+          CHECK_DATA,
+          DATA_LOAD_MEMORY,
           classes,
-          input_shape,
-          batch_size,
-          init_epoch,
-          end_epoch,
-          lr_init,
-          lr_end,
-          weight_type,
-          weight_objects,
-          show_frequency,
-          saved_weight_frequency,
-          saved_path,
-          training_mode)
+          INPUT_SHAPE,
+          TRAIN_BATCH_SIZE,
+          TRAIN_EPOCH_INIT,
+          TRAIN_EPOCH_END,
+          TRAIN_LR_INIT,
+          TRAIN_LR_END,
+          TRAIN_WEIGHT_TYPE,
+          TRAIN_WEIGHT_OBJECTS,
+          TRAIN_RESULT_SHOW_FREQUENCY,
+          TRAIN_SAVE_WEIGHT_FREQUENCY,
+          TRAIN_SAVED_PATH,
+          TRAIN_MODE)
