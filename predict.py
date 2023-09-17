@@ -17,8 +17,8 @@ if __name__ == "__main__":
     input_shape = (224, 224, 3)
     classes, num_classes = get_labels("./configs/classes.names")
 
-    image_path = "/home/vbpo-101386/Desktop/TuNIT/Datasets/Classification/PetImages/test/Dog/"
-    image_names = get_files(image_path, extensions=['jpg', 'jpeg', 'png'])
+    data_path = "/home/vbpo-101386/Desktop/TuNIT/Datasets/Classification/PetImages/test/Dog/"
+    image_names = get_files(data_path, extensions=['jpg', 'jpeg', 'png'])
 
     architecture = Xception(input_shape=input_shape, classes=num_classes, weights=None)
     
@@ -43,9 +43,9 @@ if __name__ == "__main__":
     for idx, name in enumerate(image_names):
         if idx == 10:
             break
-        image_path = f"{image_path}{name}"
+        image_path = f"{data_path}{name}"
         image = cv2.imread(image_path)
         image = change_color_space(image, 'bgr', 'rgb')
-        top1, predictions = detect_image(path, model, input_shape, classes)
+        top1, predictions = detect_image(image, model, input_shape, classes)
         # visual_image(image, f'prediction: {top1[0]} | {top1[1]*100:0.2f}%')
         print(top1, predictions)
