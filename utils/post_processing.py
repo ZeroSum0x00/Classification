@@ -16,15 +16,25 @@ def get_labels(label_file):
 
 
 def resize_image(image, target_size, letterbox_image):
-    h, w, _    = image.shape
-    ih, iw, _  = target_size
+    if len(image.shape) > 2:
+        h, w, _    = image.shape
+    else:
+        h, w = image.shape
+    if len(target_size) > 2:
+        ih, iw, _  = target_size
+    else:
+        ih, iw = target_size
     if letterbox_image:
         scale = min(iw/w, ih/h)
         nw, nh  = int(scale * w), int(scale * h)
         dw, dh = (iw - nw) // 2, (ih - nh) // 2
         image_resized = cv2.resize(image, (nw, nh))
-        image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0, dtype=image.dtype)
-        image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
+        if len(image.shape) > 2:
+            image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0, dtype=image.dtype)
+            image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
+        else:
+            image_paded = np.full(shape=[ih, iw], fill_value=128.0, dtype=image.dtype)
+            image_paded[dh:nh+dh, dw:nw+dw] = image_resized
         return image_paded
     else:
         image = cv2.resize(image, (iw, ih))
