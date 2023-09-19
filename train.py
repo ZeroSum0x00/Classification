@@ -99,13 +99,20 @@ def train(data_path,
 
         model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         
-        model.fit(train_generator,
-                  steps_per_epoch     = train_generator.n // batch_size,
-                  validation_data     = valid_generator,
-                  validation_steps    = valid_generator.n // batch_size,
-                  epochs              = end_epoch,
-                  initial_epoch       = init_epoch,
-                  callbacks           = callbacks)
+        if valid_generator is not None:
+            model.fit(train_generator,
+                      steps_per_epoch     = train_generator.n // batch_size,
+                      validation_data     = valid_generator,
+                      validation_steps    = valid_generator.n // batch_size,
+                      epochs              = end_epoch,
+                      initial_epoch       = init_epoch,
+                      callbacks           = callbacks)
+        else:
+            model.fit(train_generator,
+                      steps_per_epoch     = train_generator.n // batch_size,
+                      epochs              = end_epoch,
+                      initial_epoch       = init_epoch,
+                      callbacks           = callbacks)
               
         if test_generator is not None:
             model.evaluate(test_generator)
