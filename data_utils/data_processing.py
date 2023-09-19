@@ -47,14 +47,14 @@ def get_data(data_dir, classes, data_type=None, phase='train', check_data=False,
                     continue
                 
             info_dict = {}
-            info_dict['image'] = []
+            info_dict['image'] = None
             info_dict['filename'] = image_name
             info_dict['label'] = name
             
             if load_memory:
                 image_path = os.path.join(data_dir, name, image_name)
                 img = cv2.imread(image_path)
-                info_dict['image'].append(img)
+                info_dict['image'] = img
                 
             data_extraction.append(info_dict)
             
