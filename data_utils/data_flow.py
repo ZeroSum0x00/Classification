@@ -151,7 +151,7 @@ class Data_Sequence(Sequence):
             else:
                 deep_channel = 1
 
-            if sample['image']:
+            if sample['image'] is not None:
                 image = sample['image']
                 image = change_color_space(image, 'bgr', self.color_space if deep_channel else 'gray')
             else:
