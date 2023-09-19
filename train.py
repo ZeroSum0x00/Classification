@@ -27,6 +27,7 @@ def train(data_path,
           data_type,
           check_data,
           load_memory,
+          dataloader_mode,
           classes,
           input_shape,
           batch_size,
@@ -59,7 +60,8 @@ def train(data_path,
                                                                                std_norm                = data_std_norm,
                                                                                data_type               = data_type,
                                                                                check_data              = check_data, 
-                                                                               load_memory             = load_memory)
+                                                                               load_memory             = load_memory,
+                                                                               dataloader_mode         = dataloader_mode)
         
         architecture = Xception(input_shape=input_shape, classes=num_classes, weights=None)
 
@@ -131,6 +133,7 @@ if __name__ == '__main__':
           DATA_TYPE,
           CHECK_DATA,
           DATA_LOAD_MEMORY,
+          TRAIN_DATALOADER_MODE,
           classes,
           INPUT_SHAPE,
           TRAIN_BATCH_SIZE,
