@@ -10,7 +10,7 @@ from utils.auxiliary_processing import change_color_space
 
 def get_labels(label_object):
     if os.path.isfile(label_object):
-        with open(label_file, encoding='utf-8') as f:
+        with open(label_object, encoding='utf-8') as f:
             class_names = f.readlines()
         class_names = [c.strip() for c in class_names]
         return class_names, len(class_names)
