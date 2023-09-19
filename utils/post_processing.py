@@ -8,11 +8,17 @@ from utils.logger import logger
 from utils.auxiliary_processing import change_color_space
 
 
-def get_labels(label_file):
-    with open(label_file, encoding='utf-8') as f:
-        class_names = f.readlines()
-    class_names = [c.strip() for c in class_names]
-    return class_names, len(class_names)
+def get_labels(label_object):
+    if os.path.isfile(label_object):
+        with open(label_file, encoding='utf-8') as f:
+            class_names = f.readlines()
+        class_names = [c.strip() for c in class_names]
+        return class_names, len(class_names)
+    elif os.path.isdir(label_object):
+        label_object = f"{label_object}/train/"
+        subfolders = [ f.path for f in os.scandir(label_object) if f.is_dir() ]
+        subfolders = sorted([x.split('/')[-1] for x in subfolders])
+        return subfolders, len(subfolders)
 
 
 def resize_image(image, target_size, letterbox_image):
