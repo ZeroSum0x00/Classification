@@ -145,15 +145,19 @@ class Data_Sequence(Sequence):
             i           = i % self.N
             sample = self.dataset[i]
             label_name = sample['label']
-            img_path = f"{self.data_path}{label_name}/{sample['filename']}"
-          
+            
             if len(self.target_size) == 2 or self.target_size[-1] == 1:
                 deep_channel = 0
             else:
                 deep_channel = 1
-              
-            image = cv2.imread(img_path, deep_channel)
-            image = change_color_space(image, 'bgr' if deep_channel else 'gray', self.color_space)
+
+            if sample['image']:
+                image = sample['image']
+                image = change_color_space(image, 'bgr', self.color_space if deep_channel else 'gray')
+            else:
+                img_path = f"{self.data_path}{label_name}/{sample['filename']}"
+                image = cv2.imread(img_path, deep_channel)
+                image = change_color_space(image, 'bgr' if deep_channel else 'gray', self.color_space)
             
             if self.augmentor:
                 image = self.augmentor(image)
