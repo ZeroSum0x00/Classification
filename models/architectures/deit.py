@@ -23,7 +23,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock
+from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock, DistillationToken
 from utils.model_processing import _obtain_input_shape
 
 
