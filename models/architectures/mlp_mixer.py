@@ -49,7 +49,7 @@ from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import GlobalMaxPooling1D
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock
+from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock, MLPBlock
 from utils.model_processing import _obtain_input_shape
 
 
