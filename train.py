@@ -62,8 +62,9 @@ def train(data_path,
                                                                                check_data              = check_data, 
                                                                                load_memory             = load_memory,
                                                                                dataloader_mode         = dataloader_mode)
-        
-        architecture = Xception(input_shape=input_shape, classes=num_classes, weights=None)
+              
+        final_activation = 'sigmoid' if num_classes <= 2 else 'softmax'
+        architecture = Xception(input_shape=input_shape, classes=num_classes, weights=None, final_activation=final_activation)
 
         model = CLS(architecture, input_shape)
         
