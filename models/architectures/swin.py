@@ -377,23 +377,29 @@ class PatchEmbed(tf.keras.layers.Layer):
         self.norm_layer = LayerNormalization(epsilon=1e-5)
         self.reshape_tensor = Reshape(((input_shape[1] // self.patch_size[0]) * (input_shape[2] // self.patch_size[0]), self.embed_dim))
         self.drop_out = Dropout(self.drop_rate)
+        if input_shape[2] % self.patch_size[1] != 0:
+            self.width_pad = self.patch_size[1] - W % self.patch_size[1]
+        else:
+            self.width_pad = None
 
+        if input_shape[2] % self.patch_size[1] != 0:
+            self.height_pad = self.patch_size[0] - H % self.patch_size[0]
+        else:
+            self.height_pad = None
+            
     def call(self, inputs, training=False):
-        _, _, H, W = inputs.shape
-        if W % self.patch_size[1] != 0:
-            pad_valid = self.patch_size[1] - W % self.patch_size[1]
-            pad = tf.constant([[0,         0,],
-                               [0,         0],
-                               [pad_valid, 0],
-                               [0,         0]])
+        if self.width_pad:
+            pad = tf.constant([[0,              0],
+                               [0,              0],
+                               [self.width_pad, 0],
+                               [0,              0]])
             inputs = tf.pad(inputs, pad, mode='CONSTANT', constant_values=0)
 
-        if H % self.patch_size[0] != 0:
-            pad_valid = self.patch_size[0] - W % self.patch_size[0]
-            pad = tf.constant([[0,         0,],
-                               [0,         0],
-                               [pad_valid, 0],
-                               [0,         0]])
+        if self.height_pad:
+            pad = tf.constant([[0,               0],
+                               [0,               0],
+                               [self.height_pad, 0],
+                               [0,               0]])
             inputs = tf.pad(inputs, pad, mode='CONSTANT', constant_values=0)
 
         x = self.projection(inputs, training=training)
