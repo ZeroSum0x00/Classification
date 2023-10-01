@@ -6,13 +6,13 @@
        -------------------------------------------------
       |           Model Name          |    Params       |
       |-------------------------------------------------|
-      |     Swin Transformer tiny     |   28,539,402    |
+      |     Swin Transformer tiny     |   28,538,058    |
       |-------------------------------------------------|
-      |     Swin Transformer small    |   49,943,742    |
+      |     Swin Transformer small    |   49,942,398    |
       |-------------------------------------------------|
-      |     Swin Transformer base     |   88,106,156    |
+      |     Swin Transformer base     |   88,104,364    |
       |-------------------------------------------------|
-      |     Swin Transformer large    |  196,871,304    |
+      |     Swin Transformer large    |  196,868,616    |
        -------------------------------------------------
 
   # Reference:
@@ -326,7 +326,7 @@ class PatchMerging(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         self.norm_layer = LayerNormalization(epsilon=1e-5)
-        self.projection = Dense(2 * input_shape[-1])
+        self.projection = Dense(2 * input_shape[-1], use_bias=False)
 
     def call(self, x):
         H, W = self.input_resolution
