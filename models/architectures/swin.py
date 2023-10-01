@@ -502,15 +502,15 @@ def Swin(embed_dim=96,
 
     # Create model.
     if num_heads == [3, 6, 12, 24] and depths == [2, 2, 6, 2]:
-        model = Model(inputs, x, name='Swin-T')
+        model = Model(inputs, x, name='SwinTransformer-Tiny')
     elif num_heads == [3, 6, 12, 24] and depths == [2, 2, 18, 2]:
-        model = Model(inputs, x, name='Swin-S')
+        model = Model(inputs, x, name='SwinTransformer-Small')
     elif num_heads == [4, 8, 16, 32] and depths == [2, 2, 18, 2]:
-        model = Model(inputs, x, name='Swin-B')
+        model = Model(inputs, x, name='SwinTransformer-Base')
     elif num_heads == [6, 12, 24, 48] and depths == [2, 2, 18, 2]:
-        model = Model(inputs, x, name='Swin-L')
+        model = Model(inputs, x, name='SwinTransformer-Large')
     else:
-        model = Model(inputs, x, name='Swin')
+        model = Model(inputs, x, name='SwinTransformer')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
