@@ -20,4 +20,5 @@ from .architectures import (MLPMixer, MLPMixer_S16, MLPMixer_S32, MLPMixer_B16, 
                             ViT, ViTBase16, ViTBase32, ViTLarge16, ViTLarge32, ViTHuge16, ViTHuge32,
                             DeiT,
                             Swin, SwinT, SwinS, SwinB, SwinL,
+                            Swin_v2, SwinT_v2, SwinS_v2, SwinB_v2, SwinL_v2,
 )
