@@ -6,6 +6,7 @@ from .classification import CLS
 from .architectures import (VGG, VGG11, VGG13, VGG16, VGG19,
                             ResNetA, ResNetB, ResNet18, ResNet18_backbone, ResNet34, ResNet34_backbone, ResNet50, ResNet50_backbone,  ResNet101, ResNet101_backbone, ResNet152, ResNet152_backbone,
                             GoogleNet, Inception_v1_naive, Inception_v1,
+                            SqueezeNet,
                             DenseNet, DenseNet121, DenseNet121_backbone, DenseNet169, DenseNet169_backbone, DenseNet201, DenseNet201_backbone, DenseNet264, DenseNet264_backbone,
                             EfficientNet, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7,
                             Res2Net, Res2Net50, ResNet50_backbone, Res2Net101, ResNet101_backbone, Res2Net152, ResNet152_backbone,
