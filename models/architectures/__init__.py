@@ -1,3 +1,4 @@
+from .alexnet import AlexNet
 from .vgg import VGG, VGG11, VGG13, VGG16, VGG19
 from .resnet import ResNetA, ResNetB, ResNet18, ResNet18_backbone, ResNet34, ResNet34_backbone, ResNet50, ResNet50_backbone,  ResNet101, ResNet101_backbone, ResNet152, ResNet152_backbone
 from .inception_v1 import GoogleNet, Inception_v1_naive, Inception_v1

@@ -3,7 +3,8 @@ from .classification import CLS
 
 
 # convolutional base architectures
-from .architectures import (VGG, VGG11, VGG13, VGG16, VGG19,
+from .architectures import (AlexNet,
+                            VGG, VGG11, VGG13, VGG16, VGG19,
                             ResNetA, ResNetB, ResNet18, ResNet18_backbone, ResNet34, ResNet34_backbone, ResNet50, ResNet50_backbone,  ResNet101, ResNet101_backbone, ResNet152, ResNet152_backbone,
                             GoogleNet, Inception_v1_naive, Inception_v1,
                             SqueezeNet,
