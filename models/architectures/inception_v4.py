@@ -244,7 +244,7 @@ def Inception_v4(include_top=True,
         inputs = img_input
     
     # Create model.
-    model = Model(inputs, x, name='Inception-v3')
+    model = Model(inputs, x, name='Inception-v4')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
