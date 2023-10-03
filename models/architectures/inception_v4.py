@@ -69,7 +69,7 @@ def stem_block(inputs):
     branch1 = convolution_block(x, 64, (1, 1), name='stem_b31')
     branch1 = convolution_block(branch1, 96, (3, 3), padding='valid', name='stem_b32')
 
-    branch2 = convolution_block(x, 96, (1, 1), name='stem_b41')
+    branch2 = convolution_block(x, 64, (1, 1), name='stem_b41')
     branch2 = convolution_block(branch2, 64, (7, 1), name='stem_b42')
     branch2 = convolution_block(branch2, 64, (1, 7), name='stem_b43')
     branch2 = convolution_block(branch2, 96, (3, 3), padding='valid', name='stem_b44')
