@@ -103,8 +103,8 @@ def reduction_A(inputs, k=192, l=224, m=256, n=384):
     branch3 = convolution_block(branch3, l, (3, 3), name=f"incep_reductionA_b32")
     branch3 = convolution_block(branch3, m, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b33")
 
-    x = concatenate([branch1, branch2, branch3], axis=-1, name=f'incep_reductionA_merged')
-    out = BatchNormalization(axis=-1, name=f'incep_reductionA_bn')(x)
+    out = concatenate([branch1, branch2, branch3], axis=-1, name=f'incep_reductionA_merged')
+    out = BatchNormalization(axis=-1, name=f'incep_reductionA_bn')(out)
     out = Activation("relu", name=f'incep_reductionA_activ')(out)
     return x
 
@@ -143,8 +143,8 @@ def reduction_B(inputs):
     branch4 = convolution_block(branch4, 288, (1, 1), name=f"incep_reductionB_b42")
     branch4 = convolution_block(branch4, 320, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b33")
     
-    x = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f'incep_reductionB_merged')
-    out = BatchNormalization(axis=-1, name=f'incep_reductionB_bn')(x)
+    out = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f'incep_reductionB_merged')
+    out = BatchNormalization(axis=-1, name=f'incep_reductionB_bn')(out)
     out = Activation("relu", name=f'incep_reductionB_activ')(out)
     return x
 
