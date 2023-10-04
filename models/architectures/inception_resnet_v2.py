@@ -37,26 +37,8 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
+from .inception_resnet_v1 import convolution_block
 from utils.model_processing import _obtain_input_shape
-
-
-def convolution_block(inputs, 
-                      filters, 
-                      kernel_size, 
-                      strides=(1, 1), 
-                      padding='same', 
-                      activation='relu',
-                      name=None):
-                          
-    x = Conv2D(filters=filters, 
-               kernel_size=kernel_size, 
-               strides=strides, 
-               padding=padding, 
-               name=name + '_conv')(inputs)
-
-    if activation is not None:
-        x = Activation(activation, name=name + '_activ')(x)
-    return x
 
 
 def stem_block(inputs):
