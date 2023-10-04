@@ -4,6 +4,7 @@ from .resnet import ResNetA, ResNetB, ResNet18, ResNet18_backbone, ResNet34, Res
 from .inception_v1 import GoogleNet, Inception_v1_naive, Inception_v1
 from .inception_v3 import Inception_v3
 from .inception_v4 import Inception_v4
+from .inception_resnet_v2 import Inception_Resnet_v2
 from .squeezenet import SqueezeNet
 from .densenet import DenseNet, DenseNet121, DenseNet121_backbone, DenseNet169, DenseNet169_backbone, DenseNet201, DenseNet201_backbone, DenseNet264, DenseNet264_backbone
 from .efficientnet import EfficientNet, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
