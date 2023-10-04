@@ -99,14 +99,14 @@ def inception_A(inputs, prefix=None):
     return x
 
 
-def reduction_A(inputs):
+def reduction_A(inputs, k=192, l=224, m=256, n=384):
     branch1 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b11")(inputs)
 
-    branch2 = convolution_block(inputs, 384, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b21")
+    branch2 = convolution_block(inputs, n, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b21")
 
-    branch3 = convolution_block(inputs, 192, (1, 1), name=f"incep_reductionA_b31")
-    branch3 = convolution_block(branch3, 224, (1, 7), name=f"incep_reductionA_b32")
-    branch3 = convolution_block(branch3, 256, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b33")
+    branch3 = convolution_block(inputs, k, (1, 1), name=f"incep_reductionA_b31")
+    branch3 = convolution_block(branch3, l, (1, 7), name=f"incep_reductionA_b32")
+    branch3 = convolution_block(branch3, m, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b33")
 
     x = concatenate([branch1, branch2, branch3], axis=-1, name=f'incep_reductionA_merged')
     return x
@@ -211,7 +211,7 @@ def Inception_v4(include_top=True,
         x = inception_A(x, prefix=str(i+1))
 
     # Reduction-A
-    x = reduction_A(x)
+    x = reduction_A(x, k=192, l=224, m=256, n=384)
 
     # Inception-B
     for i in range(7):
