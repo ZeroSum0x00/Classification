@@ -165,7 +165,8 @@ def inception_C(inputs, prefix=None):
     return x
 
 
-def Inception_v4(include_top=True, 
+def Inception_v4(depths=[4, 7, 3],
+                 include_top=True, 
                  weights='imagenet',
                  input_tensor=None, 
                  input_shape=None,
@@ -207,21 +208,21 @@ def Inception_v4(include_top=True,
     x = stem_block(img_input)
 
     # Inception-A
-    for i in range(4):
+    for i in range(depths[0]):
         x = inception_A(x, prefix=str(i+1))
 
     # Reduction-A
     x = reduction_A(x, k=192, l=224, m=256, n=384)
 
     # Inception-B
-    for i in range(7):
+    for i in range(depths[1]):
         x = inception_B(x, prefix=str(i+1))
 
     # Reduction-B
     x = reduction_B(x)
                   
     # Inception-C
-    for i in range(3):
+    for i in range(depths[2]):
         x = inception_C(x, prefix=str(i+1))
 
     if include_top:
