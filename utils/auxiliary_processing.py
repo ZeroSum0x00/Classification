@@ -6,6 +6,16 @@ def random_range(a=0, b=1):
     return np.random.rand() * (b - a) + a
 
 
+def make_divisible(v, divisor, min_value=None):
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return new_v
+    
+    
 def change_color_space(image, current_space="BGR", to_space="BGR"):
     if not ((current_space.lower() in {'bgr', 'rgb', 'hsv', 'gray'}) 
             and (to_space.lower() in {'bgr', 'rgb', 'hsv', 'gray'})):
