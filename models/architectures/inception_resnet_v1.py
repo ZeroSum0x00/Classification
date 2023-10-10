@@ -1,12 +1,12 @@
 """
   # Description:
-    - The following table comparing the params of the Inception Resnet v2 in Tensorflow on 
+    - The following table comparing the params of the Inception Resnet v1 in Tensorflow on 
     size 299 x 299 x 3:
 
        ---------------------------------------------
       |         Model Name        |     Params      |
       |---------------------------------------------|
-      |    Inception Resnet v2    |   151,451,288   |
+      |    Inception Resnet v1    |   136,038,104   |
        ---------------------------------------------
 
   # Reference:
@@ -37,36 +37,38 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from .inception_resnet_v1 import convolution_block
 from utils.model_processing import _obtain_input_shape
 
 
+def convolution_block(inputs, 
+                      filters, 
+                      kernel_size, 
+                      strides=(1, 1), 
+                      padding='same', 
+                      activation='relu',
+                      name=None):
+                          
+    x = Conv2D(filters=filters, 
+               kernel_size=kernel_size, 
+               strides=strides, 
+               padding=padding, 
+               name=name + '_conv')(inputs)
+
+    if activation is not None:
+        x = Activation(activation, name=name + '_activ')(x)
+    return x
+
+
 def stem_block(inputs):
-    x = convolution_block(inputs, 32, (3, 3), (2, 2), padding='valid', name='stem_b11')
-    x = convolution_block(x, 32, (3, 3), padding='valid', name='stem_b12')
-    x = convolution_block(x, 64, (3, 3), name='stem_b13')
-    
-    branch1 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='valid', name='stem_b21')(x)
-    branch2 = convolution_block(x, 96, (3, 3), strides=(2, 2), padding='valid', name='stem_b22')
-    
-    x = concatenate([branch1, branch2], axis=-1, name='stem_merged1')
-    
-    branch1 = convolution_block(x, 64, (1, 1), name='stem_b31')
-    branch1 = convolution_block(branch1, 96, (3, 3), padding='valid', name='stem_b32')
-
-    branch2 = convolution_block(x, 64, (1, 1), name='stem_b41')
-    branch2 = convolution_block(branch2, 64, (7, 1), name='stem_b42')
-    branch2 = convolution_block(branch2, 64, (1, 7), name='stem_b43')
-    branch2 = convolution_block(branch2, 96, (3, 3), padding='valid', name='stem_b44')
-
-    x = concatenate([branch1, branch2], axis=-1, name='stem_merged2')
-
-    branch1 = convolution_block(x, 192, (3, 3), strides=(2, 2), padding='valid', name='stem_b51')    
-    branch2 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='valid', name='stem_b52')(x)
-    
-    x = concatenate([branch1, branch2], axis=-1, name='stem_merged3')
-    x = BatchNormalization(axis=-1)(x)
-    x = Activation('relu')(x)
+    x = convolution_block(inputs, 32, (3, 3), (2, 2), padding='valid', name='stem_b1')
+    x = convolution_block(x, 32, (3, 3), padding='valid', name='stem_b2')
+    x = convolution_block(x, 64, (3, 3), name='stem_b3')
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='valid', name='stem_maxpool')(x)
+    x = convolution_block(x, 80, (1, 1), name='stem_b4')
+    x = convolution_block(x, 192, (3, 3), name='stem_b5')
+    x = convolution_block(x, 256, (3, 3), (2, 2), name='stem_b6')
+    x = BatchNormalization(axis=-1, name='stem_bn')(x)
+    x = Activation('relu', name='stem_activ')(x)
     return x
 
 
@@ -79,11 +81,11 @@ def inception_resnet_A(inputs, scale_residual=True, prefix=None):
     branch2 = convolution_block(branch2, 32, (3, 3), name=f"inceptionA_step{prefix}_b22")
 
     branch3 = convolution_block(inputs, 32, (1, 1), name=f"inceptionA_step{prefix}_b31")
-    branch3 = convolution_block(branch3, 48, (3, 3), name=f"inceptionA_step{prefix}_b32")
-    branch3 = convolution_block(branch3, 64, (3, 3), name=f"inceptionA_step{prefix}_b33")
+    branch3 = convolution_block(branch3, 32, (3, 3), name=f"inceptionA_step{prefix}_b32")
+    branch3 = convolution_block(branch3, 32, (3, 3), name=f"inceptionA_step{prefix}_b33")
 
     x = concatenate([branch1, branch2, branch3], axis=-1, name=f'inceptionA_step{prefix}_submerged')
-    x = convolution_block(x, 384, (1, 1), activation=None, name=f'inceptionA_step{prefix}_linear')
+    x = convolution_block(x, 256, (1, 1), activation=None, name=f'inceptionA_step{prefix}_linear')
     
     if scale_residual:
         x = Lambda(lambda s: s * 0.1, name=f'inceptionA_step{prefix}_scale')(x)
@@ -94,7 +96,7 @@ def inception_resnet_A(inputs, scale_residual=True, prefix=None):
     return out
 
 
-def reduction_A(inputs, k=192, l=224, m=256, n=384):
+def reduction_A(inputs, k=192, l=192, m=256, n=384):
     branch1 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b11")(inputs)
 
     branch2 = convolution_block(inputs, n, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b21")
@@ -111,19 +113,19 @@ def reduction_A(inputs, k=192, l=224, m=256, n=384):
 
 def inception_resnet_B(inputs, scale_residual=True, prefix=None):
     shortcut = inputs
-    
-    branch1 = convolution_block(inputs, 192, (1, 1), name=f"inceptionB_step{prefix}_b12")
+
+    branch1 = convolution_block(inputs, 128, (1, 1), name=f"inceptionB_step{prefix}_b12")
 
     branch2 = convolution_block(inputs, 128, (1, 1), name=f"inceptionB_step{prefix}_b21")
-    branch2 = convolution_block(branch2, 160, (1, 7), name=f"inceptionB_step{prefix}_b22")
-    branch2 = convolution_block(branch2, 192, (7, 1), name=f"inceptionB_step{prefix}_b23")
+    branch2 = convolution_block(branch2, 128, (1, 7), name=f"inceptionB_step{prefix}_b22")
+    branch2 = convolution_block(branch2, 128, (7, 1), name=f"inceptionB_step{prefix}_b23")
 
     x = concatenate([branch1, branch2], axis=-1, name=f'inceptionB_step{prefix}_submerged')
-    x = convolution_block(x, 1152, (1, 1), activation=None, name=f'inceptionB_step{prefix}_linear')
+    x = convolution_block(x, 896, (1, 1), activation=None, name=f'inceptionB_step{prefix}_linear')
     
     if scale_residual:
         x = Lambda(lambda s: s * 0.1, name=f'inceptionB_step{prefix}_scale')(x)
-        
+
     out = add([shortcut, x], name=f'inceptionB_step{prefix}_merged')
     out = BatchNormalization(axis=-1, name=f'inceptionB_step{prefix}_bn')(out)
     out = Activation("relu", name=f'inceptionB_step{prefix}_activ')(out)
@@ -137,14 +139,14 @@ def reduction_B(inputs):
     branch2 = convolution_block(inputs, 384, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b22")
 
     branch3 = convolution_block(inputs, 256, (1, 1), name=f"incep_reductionB_b31")
-    branch3 = convolution_block(branch3, 288, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b32")
+    branch3 = convolution_block(branch3, 256, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b32")
 
     branch4 = convolution_block(inputs, 256, (1, 1), name=f"incep_reductionB_b41")
-    branch4 = convolution_block(branch4, 288, (1, 1), name=f"incep_reductionB_b42")
-    branch4 = convolution_block(branch4, 320, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b33")
+    branch4 = convolution_block(branch4, 256, (1, 1), name=f"incep_reductionB_b42")
+    branch4 = convolution_block(branch4, 256, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b33")
     
-    out = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f'incep_reductionB_merged')
-    out = BatchNormalization(axis=-1, name=f'incep_reductionB_bn')(out)
+    x = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f'incep_reductionB_merged')
+    out = BatchNormalization(axis=-1, name=f'incep_reductionB_bn')(x)
     out = Activation("relu", name=f'incep_reductionB_activ')(out)
     return out
 
@@ -152,14 +154,14 @@ def reduction_B(inputs):
 def inception_resnet_C(inputs, scale_residual=True, prefix=None):
     shortcut = inputs
     
-    branch1 = convolution_block(inputs, 192, (1, 1), name=f"inceptionC_step{prefix}_b12")
+    branch1 = convolution_block(inputs, 128, (1, 1), name=f"inceptionC_step{prefix}_b12")
 
     branch2 = convolution_block(inputs, 192, (1, 1), name=f"inceptionC_step{prefix}_b21")
-    branch2 = convolution_block(branch2, 224, (1, 3), name=f"inceptionC_step{prefix}_b22")
-    branch2 = convolution_block(branch2, 256, (3, 1), name=f"inceptionC_step{prefix}_b23")
+    branch2 = convolution_block(branch2, 192, (1, 3), name=f"inceptionC_step{prefix}_b22")
+    branch2 = convolution_block(branch2, 192, (3, 1), name=f"inceptionC_step{prefix}_b23")
 
     x = concatenate([branch1, branch2], axis=-1, name=f'inceptionC_step{prefix}_submerged')
-    x = convolution_block(x, 2144, (1, 1), activation=None, name=f'inceptionC_step{prefix}_linear')
+    x = convolution_block(x, 1792, (1, 1), activation=None, name=f'inceptionC_step{prefix}_linear')
     
     if scale_residual:
         x = Lambda(lambda s: s * 0.1, name=f'inceptionC_step{prefix}_scale')(x)
@@ -170,7 +172,7 @@ def inception_resnet_C(inputs, scale_residual=True, prefix=None):
     return out
 
 
-def Inception_Resnet_v2(depths=[1, 2, 1],
+def Inception_Resnet_v1(depths=[5, 10, 5],
                         scale_residual=True,
                         include_top=True, 
                         weights='imagenet',
@@ -218,7 +220,7 @@ def Inception_Resnet_v2(depths=[1, 2, 1],
         x = inception_resnet_A(x, scale_residual=scale_residual, prefix=str(i+1))
 
     # Reduction-A
-    x = reduction_A(x, k=256, l=256, m=384, n=384)
+    x = reduction_A(x, k=192, l=192, m=256, n=384)
 
     # Inception-B
     for i in range(depths[1]):
@@ -251,7 +253,7 @@ def Inception_Resnet_v2(depths=[1, 2, 1],
         inputs = img_input
     
     # Create model.
-    model = Model(inputs, x, name='Inception-Resnet-v2')
+    model = Model(inputs, x, name='Inception-Resnet-v1')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
