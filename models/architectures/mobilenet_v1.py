@@ -41,7 +41,6 @@ from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import ReLU
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import GlobalAveragePooling2D
@@ -49,11 +48,8 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import ReLU6
 from utils.model_processing import _obtain_input_shape
-
-
-def relu_6(inputs, name):
-    return ReLU(max_value=6., name=name)(inputs)
 
 
 def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1):
@@ -66,7 +62,7 @@ def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1):
                use_bias=False,
                name='stem_conv')(x)
     x = BatchNormalization(axis=-1, name='stem_bn')(x)
-    x = relu_6(x, name='stem_relu')
+    x = ReLU6(name='stem_relu')(x)
     return x
 
 
@@ -87,7 +83,7 @@ def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, 
                         use_bias=False,
                         name=f'conv_dw_{prefix}')(inputs)
     x = BatchNormalization(axis=-1, name=f'conv_dw_{prefix}_bn')(x)
-    x = relu_6(x, name=f'conv_dw_{prefix}_activ')
+    x = ReLU6(name=f'conv_dw_{prefix}_activ')(x)
 
     # Pointwise
     x = Conv2D(filters=pointwise_filters,
@@ -97,7 +93,7 @@ def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, 
                use_bias=False,
                name=f'conv_pw_{prefix}')(x)
     x = BatchNormalization(axis=-1, name=f'conv_pw_{prefix}_bn')(x)
-    x = relu_6(x, name=f'conv_pw_{prefix}_activ')
+    x = ReLU6(name=f'conv_pw_{prefix}_activ')(x)
     return x
     
 
