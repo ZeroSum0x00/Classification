@@ -181,25 +181,32 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable()
 class MLPBlock(tf.keras.layers.Layer):
-    def __init__(self, mlp_dim, use_conv=False, activation='gelu', drop_rate=0.1, *args, **kwargs):
+    def __init__(self, mlp_dim, out_dim=-1, use_conv=False, use_bias=True, activation='gelu', drop_rate=0.1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mlp_dim = mlp_dim
+        self.out_dim = out_dim
         self.use_conv = use_conv
+        self.use_bias = use_bias
         self.activation = activation
         self.drop_rate = drop_rate
     
     def build(self, input_shape):
-        self.linear1 = Dense(self.mlp_dim) if not self.use_conv else Conv2D(filters=self.mlp_dim, 
-                                                                            kernel_size=(1, 1), 
-                                                                            strides=(1, 1),
-                                                                            use_bias=False)
-        self.linear2 = Dense(input_shape[-1]) if not self.use_conv else Conv2D(filters=input_shape[-1], 
-                                                                               kernel_size=(1, 1), 
-                                                                               strides=(1, 1),
-                                                                               use_bias=False)
+        if not self.use_conv:
+            self.linear1 = Dense(self.mlp_dim, use_bias=self.use_bias)
+            self.linear2 = Dense(self.out_dim if self.out_dim > 0 else input_shape[-1], use_bias=self.use_bias)
+        else:
+            self.linear1 = Conv2D(filters=self.mlp_dim, 
+                                  kernel_size=(1, 1), 
+                                  strides=(1, 1),
+                                  use_bias=self.use_bias)
+            self.linear2 = Conv2D(self.out_dim if self.out_dim > 0 else input_shape[-1],
+                                 kernel_size=(1, 1), 
+                                 strides=(1, 1),
+                                 use_bias=self.use_bias)
+
         self.activation = Activation(self.activation)
         self.dropout = Dropout(self.drop_rate)
-
+        
     def call(self, inputs, training):
         x = self.linear1(inputs)
         x = self.activation(x)
@@ -225,7 +232,7 @@ class MLPBlock(tf.keras.layers.Layer):
 class TransformerBlock(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
 
-    def __init__(self, num_heads, mlp_dim, activation='gelu', norm_eps=1e-6, drop_rate=0.1, *args, **kwargs):
+    def __init__(self, num_heads, mlp_dim, norm_eps=1e-6, drop_rate=0.1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_heads = num_heads
         self.mlp_dim = mlp_dim
@@ -235,10 +242,7 @@ class TransformerBlock(tf.keras.layers.Layer):
     def build(self, input_shape):
         self.attention = MultiHeadSelfAttention(num_heads=self.num_heads,
                                                 name="MultiHeadDotProductAttention_1")
-        self.mlpblock = MLPBlock(self.mlp_dim, 
-                                 activation=self.activation,
-                                 drop_rate=self.drop_rate, 
-                                 name="MlpBlock")
+        self.mlpblock = MLPBlock(self.mlp_dim, self.drop_rate, name="MlpBlock")
         self.layernorm1 = LayerNormalization(epsilon=self.norm_eps, name="LayerNorm_0")
         self.layernorm2 = LayerNormalization(epsilon=self.norm_eps, name="LayerNorm_2")
         self.dropout_layer = Dropout(self.drop_rate)
