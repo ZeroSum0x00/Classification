@@ -38,7 +38,7 @@ from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import add, multiply
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock, MLPBlock, SAMModel
+from models.layers import SAMModel
 from utils.model_processing import _obtain_input_shape
 
 
