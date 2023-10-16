@@ -18,8 +18,8 @@ def drop_path(inputs, drop_prob, is_training):
 
 
 class DropPath(tf.keras.layers.Layer):
-    def __init__(self, drop_prob=None):
-        super().__init__()
+    def __init__(self, drop_prob=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.drop_prob = drop_prob
 
     def call(self, x, training=None):
