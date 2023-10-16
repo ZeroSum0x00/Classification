@@ -49,7 +49,7 @@ from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import GlobalMaxPooling1D
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock, MLPBlock
+from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock, MLPBlock, SAMModel
 from utils.model_processing import _obtain_input_shape
 
 
@@ -113,9 +113,10 @@ def MLPMixer(patch_size,
              pooling=None,
              final_activation="softmax",
              classes=1000,
+             sam_rho=0,
              norm_eps=1e-6,
              drop_rate=0.1):
-
+        
     if weights not in {'imagenet', None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
@@ -169,23 +170,30 @@ def MLPMixer(patch_size,
     else:
         inputs = img_input
 
+
+    def __build_model(inputs, outputs, sam_rho, name):
+        if sam_rho != 0:
+            return SAMModel(inputs, x, name=name + '_SAM')
+        else:
+            return Model(inputs, x, name=name)
+            
     # Create model.
     if patch_size == 16 and num_blocks == 8:
-        model = Model(inputs, x, name='MLPMixer-S16')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer-S16')
     elif patch_size == 32 and num_blocks == 8:
-        model = Model(inputs, x, name='MLPMixer-S32')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer-S32')
     elif patch_size == 16 and num_blocks == 12:
-        model = Model(inputs, x, name='MLPMixer-B16')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer-B16')
     elif patch_size == 32 and num_blocks == 12:
-        model = Model(inputs, x, name='MLPMixer-B32')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer-B32')
     elif patch_size == 16 and num_blocks == 24:
-        model = Model(inputs, x, name='MLPMixer-L16')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer-L16')
     elif patch_size == 32 and num_blocks == 24:
-        model = Model(inputs, x, name='MLPMixer-L32')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer-L32')
     elif patch_size == 14 and num_blocks == 32:
-        model = Model(inputs, x, name='MLPMixer-H14')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer-H14')
     else:
-        model = Model(inputs, x, name='MLPMixer')
+        model = __build_model(inputs, x, sam_rho, name='MLPMixer')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
@@ -206,6 +214,7 @@ def MLPMixer_S16(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
+                 sam_rho=0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -221,6 +230,7 @@ def MLPMixer_S16(include_top=True,
                      pooling=pooling, 
                      final_activation=final_activation,
                      classes=classes,
+                     sam_rho=sam_rho,
                      norm_eps=norm_eps,
                      drop_rate=drop_rate)
     return model
@@ -233,6 +243,7 @@ def MLPMixer_S32(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
+                 sam_rho=0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -248,6 +259,7 @@ def MLPMixer_S32(include_top=True,
                      pooling=pooling, 
                      final_activation=final_activation,
                      classes=classes,
+                     sam_rho=sam_rho,
                      norm_eps=norm_eps,
                      drop_rate=drop_rate)
     return model
@@ -260,6 +272,7 @@ def MLPMixer_B16(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
+                 sam_rho=0.5,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -275,6 +288,7 @@ def MLPMixer_B16(include_top=True,
                      pooling=pooling, 
                      final_activation=final_activation,
                      classes=classes,
+                     sam_rho=sam_rho,
                      norm_eps=norm_eps,
                      drop_rate=drop_rate)
     return model
@@ -287,6 +301,7 @@ def MLPMixer_B32(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
+                 sam_rho=0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -302,6 +317,7 @@ def MLPMixer_B32(include_top=True,
                      pooling=pooling, 
                      final_activation=final_activation,
                      classes=classes,
+                     sam_rho=sam_rho,
                      norm_eps=norm_eps,
                      drop_rate=drop_rate)
     return model
@@ -314,6 +330,7 @@ def MLPMixer_L16(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
+                 sam_rho=0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -329,6 +346,7 @@ def MLPMixer_L16(include_top=True,
                      pooling=pooling, 
                      final_activation=final_activation,
                      classes=classes,
+                     sam_rho=sam_rho,
                      norm_eps=norm_eps,
                      drop_rate=drop_rate)
     return model
@@ -341,6 +359,7 @@ def MLPMixer_L32(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
+                 sam_rho=0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -356,6 +375,7 @@ def MLPMixer_L32(include_top=True,
                      pooling=pooling, 
                      final_activation=final_activation,
                      classes=classes,
+                     sam_rho=sam_rho,
                      norm_eps=norm_eps,
                      drop_rate=drop_rate)
     return model
@@ -368,6 +388,7 @@ def MLPMixer_H14(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
+                 sam_rho=0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -383,6 +404,7 @@ def MLPMixer_H14(include_top=True,
                      pooling=pooling, 
                      final_activation=final_activation,
                      classes=classes,
+                     sam_rho=sam_rho,
                      norm_eps=norm_eps,
                      drop_rate=drop_rate)
     return model
