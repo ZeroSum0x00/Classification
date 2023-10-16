@@ -225,7 +225,7 @@ class MLPBlock(tf.keras.layers.Layer):
 class TransformerBlock(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
 
-    def __init__(self, num_heads, mlp_dim, norm_eps=1e-6, drop_rate=0.1, *args, **kwargs):
+    def __init__(self, num_heads, mlp_dim, activation='gelu', norm_eps=1e-6, drop_rate=0.1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_heads = num_heads
         self.mlp_dim = mlp_dim
@@ -235,7 +235,10 @@ class TransformerBlock(tf.keras.layers.Layer):
     def build(self, input_shape):
         self.attention = MultiHeadSelfAttention(num_heads=self.num_heads,
                                                 name="MultiHeadDotProductAttention_1")
-        self.mlpblock = MLPBlock(self.mlp_dim, self.drop_rate, name="MlpBlock")
+        self.mlpblock = MLPBlock(self.mlp_dim, 
+                                 activation=self.activation,
+                                 drop_rate=self.drop_rate, 
+                                 name="MlpBlock")
         self.layernorm1 = LayerNormalization(epsilon=self.norm_eps, name="LayerNorm_0")
         self.layernorm2 = LayerNormalization(epsilon=self.norm_eps, name="LayerNorm_2")
         self.dropout_layer = Dropout(self.drop_rate)
