@@ -54,16 +54,21 @@ from utils.model_processing import _obtain_input_shape
 
 
 class MixerBlock(tf.keras.layers.Layer):
-    def __init__(self, tokens_mlp_dim, channels_mlp_dim, norm_eps=1e-6, drop_rate=0.1):
+    def __init__(self, tokens_mlp_dim, channels_mlp_dim, activation='gelu', norm_eps=1e-6, drop_rate=0.1):
         super(MixerBlock, self).__init__()
         self.tokens_mlp_dim = tokens_mlp_dim
         self.channels_mlp_dim = channels_mlp_dim
+        self.activation = activation
         self.norm_eps = norm_eps
         self.drop_rate = drop_rate
 
     def build(self, input_shape):
-        self.token_mlp_block = MLPBlock(self.tokens_mlp_dim, self.drop_rate)
-        self.channel_mlp_block = MLPBlock(self.channels_mlp_dim, self.drop_rate)
+        self.token_mlp_block = MLPBlock(self.tokens_mlp_dim, 
+                                        activation=self.activation,
+                                        drop_rate=self.drop_rate)
+        self.channel_mlp_block = MLPBlock(self.channels_mlp_dim, 
+                                          activation=self.activation,
+                                          drop_rate=self.drop_rate)
         self.layerNorm1 = LayerNormalization(epsilon=self.norm_eps)
         self.layerNorm2 = LayerNormalization(epsilon=self.norm_eps)
 
@@ -150,7 +155,7 @@ def MLPMixer(patch_size,
     x = ExtractPatches(patch_size, hidden_dim)(img_input)
 
     for i in range(num_blocks):
-        x = MixerBlock(tokens_mlp_dim, channels_mlp_dim, norm_eps, drop_rate)(x)
+        x = MixerBlock(tokens_mlp_dim, channels_mlp_dim, 'gelu', norm_eps, drop_rate)(x)
     x = LayerNormalization(epsilon=norm_eps)(x)
     
     if include_top:
@@ -272,7 +277,7 @@ def MLPMixer_B16(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0.5,
+                 sam_rho=0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     

@@ -182,7 +182,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
     """
     
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0, mlp_ratio=4.,
-                 qkv_bias=True, qk_scale=None, proj_drop=0., attn_drop=0., drop_path_prob=0., *args, **kwargs):
+                 qkv_bias=True, qk_scale=None, activation='gelu', proj_drop=0., attn_drop=0., drop_path_prob=0., *args, **kwargs):
         super(SwinTransformerBlock, self).__init__(*args, **kwargs)
         self.dim = dim
         self.input_resolution = input_resolution
@@ -198,6 +198,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
 
         self.qkv_bias = qkv_bias
         self.qk_scale = qk_scale
+        self.activation = activation
         self.proj_drop = proj_drop
         self.attn_drop = attn_drop
         self.drop_path_prob = drop_path_prob
@@ -216,6 +217,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
         self.norm_layer2 = LayerNormalization(epsilon=1e-5)
         mlp_hidden_dim   = int(self.dim * self.mlp_ratio)
         self.mlp         = MLPBlock(mlp_dim=mlp_hidden_dim,
+                                    activation=self.activation,
                                     drop_rate=self.proj_drop)
         if self.shift_size > 0:
             H, W = self.input_resolution
@@ -295,7 +297,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
 
 def BasicLayer(
     x, dim, input_resolution, depth, num_heads, window_size,
-    mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path_prob=0., name=""
+    mlp_ratio=4., qkv_bias=True, qk_scale=None, activation='gelu', drop=0., attn_drop=0., drop_path_prob=0., name=""
 ):
     for i in range(depth):
         x = SwinTransformerBlock(
@@ -307,6 +309,7 @@ def BasicLayer(
                     mlp_ratio           = mlp_ratio,
                     qkv_bias            = qkv_bias,
                     qk_scale            = qk_scale,
+                    activation          = activation,
                     proj_drop           = drop,
                     attn_drop           = attn_drop,
                     drop_path_prob      = drop_path_prob[i] if isinstance(drop_path_prob, list) else drop_path_prob)(x)
@@ -474,6 +477,7 @@ def Swin(embed_dim=96,
                        mlp_ratio        = mlp_ratio,
                        qkv_bias         = qkv_bias,
                        qk_scale         = qk_scale,
+                       activation       = 'gelu',
                        drop             = drop_rate,
                        attn_drop        = attn_drop_rate,
                        drop_path_prob   = dpr[sum(depths[:i]):sum(depths[:i + 1])],

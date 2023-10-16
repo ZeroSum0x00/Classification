@@ -181,15 +181,23 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable()
 class MLPBlock(tf.keras.layers.Layer):
-    def __init__(self, mlp_dim, drop_rate=0.1, *args, **kwargs):
+    def __init__(self, mlp_dim, use_conv=False, activation='gelu', drop_rate=0.1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mlp_dim = mlp_dim
+        self.use_conv = use_conv
+        self.activation = activation
         self.drop_rate = drop_rate
     
     def build(self, input_shape):
-        self.linear1 = Dense(self.mlp_dim)
-        self.linear2 = Dense(input_shape[-1])
-        self.activation = Activation('gelu')
+        self.linear1 = Dense(self.mlp_dim) if not self.use_conv else Conv2D(filters=self.mlp_dim, 
+                                                                            kernel_size=(1, 1), 
+                                                                            strides=(1, 1),
+                                                                            use_bias=False)
+        self.linear2 = Dense(input_shape[-1]) if not self.use_conv else Conv2D(filters=input_shape[-1], 
+                                                                               kernel_size=(1, 1), 
+                                                                               strides=(1, 1),
+                                                                               use_bias=False)
+        self.activation = Activation(self.activation)
         self.dropout = Dropout(self.drop_rate)
 
     def call(self, inputs, training):
