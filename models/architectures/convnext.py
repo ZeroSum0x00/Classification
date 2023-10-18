@@ -48,7 +48,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from tensorflow.keras import backend as K
 from utils.model_processing import _obtain_input_shape
-
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 try:
       from models.layers import StochasticDepth
 except ImportError:
@@ -60,13 +60,13 @@ bias_initial = tf.keras.initializers.Constant(value=0)
 
 
 
-def stem_cell(inputs, out_filter, norm_eps=1e-6, name='stem'):
+def stem_cell(inputs, out_filter, normalizer='layer-norm', norm_eps=1e-6, name='stem'):
     x = Conv2D(filters=out_filter, 
                kernel_size=(4, 4), 
                strides=(4, 4), 
                padding='same', 
                name=name + '_conv')(inputs)
-    x = LayerNormalization(epsilon=norm_eps, name=name + '_norm')(x)
+    x = get_nomalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
     return x
 
 
@@ -74,9 +74,10 @@ def Downsamples(inputs,
                 out_filter, 
                 kernel_initial=kernel_initial, 
                 bias_initial=bias_initial,
+                normalizer='layer-norm',
                 norm_eps=1e-6, 
                 name="downsamples"):
-    x = LayerNormalization(epsilon=norm_eps, name=name + '_norm')(inputs)
+    x = get_nomalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(inputs)
     x = Conv2D(filters=out_filter,
                kernel_size=(2, 2), 
                strides=(2, 2), 
@@ -92,6 +93,8 @@ def ConvNextBlock(inputs,
                   layer_scale_init_value=1e-6, 
                   kernel_initial=kernel_initial, 
                   bias_initial=bias_initial,
+                  activation='gelu',
+                  normalizer='layer-norm',
                   norm_eps=1e-6,
                   name="block"):
   
@@ -105,7 +108,7 @@ def ConvNextBlock(inputs,
                kernel_initializer=kernel_initial,
                bias_initializer=bias_initial,
                name=name + "_dw")(inputs)
-    x = LayerNormalization(epsilon=norm_eps, name=name + '_norm')(x)
+    x = get_nomalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
     x = Conv2D(filters=in_filters*4,
                kernel_size=(1, 1),
                strides=(1, 1),
@@ -113,7 +116,7 @@ def ConvNextBlock(inputs,
                kernel_initializer=kernel_initial,
                bias_initializer=bias_initial,
                name=name + "_pw")(x)
-    x = Activation('gelu', name=name + '_activation')(x)
+    x = get_activation_from_name(activation, name=name + '_activation')(x)
     x = Conv2D(filters=in_filters,
                kernel_size=(1, 1),
                strides=(1, 1),
@@ -182,57 +185,65 @@ def ConvNext(depths=[3, 3, 9, 3],
     cur = 0
     dp_rates = [x.numpy() for x in tf.linspace(0.0, drop_path_rate, sum(depths))]
 
-    x = stem_cell(img_input, dims[0], norm_eps)
+    x = stem_cell(img_input, dims[0], normalizer='layer-norm', norm_eps=norm_eps)
     for i in range(depths[0]):
         x = ConvNextBlock(x, 
                           dp_rates[cur + i],
                           layer_scale_init_value,
                           kernel_initial,
                           bias_initial,
-                          norm_eps,
+                          activation='gelu',
+                          normalizer='layer-norm',
+                          norm_eps=norm_eps,
                           name='block0_part' + str(i))
     
     cur += depths[0]
-    x = Downsamples(x, dims[1], kernel_initial, bias_initial, norm_eps, name='downsaples1')
+    x = Downsamples(x, dims[1], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, name='downsaples1')
     for i in range(depths[1]):
         x = ConvNextBlock(x, 
                           dp_rates[cur + i], 
                           layer_scale_init_value,
                           kernel_initial,
                           bias_initial,
-                          norm_eps,
+                          activation='gelu',
+                          normalizer='layer-norm',
+                          norm_eps=norm_eps,
                           name='block1_part' + str(i))
 
     cur += depths[1]
-    x = Downsamples(x, dims[2], kernel_initial, bias_initial, norm_eps, name='downsaples2')
+    x = Downsamples(x, dims[2], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, name='downsaples2')
     for i in range(depths[2]):
         x = ConvNextBlock(x, 
                           dp_rates[cur + i], 
                           layer_scale_init_value,
                           kernel_initial,
                           bias_initial,
-                          norm_eps,
+                          activation='gelu',
+                          normalizer='layer-norm',
+                          norm_eps=norm_eps,
                           name='block2_part' + str(i))
 
     cur += depths[2]
-    x = Downsamples(x, dims[3], kernel_initial, bias_initial, norm_eps, name='downsaples3')
+    x = Downsamples(x, dims[3], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, norm_eps, name='downsaples3')
     for i in range(depths[3]):
         x = ConvNextBlock(x, 
                           dp_rates[cur + i], 
                           layer_scale_init_value,
                           kernel_initial,
                           bias_initial,
-                          norm_eps,
+                          activation='gelu',
+                          normalizer='layer-norm',
+                          norm_eps=norm_eps,
                           name='block3_part' + str(i))
 
     if include_top:
         x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = LayerNormalization(epsilon=norm_eps, name='final_norm')(x)
+        x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
         x = Dense(1 if classes == 2 else classes, 
-                  activation=final_activation,
                   name='predictions',
                   kernel_initializer=kernel_initial, 
                   bias_initializer=bias_initial)(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)

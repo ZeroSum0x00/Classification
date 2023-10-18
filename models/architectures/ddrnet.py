@@ -46,7 +46,7 @@ from tensorflow.keras.layers import add
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
 from utils.model_processing import _obtain_input_shape, correct_pad
-
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 try:
   from tensorflow.keras.layers.experimental import SyncBatchNormalization as BatchNorm
 except ImportError:
@@ -57,78 +57,64 @@ except ImportError:
 # TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
 
-def BasicBlock(input_tensor, filters, kernel_size=3, strides=1, downsaple=False):
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-
+def BasicBlock(input_tensor, filters, kernel_size=3, strides=1, downsaple=False, activation='relu', normalizer='batch-norm', norm_eps=1e-6):
     filter1, filter2 = filters
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=kernel_size, strides=strides, padding='same', kernel_initializer='he_normal', use_bias=False)(input_tensor)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name(activation)(x)
 
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=(1, 1), padding='same', kernel_initializer='he_normal', use_bias=False)(x)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
+    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-      shortcut = BatchNorm(axis=bn_axis, momentum=0.1)(shortcut)
+      shortcut = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
 
     x = add([x, shortcut])
-    x = Activation('relu')(x)
+    x = get_activation_from_name(activation)(x)
     return x
 
 
-def Bottleneck(input_tensor, filters, kernel_size, strides, downsaple=False):
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-
+def Bottleneck(input_tensor, filters, kernel_size, strides, downsaple=False, activation='relu', normalizer='batch-norm', norm_eps=1e-6):
     filter1, filter2, filter3 = filters
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(input_tensor)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name(activation)(x)
 
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=strides, padding='same', kernel_initializer='he_normal', use_bias=False)(x)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name(activation)(x)
 
     x = Conv2D(filters=filter3, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(x)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
+    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-      shortcut = BatchNorm(axis=bn_axis, momentum=0.1)(shortcut)
+      shortcut = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
 
     x = add([x, shortcut])
-    x = Activation('relu')(x)
+    x = get_activation_from_name(activation)(x)
     return x
 
-def bilateral_fusion(low_branch, high_branch, filters, up_size=2):
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
 
+def bilateral_fusion(low_branch, high_branch, filters, up_size=2, activation='relu', normalizer='batch-norm', norm_eps=1e-6):
     filter1, filter2 = filters
 
     x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(low_branch)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name(activation)(x)
     x = UpSampling2D(size=up_size, interpolation='bilinear')(x)
     x = add([high_branch, x])
 
     y = high_branch
     for i in range(up_size // 2):
         y = Conv2D(filters=filter2, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(y)
-        y = BatchNorm(axis=bn_axis, momentum=0.1)(y)
-        y = Activation('relu')(y)
+        y = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(y)
+        y = get_activation_from_name(activation)(y)
     y = add([low_branch, y])
     return y, x
 
@@ -139,7 +125,8 @@ def DDRNet23_slim(include_top=True,
                   input_shape=None,
                   pooling=None,
                   final_activation="softmax",
-                  classes=1000) -> Model:
+                  classes=1000,
+                  norm_eps=1e-6) -> Model:
                       
     if weights not in {'imagenet', None}:
         raise ValueError('The `weights` argument should be either '
@@ -171,13 +158,13 @@ def DDRNet23_slim(include_top=True,
 
     # Branch conv1
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
-
+    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name('relu')(x)
+                      
     # Branch conv2
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name('relu')(x)
 
     x = BasicBlock(x, [32, 32], 3, 1, True)
     x = BasicBlock(x, [32, 32], 3, 1, False)
@@ -200,12 +187,12 @@ def DDRNet23_slim(include_top=True,
 
     # Branch conv5_1
     ## low branch
-    low_branch = Activation('relu')(low_branch)
+    low_branch = get_activation_from_name('relu')(low_branch)
     low_branch = BasicBlock(low_branch, [256, 256], 3, 2, True)
     low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
 
     ## high branch
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = BasicBlock(high_branch, [64, 64], 3, 1, True)
     high_branch = BasicBlock(high_branch, [64, 64], 3, 1, False)
 
@@ -213,30 +200,31 @@ def DDRNet23_slim(include_top=True,
     low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [64, 256], 4)
 
     ## low branch
-    low_branch = Activation('relu')(low_branch)
+    low_branch = get_activation_from_name('relu')(low_branch)
     low_branch = Bottleneck(low_branch, [256, 256, 512], 3, 1, True)
 
     ## high branch
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Bottleneck(high_branch, [64, 64, 128], 3, 1, True)
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = BatchNorm(axis=bn_axis, momentum=0.1)(high_branch)
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = BatchNorm(axis=bn_axis, momentum=0.1)(high_branch)
+    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
 
     # Branch conv5_2
     outputs = add([low_branch, high_branch])
-    outputs = Activation('relu')(outputs)
+    outputs = get_activation_from_name('relu')(outputs)
     outputs = Conv2D(filters=1024, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = BatchNorm(axis=bn_axis, momentum=0.1)(outputs)
-    outputs = Activation('relu')(outputs)
+    outputs = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
+    outputs = get_activation_from_name('relu')(outputs)
 
     if include_top:
         outputs = GlobalAveragePooling2D()(outputs)
         outputs = Flatten()(outputs)
-        outputs = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(outputs)
+        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
+        outputs = get_activation_from_name(final_activation)(outputs)
     else:
         if pooling == 'avg':
             outputs = GlobalAveragePooling2D(name='avg_pool')(outputs)
@@ -284,7 +272,8 @@ def DDRNet23(include_top=True,
              input_shape=None,
              pooling=None,
              final_activation="softmax",
-             classes=1000) -> Model:
+             classes=1000,
+             norm_eps=1e-6) -> Model:
                  
     if weights not in {'imagenet', None}:
         raise ValueError('The `weights` argument should be either '
@@ -316,13 +305,13 @@ def DDRNet23(include_top=True,
 
     # Branch conv1
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name('relu')(x)
 
     # Branch conv2
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name('relu')(x)
 
     x = BasicBlock(x, [64, 64], 3, 1, True)
     x = BasicBlock(x, [64, 64], 3, 1, False)
@@ -345,12 +334,12 @@ def DDRNet23(include_top=True,
 
     # Branch conv5_1
     ## low branch
-    low_branch = Activation('relu')(low_branch)
+    low_branch = get_activation_from_name('relu')(low_branch)
     low_branch = BasicBlock(low_branch, [512, 512], 3, 2, True)
     low_branch = BasicBlock(low_branch, [512, 512], 3, 1, False)
 
     ## high branch
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = BasicBlock(high_branch, [128, 128], 3, 1, True)
     high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
 
@@ -358,25 +347,24 @@ def DDRNet23(include_top=True,
     low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 512], 4)
 
     ## low branch
-    low_branch = Activation('relu')(low_branch)
+    low_branch = get_activation_from_name('relu')(low_branch)
     low_branch = Bottleneck(low_branch, [512, 512, 1024], 3, 1, True)
 
     ## high branch
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Bottleneck(high_branch, [128, 128, 256], 3, 1, True)
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = BatchNorm(axis=bn_axis, momentum=0.1)(high_branch)
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=1024, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = BatchNorm(axis=bn_axis, momentum=0.1)(high_branch)
+    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
 
     # Branch conv5_2
     outputs = add([low_branch, high_branch])
-    outputs = Activation('relu')(outputs)
+    outputs = get_activation_from_name('relu')(outputs)
     outputs = Conv2D(filters=2048, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = BatchNorm(axis=bn_axis, momentum=0.1)(outputs)
-    outputs = Activation('relu')(outputs)
+    outputs = get_activation_from_name('relu')(outputs)
 
     if include_top:
         outputs = GlobalAveragePooling2D()(outputs)
@@ -429,7 +417,8 @@ def DDRNet39(include_top=True,
              input_shape=None,
              pooling=None,
              final_activation="softmax",
-             classes=1000) -> Model:
+             classes=1000,
+             norm_eps=1e-6) -> Model:
                  
     if weights not in {'imagenet', None}:
         raise ValueError('The `weights` argument should be either '
@@ -461,13 +450,13 @@ def DDRNet39(include_top=True,
 
     # Branch conv1
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name('relu')(x)
 
     # Branch conv2
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = BatchNorm(axis=bn_axis, momentum=0.1)(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_activation_from_name('relu')(x)
 
     x = BasicBlock(x, [64, 64], 3, 1, True)
     x = BasicBlock(x, [64, 64], 3, 1, False)
@@ -494,13 +483,13 @@ def DDRNet39(include_top=True,
     low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 256])
 
     ## low branch
-    low_branch = Activation('relu')(low_branch)
+    low_branch = get_activation_from_name('relu')(low_branch)
     low_branch = BasicBlock(x, [256, 256], 3, 2, True)
     low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
     low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
 
     ## high branch
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = BasicBlock(x, [128, 128], 3, 1, True)
     high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
     high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
@@ -510,13 +499,13 @@ def DDRNet39(include_top=True,
 
     # Branch conv5_1
     ## low branch
-    low_branch = Activation('relu')(low_branch)
+    low_branch = get_activation_from_name('relu')(low_branch)
     low_branch = BasicBlock(low_branch, [512, 512], 3, 2, True)
     low_branch = BasicBlock(low_branch, [512, 512], 3, 1, False)
     low_branch = BasicBlock(low_branch, [512, 512], 3, 1, False)
 
     ## high branch
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = BasicBlock(high_branch, [128, 128], 3, 1, True)
     high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
     high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
@@ -525,30 +514,32 @@ def DDRNet39(include_top=True,
     low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 512], 4)
 
     ## low branch
-    low_branch = Activation('relu')(low_branch)
+    low_branch = get_activation_from_name('relu')(low_branch)
     low_branch = Bottleneck(low_branch, [512, 512, 1024], 3, 1, True)
 
     ## high branch
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Bottleneck(high_branch, [128, 128, 256], 3, 1, True)
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = BatchNorm(axis=bn_axis, momentum=0.1)(high_branch)
-    high_branch = Activation('relu')(high_branch)
+    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=1024, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = BatchNorm(axis=bn_axis, momentum=0.1)(high_branch)
+    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
 
     # Branch conv5_2
     outputs = add([low_branch, high_branch])
-    outputs = Activation('relu')(outputs)
+    outputs = get_activation_from_name('relu')(outputs)
     outputs = Conv2D(filters=2048, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = BatchNorm(axis=bn_axis, momentum=0.1)(outputs)
-    outputs = Activation('relu')(outputs)
+    outputs = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
+    outputs = get_activation_from_name('relu')(outputs)
+
 
     if include_top:
         outputs = GlobalAveragePooling2D()(outputs)
         outputs = Flatten()(outputs)
-        outputs = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(outputs)
+        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
+        outputs = get_activation_from_name(final_activation)(outputs)
     else:
         if pooling == 'avg':
             outputs = GlobalAveragePooling2D(name='avg_pool')(outputs)

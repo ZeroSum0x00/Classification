@@ -50,8 +50,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-
-from models.layers import GroupNormalization
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -68,11 +67,10 @@ class PaddingFromKernelSize(tf.keras.layers.Layer):
     self._pad_end = pad_total - self._pad_beg
 
   def call(self, x):
-    padding = [
-        [0, 0],
-        [self._pad_beg, self._pad_end],
-        [self._pad_beg, self._pad_end],
-        [0, 0]]
+    padding = [[0,                         0],
+               [self._pad_beg, self._pad_end],
+               [self._pad_beg, self._pad_end],
+               [0,                         0]]
     return tf.pad(x, padding)
 
 
@@ -87,10 +85,10 @@ def stem_block(inputs, filters, conv_size=(7, 7), conv_stride=(2, 2), pool_size=
     return x
 
     
-def bottleneck_unit_v2(inputs, num_filters, stride=2):
+def bottleneck_unit_v2(inputs, num_filters, stride=2, activation='relu', normalizer='group-norm'):
     shortcut = inputs
-    x = GroupNormalization()(inputs)
-    x = ReLU()(x)
+    x = get_nomalizer_from_name(normalizer)(inputs)
+    x = get_activation_from_name(activation)(x)
 
     if (stride > 1) or (4 * num_filters != inputs.shape[-1]):
         shortcut = Conv2D(filters=4 * num_filters,
@@ -102,16 +100,16 @@ def bottleneck_unit_v2(inputs, num_filters, stride=2):
                kernel_size=1,
                use_bias=False,
                padding="valid")(x)
-    x = GroupNormalization()(x)
-    x = ReLU()(x)
+    x = get_nomalizer_from_name(normalizer)(x)
+    x = get_activation_from_name(activation)(x)
     x = PaddingFromKernelSize(kernel_size=3)(x)
     x = Conv2D(filters=num_filters,
                kernel_size=3,
                strides=stride,
                use_bias=False,
                padding="valid")(x)
-    x = GroupNormalization()(x)
-    x = ReLU()(x)
+    x = get_nomalizer_from_name(normalizer)(x)
+    x = get_activation_from_name(activation)(x)
     x = Conv2D(filters=4 * num_filters,
                kernel_size=1,
                use_bias=False,
@@ -119,10 +117,10 @@ def bottleneck_unit_v2(inputs, num_filters, stride=2):
     return add([x, shortcut])
 
 
-def resnet_block(inputs, filters, stride, iter):
+def resnet_block(inputs, filters, stride, iter, activation='relu', normalizer='group-norm'):
     x = inputs
     for i in range(1, iter + 1):
-        x = bottleneck_unit_v2(x, filters, (stride if i == 1 else 1))
+        x = bottleneck_unit_v2(x, filters, (stride if i == 1 else 1), activation=activation, normalizer=normalizer)
     return x
 
      
@@ -173,15 +171,16 @@ def ResnetV2(layers,
     x = stem_block(img_input, 64)
                  
     for filter, stride, layer in zip(filters, strides, layers):
-        x = resnet_block(x, filter, stride, layer)
+        x = resnet_block(x, filter, stride, layer, activation='relu', normalizer='group-norm')
 
-    x = GroupNormalization()(x)
-    x = ReLU()(x)
+    x = get_nomalizer_from_name('relu')(x)
+    x = get_activation_from_name('group-norm')(x)
 
     if include_top:
         # Classification block
         x = GlobalAveragePooling2D()(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D()(x)

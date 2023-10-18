@@ -26,7 +26,6 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
@@ -35,6 +34,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.nn import local_response_normalization as LocalResponseNorm
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -77,19 +77,19 @@ def AlexNet(include_top=True,
         bn_axis = 1    
 
     x = Conv2D(filters=96, kernel_size=(11, 11), strides=(4, 4), padding='valid')(img_input)
-    x = Activation('relu')(x)
+    x = get_activation_from_name('relu')(x)
     x = LocalResponseNorm(x, depth_radius=5, alpha=0.0001, beta=0.75)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
     x = Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), padding='same')(x)
-    x = Activation('relu')(x)
+    x = get_activation_from_name('relu')(x)
     x = LocalResponseNorm(x, depth_radius=5, alpha=0.0001, beta=0.75)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
     x = Conv2D(filters=384, kernel_size=(3, 3), strides=(1, 1), padding='same')(x)
-    x = Activation('relu')(x)
+    x = get_activation_from_name('relu')(x)
     x = Conv2D(filters=384, kernel_size=(3, 3), strides=(1, 1), padding='same')(x)
-    x = Activation('relu')(x)
+    x = get_activation_from_name('relu')(x)
     x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding='same')(x)
-    x = Activation('relu')(x)
+    x = get_activation_from_name('relu')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
 
     if include_top:
@@ -97,11 +97,12 @@ def AlexNet(include_top=True,
         x = Dropout(rate=0.5)(x)
         x = Flatten(name='flatten')(x)
         x = Dense(units=4096)(x)
-        x = Activation('relu')(x)
+        x = get_activation_from_name('relu')(x)
         x = Dropout(rate=0.5)(x)
         x = Dense(units=4096)(x)
-        x = Activation('relu')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = get_activation_from_name('relu')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D()(x)
