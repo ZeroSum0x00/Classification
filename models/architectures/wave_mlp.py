@@ -41,7 +41,7 @@ from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import add, multiply, concatenate
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import DropPath, MLPBlock, SAMModel, get_activation_from_name, get_nomalizer_from_name
+from models.layers import DropPath, MLPBlock, SAMModel, get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -53,7 +53,7 @@ def phase_aware_token_mixing(inputs, out_dim=-1, qkv_bias=False, output_dropout=
                      padding="valid",
                      use_bias=True,
                      name=name and name + "theta_h_")(inputs)
-    theta_h = get_nomalizer_from_name('batch-norm')(theta_h)
+    theta_h = get_normalizer_from_name('batch-norm')(theta_h)
     theta_h = get_activation_from_name('relu')(theta_h)
     height = Conv2D(filters=out_dim,
                     kernel_size=(1, 1),
@@ -78,7 +78,7 @@ def phase_aware_token_mixing(inputs, out_dim=-1, qkv_bias=False, output_dropout=
                      strides=(1, 1),
                      use_bias=True,
                      name=name and name + "theta_w_")(inputs)
-    theta_w = get_nomalizer_from_name('batch-norm')(theta_w)
+    theta_w = get_normalizer_from_name('batch-norm')(theta_w)
     theta_w = get_activation_from_name('relu')(theta_w)
 
     width = Conv2D(filters=out_dim,
@@ -132,12 +132,12 @@ def phase_aware_token_mixing(inputs, out_dim=-1, qkv_bias=False, output_dropout=
 
 
 def wave_block(inputs, qkv_bias=False, mlp_ratio=4, drop_prob=0, activation="gelu", normalizer='batch-norm', name=""):
-    attn = get_nomalizer_from_name(normalizer)(inputs)
+    attn = get_normalizer_from_name(normalizer)(inputs)
     attn = phase_aware_token_mixing(attn, out_dim=inputs.shape[-1], qkv_bias=qkv_bias, activation=activation, name=name + "attn_")
     attn = DropPath(drop_prob=drop_prob, name=name + "attn_drop_")(attn)
     attn_out = add([inputs, attn], name=name + "attn_out")
 
-    mlp = get_nomalizer_from_name(normalizer)(attn_out)
+    mlp = get_normalizer_from_name(normalizer)(attn_out)
     mlp = MLPBlock(int(inputs.shape[-1] * mlp_ratio), use_conv=True, activation=activation, name=name + "mlp_blocl_")(mlp)
     mlp = DropPath(drop_prob=drop_prob, name=name + "mlp_drop_")(mlp)
     mlp_out = add([attn_out, mlp], name=name + "mlp_out")
@@ -196,7 +196,7 @@ def WaveMLP(filters,
     x = Conv2D(filters=stem_width, kernel_size=(7, 7), strides=(4, 4), padding="valid", use_bias=True, name="stem_conv_")(x)
 
     if use_downsample_norm:
-        x = get_nomalizer_from_name(norm_name)(x)
+        x = get_normalizer_from_name(norm_name)(x)
 
     """ stage [1, 2, 3, 4] """
     total_blocks = sum(num_blocks)
@@ -209,7 +209,7 @@ def WaveMLP(filters,
             x = Conv2D(filters=filter, kernel_size=(3, 3), strides=(2, 2), padding="same", use_bias=True, name=stage_name + "down_sample_")(x)
             
             if use_downsample_norm:
-                x = get_nomalizer_from_name(norm_name)(x)
+                x = get_normalizer_from_name(norm_name)(x)
 
         for block_id in range(num_block):
             name = stage_name + "block{}_".format(block_id + 1)
@@ -217,7 +217,7 @@ def WaveMLP(filters,
             global_block_id += 1
             x = wave_block(x, qkv_bias, mlp_ratio, drop_prob, activation='gelu', normalizer=norm_name, name=name)
     # return Model(img_input, x, name='abc')
-    x = get_nomalizer_from_name(norm_name)(x)
+    x = get_normalizer_from_name(norm_name)(x)
     
     if include_top:
         x = GlobalAveragePooling2D()(x)

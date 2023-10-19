@@ -36,7 +36,7 @@ from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
 from .inception_resnet_v1 import convolution_block
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -64,7 +64,7 @@ def stem_block(inputs, activation="relu", normalizer='batch-norm'):
     branch2 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='valid', name='stem_b52')(x)
     
     out = concatenate([branch1, branch2], axis=-1, name='stem_merged3')
-    out = get_nomalizer_from_name(normalizer, name='stem_merged3_bn')(out)
+    out = get_normalizer_from_name(normalizer, name='stem_merged3_bn')(out)
     out = get_activation_from_name(activation, name='stem_merged3_activ')(out)
     return out
 
@@ -88,7 +88,7 @@ def inception_resnet_A(inputs, scale_residual=True, activation="relu", normalize
         x = Lambda(lambda s: s * 0.1, name=f'inceptionA_step{prefix}_scale')(x)
         
     out = add([shortcut, x], name=f'inceptionA_step{prefix}_merged')
-    out = get_nomalizer_from_name(normalizer, name=f'inceptionA_step{prefix}_bn')(out)
+    out = get_normalizer_from_name(normalizer, name=f'inceptionA_step{prefix}_bn')(out)
     out = get_activation_from_name(activation, name=f'inceptionA_step{prefix}_activ')(out)
     return out
 
@@ -103,7 +103,7 @@ def reduction_A(inputs, k=192, l=224, m=256, n=384, activation="relu", normalize
     branch3 = convolution_block(branch3, m, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b33")
 
     out = concatenate([branch1, branch2, branch3], axis=-1, name=f'incep_reductionA_merged')
-    out = get_nomalizer_from_name(normalizer, name=f'incep_reductionA_bn')(out)
+    out = get_normalizer_from_name(normalizer, name=f'incep_reductionA_bn')(out)
     out = get_activation_from_name(activation, name=f'incep_reductionA_activ')(out)
     return out
 
@@ -124,7 +124,7 @@ def inception_resnet_B(inputs, scale_residual=True, activation="relu", normalize
         x = Lambda(lambda s: s * 0.1, name=f'inceptionB_step{prefix}_scale')(x)
         
     out = add([shortcut, x], name=f'inceptionB_step{prefix}_merged')
-    out = get_nomalizer_from_name(normalizer, name=f'inceptionB_step{prefix}_bn')(out)
+    out = get_normalizer_from_name(normalizer, name=f'inceptionB_step{prefix}_bn')(out)
     out = get_activation_from_name(activation, name=f'inceptionB_step{prefix}_activ')(out)
     return out
 
@@ -143,7 +143,7 @@ def reduction_B(inputs, activation="relu", normalizer='batch-norm'):
     branch4 = convolution_block(branch4, 320, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b33")
     
     out = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f'incep_reductionB_merged')
-    out = get_nomalizer_from_name(normalizer, name=f'incep_reductionB_bn')(out)
+    out = get_normalizer_from_name(normalizer, name=f'incep_reductionB_bn')(out)
     out = get_activation_from_name(activation, name=f'incep_reductionB_activ')(out)
     return out
 
@@ -164,7 +164,7 @@ def inception_resnet_C(inputs, scale_residual=True, activation="relu", normalize
         x = Lambda(lambda s: s * 0.1, name=f'inceptionC_step{prefix}_scale')(x)
         
     out = add([shortcut, x], name=f'inceptionC_step{prefix}_merged')
-    out = get_nomalizer_from_name(normalizer, name=f'inceptionC_step{prefix}_bn')(out)
+    out = get_normalizer_from_name(normalizer, name=f'inceptionC_step{prefix}_bn')(out)
     out = get_activation_from_name(activation, name=f'inceptionC_step{prefix}_activ')(out)
     return out
 

@@ -51,7 +51,7 @@ from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import ReLU6
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape, correct_pad
 from utils.auxiliary_processing import make_divisible
 
@@ -65,7 +65,7 @@ def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1, act
                padding='valid',
                use_bias=False,
                name='stem_conv')(x)
-    x = get_nomalizer_from_name(normalizer, name='stem_bn')(x)
+    x = get_normalizer_from_name(normalizer, name='stem_bn')(x)
     x = get_activation_from_name(activation, name='stem_relu')(x)
     return x
 
@@ -85,7 +85,7 @@ def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=
                    use_bias=False,
                    activation=None,
                    name=prefix + 'expand')(x)
-        x = get_nomalizer_from_name(normalizer, 
+        x = get_normalizer_from_name(normalizer, 
                                     epsilon=1e-3,
                                     momentum=0.999,
                                     name=prefix + 'expand_bn')(x)
@@ -102,7 +102,7 @@ def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=
                         use_bias=False,
                         padding='same' if strides == (1, 1) else 'valid',
                         name=prefix + 'depthwise')(x)
-    x = get_nomalizer_from_name(normalizer, 
+    x = get_normalizer_from_name(normalizer, 
                                 epsilon=1e-3,
                                 momentum=0.999,
                                 name=prefix + 'depthwise_BN')(x)
@@ -115,7 +115,7 @@ def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=
                       use_bias=False,
                       activation=None,
                       name=prefix + 'project')(x)
-    x = get_nomalizer_from_name(normalizer, 
+    x = get_normalizer_from_name(normalizer, 
                                 epsilon=1e-3,
                                 momentum=0.999,
                                 name=prefix + 'project_BN')(x)
@@ -212,7 +212,7 @@ def MobileNet_v2(alpha=1,
                strides=(1, 1),
                use_bias=False,
                name='conv1')(x)
-    x = get_nomalizer_from_name('batch-norm', 
+    x = get_normalizer_from_name('batch-norm', 
                                 epsilon=1e-3,
                                 momentum=0.999,
                                 name='Conv_1_bn')(x)

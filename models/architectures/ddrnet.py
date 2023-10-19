@@ -46,7 +46,7 @@ from tensorflow.keras.layers import add
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
 from utils.model_processing import _obtain_input_shape, correct_pad
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 try:
   from tensorflow.keras.layers.experimental import SyncBatchNormalization as BatchNorm
 except ImportError:
@@ -62,15 +62,15 @@ def BasicBlock(input_tensor, filters, kernel_size=3, strides=1, downsaple=False,
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=kernel_size, strides=strides, padding='same', kernel_initializer='he_normal', use_bias=False)(input_tensor)
-    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name(activation)(x)
 
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=(1, 1), padding='same', kernel_initializer='he_normal', use_bias=False)(x)
-    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-      shortcut = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
+      shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
 
     x = add([x, shortcut])
     x = get_activation_from_name(activation)(x)
@@ -82,19 +82,19 @@ def Bottleneck(input_tensor, filters, kernel_size, strides, downsaple=False, act
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(input_tensor)
-    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name(activation)(x)
 
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=strides, padding='same', kernel_initializer='he_normal', use_bias=False)(x)
-    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name(activation)(x)
 
     x = Conv2D(filters=filter3, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(x)
-    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-      shortcut = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
+      shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
 
     x = add([x, shortcut])
     x = get_activation_from_name(activation)(x)
@@ -105,7 +105,7 @@ def bilateral_fusion(low_branch, high_branch, filters, up_size=2, activation='re
     filter1, filter2 = filters
 
     x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(low_branch)
-    x = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name(activation)(x)
     x = UpSampling2D(size=up_size, interpolation='bilinear')(x)
     x = add([high_branch, x])
@@ -113,7 +113,7 @@ def bilateral_fusion(low_branch, high_branch, filters, up_size=2, activation='re
     y = high_branch
     for i in range(up_size // 2):
         y = Conv2D(filters=filter2, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(y)
-        y = get_nomalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(y)
+        y = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(y)
         y = get_activation_from_name(activation)(y)
     y = add([low_branch, y])
     return y, x
@@ -158,12 +158,12 @@ def DDRNet23_slim(include_top=True,
 
     # Branch conv1
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name('relu')(x)
                       
     # Branch conv2
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name('relu')(x)
 
     x = BasicBlock(x, [32, 32], 3, 1, True)
@@ -208,16 +208,16 @@ def DDRNet23_slim(include_top=True,
     high_branch = Bottleneck(high_branch, [64, 64, 128], 3, 1, True)
     high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
     high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
 
     # Branch conv5_2
     outputs = add([low_branch, high_branch])
     outputs = get_activation_from_name('relu')(outputs)
     outputs = Conv2D(filters=1024, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
+    outputs = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
     outputs = get_activation_from_name('relu')(outputs)
 
     if include_top:
@@ -305,12 +305,12 @@ def DDRNet23(include_top=True,
 
     # Branch conv1
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name('relu')(x)
 
     # Branch conv2
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name('relu')(x)
 
     x = BasicBlock(x, [64, 64], 3, 1, True)
@@ -355,10 +355,10 @@ def DDRNet23(include_top=True,
     high_branch = Bottleneck(high_branch, [128, 128, 256], 3, 1, True)
     high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
     high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=1024, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
 
     # Branch conv5_2
     outputs = add([low_branch, high_branch])
@@ -450,12 +450,12 @@ def DDRNet39(include_top=True,
 
     # Branch conv1
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name('relu')(x)
 
     # Branch conv2
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
     x = get_activation_from_name('relu')(x)
 
     x = BasicBlock(x, [64, 64], 3, 1, True)
@@ -522,16 +522,16 @@ def DDRNet39(include_top=True,
     high_branch = Bottleneck(high_branch, [128, 128, 256], 3, 1, True)
     high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
     high_branch = get_activation_from_name('relu')(high_branch)
     high_branch = Conv2D(filters=1024, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
 
     # Branch conv5_2
     outputs = add([low_branch, high_branch])
     outputs = get_activation_from_name('relu')(outputs)
     outputs = Conv2D(filters=2048, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = get_nomalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
+    outputs = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
     outputs = get_activation_from_name('relu')(outputs)
 
 

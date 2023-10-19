@@ -50,7 +50,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -87,7 +87,7 @@ def stem_block(inputs, filters, conv_size=(7, 7), conv_stride=(2, 2), pool_size=
     
 def bottleneck_unit_v2(inputs, num_filters, stride=2, activation='relu', normalizer='group-norm'):
     shortcut = inputs
-    x = get_nomalizer_from_name(normalizer)(inputs)
+    x = get_normalizer_from_name(normalizer)(inputs)
     x = get_activation_from_name(activation)(x)
 
     if (stride > 1) or (4 * num_filters != inputs.shape[-1]):
@@ -100,7 +100,7 @@ def bottleneck_unit_v2(inputs, num_filters, stride=2, activation='relu', normali
                kernel_size=1,
                use_bias=False,
                padding="valid")(x)
-    x = get_nomalizer_from_name(normalizer)(x)
+    x = get_normalizer_from_name(normalizer)(x)
     x = get_activation_from_name(activation)(x)
     x = PaddingFromKernelSize(kernel_size=3)(x)
     x = Conv2D(filters=num_filters,
@@ -108,7 +108,7 @@ def bottleneck_unit_v2(inputs, num_filters, stride=2, activation='relu', normali
                strides=stride,
                use_bias=False,
                padding="valid")(x)
-    x = get_nomalizer_from_name(normalizer)(x)
+    x = get_normalizer_from_name(normalizer)(x)
     x = get_activation_from_name(activation)(x)
     x = Conv2D(filters=4 * num_filters,
                kernel_size=1,
@@ -173,7 +173,7 @@ def ResnetV2(layers,
     for filter, stride, layer in zip(filters, strides, layers):
         x = resnet_block(x, filter, stride, layer, activation='relu', normalizer='group-norm')
 
-    x = get_nomalizer_from_name('relu')(x)
+    x = get_normalizer_from_name('relu')(x)
     x = get_activation_from_name('group-norm')(x)
 
     if include_top:

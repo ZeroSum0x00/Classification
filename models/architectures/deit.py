@@ -34,7 +34,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import (ExtractPatches, ClassificationToken, AddPositionEmbedding,
                            TransformerBlock, DistillationToken, SAMModel, 
-                           get_nomalizer_from_name, get_activation_from_name)
+                           get_normalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
@@ -94,7 +94,7 @@ def DeiT(num_layers,
                                 mlp_dim=mlp_dim,
                                 drop_rate=drop_rate,
                                 name=f"Transformer/encoderblock_{n}")(x)
-    x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
+    x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
     x_head = Lambda(lambda v: v[:, 0], name="Extract_Predict_Token")(x)
     x_dist = Lambda(lambda v: v[:, 1], name="Extract_Distillation_Token")(x)
 

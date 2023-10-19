@@ -40,7 +40,7 @@ from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -62,10 +62,10 @@ def conv_block(inputs, growth_rate, activation='relu', normalizer='batch-norm', 
     :param name: string, block label.
     :return: Output tensor for the block.
     """
-    x = get_nomalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn0')(inputs)
+    x = get_normalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn0')(inputs)
     x = get_activation_from_name(activation, name=name + '_activation0')(x)
     x = Conv2D(filters=growth_rate * 4, kernel_size=(1, 1), strides=(1, 1), use_bias=False, name=name + '_conv1')(x)
-    x = get_nomalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn1')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn1')(x)
     x = get_activation_from_name(activation, name=name + '_activation1')(x)
     x = Conv2D(filters=growth_rate, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False, name=name + '_conv2')(x)
     merge = concatenate([inputs, x], name=name + '_merge')
@@ -96,7 +96,7 @@ def transition_block(inputs, reduction, activation='relu', normalizer='batch-nor
     :param name: string, block label.
     :return: output tensor for the block.
     """
-    x = get_nomalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn')(inputs)
+    x = get_normalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn')(inputs)
     x = get_activation_from_name(activation, name=name + '_activation')(x)
     x = Conv2D(filters=int(K.int_shape(x)[bn_axis] * reduction), 
                kernel_size=(1, 1),
@@ -148,7 +148,7 @@ def DenseNet(blocks,
 
     x = ZeroPadding2D(padding=((3, 3), (3, 3)), name='padding_0')(img_input)
     x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), use_bias=False, name='conv1/conv')(x)
-    x = get_nomalizer_from_name('batch-norm', epsilon=1.001e-5, name='conv1/bn')(x)
+    x = get_normalizer_from_name('batch-norm', epsilon=1.001e-5, name='conv1/bn')(x)
     x = get_activation_from_name('relu', name='conv1/activation')(x)
     x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name='pool1')(x)
@@ -161,7 +161,7 @@ def DenseNet(blocks,
     x = transition_block(x, 0.5, name='pool4')
     x = dense_block(x, blocks[3], name='conv5')
 
-    x = get_nomalizer_from_name('batch-norm', epsilon=1.001e-5, name='final_bn')(x)
+    x = get_normalizer_from_name('batch-norm', epsilon=1.001e-5, name='final_bn')(x)
     x = get_activation_from_name('relu', name='final_activation')(x)
                  
     if include_top:

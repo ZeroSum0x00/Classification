@@ -36,13 +36,13 @@ from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import add, multiply
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import SAMModel, get_activation_from_name, get_nomalizer_from_name
+from models.layers import SAMModel, get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
 def spatial_gating_block(inputs, normalizer='layer-norm', name=None):
     xx, yy = tf.split(inputs, 2, axis=-1)
-    yy = get_nomalizer_from_name(normalizer, name=name and name + "yy_ln")(yy)
+    yy = get_normalizer_from_name(normalizer, name=name and name + "yy_ln")(yy)
     yy = Permute((2, 1), name=name and name + "permute_1")(yy)
     ww_init = tf.initializers.truncated_normal(stddev=1e-6)
     yy = Dense(yy.shape[-1], kernel_initializer=ww_init, bias_initializer="ones", name=name and name + "yy_dense")(yy)
@@ -52,7 +52,7 @@ def spatial_gating_block(inputs, normalizer='layer-norm', name=None):
 
 
 def res_gated_mlp_block(inputs, channels_mlp_dim, drop_rate=0, activation="gelu", normalizer='layer-norm', name=None):
-    x = get_nomalizer_from_name(normalizer, name=name + "pre_ln")(inputs)
+    x = get_normalizer_from_name(normalizer, name=name + "pre_ln")(inputs)
     x = Dense(channels_mlp_dim, name=name + "pre_dense")(x)
     x = get_activation_from_name(activation)(x)
     x = spatial_gating_block(x, normalizer=normalizer, name=name)
@@ -121,7 +121,7 @@ def gMLP(stem_width,
         block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * ii / num_blocks
         x = res_gated_mlp_block(x, channels_mlp_dim=channels_mlp_dim, drop_rate=block_drop_rate, activation='gelu', name=block_name)
         
-    x = get_nomalizer_from_name('layer-norm', name="pre_head_norm")(x)
+    x = get_normalizer_from_name('layer-norm', name="pre_head_norm")(x)
              
     if include_top:
         x = GlobalAveragePooling1D()(x)

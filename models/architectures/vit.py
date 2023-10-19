@@ -42,7 +42,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import (ExtractPatches, ClassificationToken, 
                            AddPositionEmbedding, TransformerBlock, SAMModel,
-                           get_activation_from_name, get_nomalizer_from_name)
+                           get_activation_from_name, get_normalizer_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
@@ -101,7 +101,7 @@ def ViT(num_layers=12,
                                 norm_eps=norm_eps,
                                 drop_rate=drop_rate,
                                 name=f"Transformer/encoderblock_{n}")(x)
-    x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
+    x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
     x = Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
 
     if include_top:

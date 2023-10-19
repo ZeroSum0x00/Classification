@@ -40,7 +40,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import MLPBlock, DropPath, get_activation_from_name, get_nomalizer_from_name
+from models.layers import MLPBlock, DropPath, get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -203,7 +203,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
         self.drop_path_prob = drop_path_prob
 
     def build(self, input_shape):
-        self.norm_layer1 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
+        self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
         self.attention   = WindowAttention(dim=self.dim,
                                            window_size=self.window_size,
                                            num_heads=self.num_heads,
@@ -213,7 +213,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
                                            proj_drop=self.proj_drop)
 
         self.drop_path   = DropPath(self.drop_path_prob if self.drop_path_prob > 0. else 0.)
-        self.norm_layer2 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
+        self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
         mlp_hidden_dim   = int(self.dim * self.mlp_ratio)
         self.mlp         = MLPBlock(mlp_dim=mlp_hidden_dim,
                                     activation=self.activation,
@@ -328,7 +328,7 @@ class PatchMerging(tf.keras.layers.Layer):
         self.normalizer       = normalizer
 
     def build(self, input_shape):
-        self.norm_layer = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
+        self.norm_layer = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
         self.projection = Dense(2 * input_shape[-1], use_bias=False)
 
     def call(self, x):
@@ -378,7 +378,7 @@ class PatchEmbed(tf.keras.layers.Layer):
                                  kernel_size=self.patch_size,
                                  strides=self.patch_size,
                                  padding="valid")
-        self.norm_layer = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
+        self.norm_layer = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
         self.reshape_tensor = Reshape(((input_shape[1] // self.patch_size[0]) * (input_shape[2] // self.patch_size[0]), self.embed_dim))
         self.drop_out = Dropout(self.drop_rate)
         
@@ -487,7 +487,7 @@ def Swin(embed_dim=96,
         if (i < num_layers - 1):
             x   = PatchMerging(input_resolution)(x)
             
-    x = get_nomalizer_from_name('layer-norm', epsilon=1e-5)(x)
+    x = get_normalizer_from_name('layer-norm', epsilon=1e-5)(x)
 
     if include_top:
         x = GlobalAveragePooling1D()(x)

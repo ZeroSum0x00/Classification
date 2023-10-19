@@ -51,7 +51,7 @@ from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import (ExtractPatches, ClassificationToken, 
                            AddPositionEmbedding, TransformerBlock, 
                            MLPBlock, SAMModel, 
-                           get_nomalizer_from_name, get_activation_from_name)
+                           get_normalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
@@ -72,8 +72,8 @@ class MixerBlock(tf.keras.layers.Layer):
         self.channel_mlp_block = MLPBlock(self.channels_mlp_dim, 
                                           activation=self.activation,
                                           drop_rate=self.drop_rate)
-        self.layerNorm1 = get_nomalizer_from_name(self.normalizer, epsilon=self.norm_eps)
-        self.layerNorm2 = get_nomalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        self.layerNorm1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        self.layerNorm2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
 
     def __token_mixing(self, x):
         # Token-mixing block
@@ -160,7 +160,7 @@ def MLPMixer(patch_size,
     for i in range(num_blocks):
         x = MixerBlock(tokens_mlp_dim, channels_mlp_dim, 'gelu', 'layer-norm', norm_eps, drop_rate)(x)
         
-    x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps)(x)
+    x = get_normalizer_from_name('layer-norm', epsilon=norm_eps)(x)
     
     if include_top:
         x = GlobalAveragePooling1D()(x)

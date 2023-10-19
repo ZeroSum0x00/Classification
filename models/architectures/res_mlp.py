@@ -38,7 +38,7 @@ from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ChannelAffine, SAMModel, get_activation_from_name, get_nomalizer_from_name
+from models.layers import ChannelAffine, SAMModel, get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 

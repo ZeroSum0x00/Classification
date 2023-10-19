@@ -33,7 +33,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -52,7 +52,7 @@ def convolution_block(inputs,
                padding=padding, 
                use_bias=use_bias,
                name=name + '_conv')(inputs)
-    x = get_nomalizer_from_name(normalizer, name=name + '_bn')(x)
+    x = get_normalizer_from_name(normalizer, name=name + '_bn')(x)
     x = get_activation_from_name(activation, name=name + '_activ')(x)
     return x
 

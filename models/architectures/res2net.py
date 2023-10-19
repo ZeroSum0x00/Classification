@@ -40,7 +40,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -52,13 +52,13 @@ def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26,
     if downsample:
         residual = AveragePooling2D(pool_size=stride, strides=stride, padding='same')(input_tensor)
         residual = Conv2D(filters=filters*expansion, kernel_size=1, strides=1, use_bias=False)(residual)
-        residual = get_nomalizer_from_name(normalizer)(residual)
+        residual = get_normalizer_from_name(normalizer)(residual)
         
     else:
         residual = input_tensor
 
     x = Conv2D(filters=width*scale, kernel_size=1, strides=1, use_bias=False)(input_tensor)
-    x = get_nomalizer_from_name(normalizer)(x)
+    x = get_normalizer_from_name(normalizer)(x)
     x = get_activation_from_name(activation)(x)
     
     spx = tf.split(x, scale, axis=-1)
@@ -70,7 +70,7 @@ def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26,
             sp = sp + spx[i]
             
         sp = Conv2D(filters=width, kernel_size=3, strides=stride, padding="same", use_bias=False)(sp)
-        sp = get_nomalizer_from_name(normalizer)(sp)
+        sp = get_normalizer_from_name(normalizer)(sp)
         sp = get_activation_from_name(activation)(sp)
         
         if i == 0:
@@ -86,7 +86,7 @@ def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26,
             x = concatenate([x, spx[nums]], axis=-1)
 
     x = Conv2D(filters=filters*expansion, kernel_size=1, strides=1, use_bias=False)(x)
-    x = get_nomalizer_from_name(normalizer)(x)
+    x = get_normalizer_from_name(normalizer)(x)
     x = add([x, residual])
     x = get_activation_from_name(activation)(x)
     return x
@@ -135,13 +135,13 @@ def Res2Net(num_blocks,
     
     # Block conv1
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', use_bias=False)(img_input)
-    x = get_nomalizer_from_name('batch-norm')(x)
+    x = get_normalizer_from_name('batch-norm')(x)
     x = get_activation_from_name('relu')(x)
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False)(x)
-    x = get_nomalizer_from_name('batch-norm')(x)
+    x = get_normalizer_from_name('batch-norm')(x)
     x = get_activation_from_name('relu')(x)
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False)(x)
-    x = get_nomalizer_from_name('batch-norm')(x)
+    x = get_normalizer_from_name('batch-norm')(x)
     x = get_activation_from_name('relu')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same')(x)
 

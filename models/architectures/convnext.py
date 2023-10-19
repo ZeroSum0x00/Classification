@@ -48,7 +48,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from tensorflow.keras import backend as K
 from utils.model_processing import _obtain_input_shape
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 try:
       from models.layers import StochasticDepth
 except ImportError:
@@ -66,7 +66,7 @@ def stem_cell(inputs, out_filter, normalizer='layer-norm', norm_eps=1e-6, name='
                strides=(4, 4), 
                padding='same', 
                name=name + '_conv')(inputs)
-    x = get_nomalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
     return x
 
 
@@ -77,7 +77,7 @@ def Downsamples(inputs,
                 normalizer='layer-norm',
                 norm_eps=1e-6, 
                 name="downsamples"):
-    x = get_nomalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(inputs)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(inputs)
     x = Conv2D(filters=out_filter,
                kernel_size=(2, 2), 
                strides=(2, 2), 
@@ -108,7 +108,7 @@ def ConvNextBlock(inputs,
                kernel_initializer=kernel_initial,
                bias_initializer=bias_initial,
                name=name + "_dw")(inputs)
-    x = get_nomalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
     x = Conv2D(filters=in_filters*4,
                kernel_size=(1, 1),
                strides=(1, 1),
@@ -238,7 +238,7 @@ def ConvNext(depths=[3, 3, 9, 3],
 
     if include_top:
         x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
+        x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
         x = Dense(1 if classes == 2 else classes, 
                   name='predictions',
                   kernel_initializer=kernel_initial, 

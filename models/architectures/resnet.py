@@ -42,7 +42,7 @@ from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -66,15 +66,15 @@ def BasicBlock(input_tensor, filters, kernel_size=3, downsaple=False, activation
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=kernel_size, strides=strides, padding='same', name=prefix + '_conv1')(input_tensor)
-    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
+    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
     x = get_activation_from_name(activation, name=prefix + '_activation1')(x)
     
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=(1, 1), padding='same', name=prefix + '_conv2')(x)
-    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
+    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, name=prefix + '_shortcut')(shortcut)
-      shortcut = get_nomalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
+      shortcut = get_normalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
 
     x = add([x, shortcut], name=prefix + '_merge')
     x = get_activation_from_name(activation, name=prefix + '_final')(x)
@@ -97,19 +97,19 @@ def Bottleneck(input_tensor, filters, kernel_size=3, downsaple=False, activation
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), name=prefix + '_conv1')(input_tensor)
-    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
+    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
     x = get_activation_from_name(activation, name=prefix + '_activation1')(x)
     
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=strides, padding='same', name=prefix + '_conv2')(x)
-    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
+    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
     x = get_activation_from_name(activation, name=prefix + '_activation2')(x)
     
     x = Conv2D(filters=filter3, kernel_size=(1, 1), strides=(1, 1), name=prefix + '_conv3')(x)
-    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm3')(x)
+    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm3')(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, name=prefix + '_shortcut')(shortcut)
-      shortcut = get_nomalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
+      shortcut = get_normalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
 
     x = add([x, shortcut], name=prefix + '_merge')
     x = get_activation_from_name(activation, name=prefix + '_final')(x)
@@ -158,7 +158,7 @@ def ResNetA(num_blocks,
     # Block conv1
     x = ZeroPadding2D(padding=(3, 3), name='initial_block_zeropadding')(img_input)
     x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), name='initial_block_conv')(x)
-    x = get_nomalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
+    x = get_normalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
     x = get_activation_from_name('relu', name='initial_block_activation')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='initial_block_maxpool')(x)
 
@@ -284,7 +284,7 @@ def ResNetB(num_blocks,
     # Block conv1
     x = ZeroPadding2D(padding=(3, 3), name='initial_block_zeropadding')(img_input)
     x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), name='initial_block_conv')(x)
-    x = get_nomalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
+    x = get_normalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
     x = get_activation_from_name('relu', name='initial_block_activation')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='initial_block_maxpool')(x)
 

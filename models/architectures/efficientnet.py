@@ -57,7 +57,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import multiply
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape, correct_pad
 
 
@@ -175,7 +175,7 @@ def EfficientBlock(inputs,
                    use_bias=False,
                    kernel_initializer=CONV_KERNEL_INITIALIZER,
                    name=name + 'expand_conv')(inputs)
-        x = get_nomalizer_from_name(normalizer, name=name + 'expand_bn')(x)
+        x = get_normalizer_from_name(normalizer, name=name + 'expand_bn')(x)
         x = get_activation_from_name(activation, name=name + 'expand_activation')(x)
     else:
         x = inputs
@@ -192,7 +192,7 @@ def EfficientBlock(inputs,
                         use_bias=False,
                         depthwise_initializer=CONV_KERNEL_INITIALIZER,
                         name=name + 'dwconv')(x)
-    x = get_nomalizer_from_name(normalizer, name=name + 'bn')(x)
+    x = get_normalizer_from_name(normalizer, name=name + 'bn')(x)
     x = get_activation_from_name(activation, name=name + 'activation')(x)
 
     if 0 < squeeze_ratio <= 1:
@@ -227,7 +227,7 @@ def EfficientBlock(inputs,
                use_bias=False,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name=name + 'project_conv')(x)
-    x = get_nomalizer_from_name(normalizer, name=name + 'project_bn')(x)
+    x = get_normalizer_from_name(normalizer, name=name + 'project_bn')(x)
 
     if (residual_connection is True) and (strides == 1) and (filters_in == filters_out):
         if drop_rate > 0:
@@ -289,7 +289,7 @@ def EfficientNet(width_coefficient,
                use_bias=False,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name='stem_conv')(x)
-    x = get_nomalizer_from_name('batch-norm', name='stem_bn')(x)
+    x = get_normalizer_from_name('batch-norm', name='stem_bn')(x)
     x = get_activation_from_name('swish', name='stem_activation')(x)
 
     b = 0
@@ -322,7 +322,7 @@ def EfficientNet(width_coefficient,
                use_bias=False,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name='top_conv')(x)
-    x = get_nomalizer_from_name('batch-norm', name='top_bn')(x)
+    x = get_normalizer_from_name('batch-norm', name='top_bn')(x)
     x = get_activation_from_name('swish', name='top_activation')(x)
 
     if include_top:

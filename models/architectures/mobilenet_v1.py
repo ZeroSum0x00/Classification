@@ -46,7 +46,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_nomalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -59,7 +59,7 @@ def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1, act
                padding='valid',
                use_bias=False,
                name='stem_conv')(x)
-    x = get_nomalizer_from_name(normalizer, name='stem_bn')(x)
+    x = get_normalizer_from_name(normalizer, name='stem_bn')(x)
     x = get_activation_from_name(activation, name='stem_relu')(x)
     return x
 
@@ -80,7 +80,7 @@ def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, 
                         depth_multiplier=depth_multiplier,
                         use_bias=False,
                         name=f'conv_dw_{prefix}')(inputs)
-    x = get_nomalizer_from_name(normalizer, name=f'conv_dw_{prefix}_bn')(x)
+    x = get_normalizer_from_name(normalizer, name=f'conv_dw_{prefix}_bn')(x)
     x = get_activation_from_name(activation, name=f'conv_dw_{prefix}_activ')(x)
     
     # Pointwise
@@ -90,7 +90,7 @@ def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, 
                padding='same',
                use_bias=False,
                name=f'conv_pw_{prefix}')(x)
-    x = get_nomalizer_from_name(normalizer, name=f'conv_pw_{prefix}_bn')(x)
+    x = get_normalizer_from_name(normalizer, name=f'conv_pw_{prefix}_bn')(x)
     x = get_activation_from_name(name=f'conv_pw_{prefix}_activ')(x)
     return x
     

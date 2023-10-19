@@ -42,7 +42,7 @@ from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.utils import get_source_inputs, get_file
 from .swin import window_partition, window_reverse, PatchEmbed, PatchMerging
-from models.layers import MLPBlock, DropPath, get_activation_from_name, get_nomalizer_from_name
+from models.layers import MLPBlock, DropPath, get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -235,7 +235,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
         self.drop_path_prob = drop_path_prob
 
     def build(self, input_shape):
-        self.norm_layer1 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
+        self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
         self.attention   = WindowAttention(dim=self.dim,
                                            window_size=self.window_size,
                                            num_heads=self.num_heads,
@@ -245,7 +245,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
                                            proj_drop=self.proj_drop)
 
         self.drop_path   = DropPath(self.drop_path_prob if self.drop_path_prob > 0. else 0.)
-        self.norm_layer2 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
+        self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
         mlp_hidden_dim   = int(self.dim * self.mlp_ratio)
         self.mlp         = MLPBlock(mlp_dim=mlp_hidden_dim,
                                     activation=self.activation,
@@ -420,7 +420,7 @@ def Swin_v2(embed_dim=96,
         if (i < num_layers - 1):
             x   = PatchMerging(input_resolution)(x)
             
-    x = get_nomalizer_from_name('layer-norm', epsilon=1e-5)(x)
+    x = get_normalizer_from_name('layer-norm', epsilon=1e-5)(x)
                 
     if include_top:
         x = GlobalAveragePooling1D()(x)
