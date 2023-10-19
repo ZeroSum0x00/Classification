@@ -6,21 +6,21 @@
        -----------------------------------------
       |     Model Name         |    Params      |
       |-----------------------------------------|
-      |     EfficientNet-B0    |   5,330,564    |
+      |     EfficientNet-B0    |   8,062,504    |
       |------------------------|----------------|
-      |     EfficientNet-B1    |   7,856,232    |
+      |     EfficientNet-B1    |   14,307,880   |
       |------------------------|----------------|
-      |     EfficientNet-B2    |   9,177,562    |
+      |     EfficientNet-B2    |   20,242,984   |
       |------------------------|----------------|
-      |     EfficientNet-B3    |   12,320,528   |
+      |     EfficientNet-B3    |   33,736,232   |
       |------------------------|----------------|
-      |     EfficientNet-B4    |   19,466,816   |
+      |     EfficientNet-B4    |   33,736,232   |
       |------------------------|----------------|
-      |     EfficientNet-B5    |   30,562,520   |
+      |     EfficientNet-B5    |   33,736,232   |
       |------------------------|----------------|
-      |     EfficientNet-B6    |   43,265,136   |
+      |     EfficientNet-B6    |   33,736,232   |
       |------------------------|----------------|
-      |     EfficientNet-B7    |   66,658,680   |
+      |     EfficientNet-B7    |   33,736,232   |
        -----------------------------------------
 
   # Reference:
@@ -57,6 +57,7 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import multiply
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape, correct_pad
 
 
@@ -151,14 +152,6 @@ def config_model_extractor(args, width_coefficient, depth_divisor=8):
     return filters_in, filters_out, kernel_size, strides, expand_ratio, squeeze_ratio, residual_connection, repeats
 
 
-def swish(x):
-    if K.backend() == 'tensorflow':
-        try:
-            return tf.nn.swish(x)
-        except AttributeError:
-            pass
-    return x * tf.nn.sigmoid(x)
-
 def EfficientBlock(inputs, 
                    filters_in,
                    filters_out,
@@ -166,15 +159,11 @@ def EfficientBlock(inputs,
                    strides,
                    expand_ratio=1, 
                    squeeze_ratio=0., 
-                   activation=swish, 
+                   activation='gelu',
+                   normalizer='layer-norm',
                    residual_connection=True, 
                    drop_rate=0., 
                    name='efficien_block'):
-    if K.image_data_format() == 'channels_last':
-        bn_axis = -1
-    else:
-        bn_axis = 1
-
     filters = filters_in * expand_ratio
     
     if expand_ratio != 1:
@@ -186,8 +175,8 @@ def EfficientBlock(inputs,
                    use_bias=False,
                    kernel_initializer=CONV_KERNEL_INITIALIZER,
                    name=name + 'expand_conv')(inputs)
-        x = BatchNormalization(axis=bn_axis, name=name + 'expand_bn')(x)
-        x = Activation(activation, name=name + 'expand_activation')(x)
+        x = get_nomalizer_from_name(normalizer, name=name + 'expand_bn')(x)
+        x = get_activation_from_name(activation, name=name + 'expand_activation')(x)
     else:
         x = inputs
 
@@ -203,8 +192,8 @@ def EfficientBlock(inputs,
                         use_bias=False,
                         depthwise_initializer=CONV_KERNEL_INITIALIZER,
                         name=name + 'dwconv')(x)
-    x = BatchNormalization(axis=bn_axis, name=name + 'bn')(x)
-    x = Activation(activation, name=name + 'activation')(x)
+    x = get_nomalizer_from_name(normalizer, name=name + 'bn')(x)
+    x = get_activation_from_name(activation, name=name + 'activation')(x)
 
     if 0 < squeeze_ratio <= 1:
         filters_squeeze = max(1, int(filters_in * squeeze_ratio))
@@ -238,7 +227,7 @@ def EfficientBlock(inputs,
                use_bias=False,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name=name + 'project_conv')(x)
-    x = BatchNormalization(axis=bn_axis, name=name + 'project_bn')(x)
+    x = get_nomalizer_from_name(normalizer, name=name + 'project_bn')(x)
 
     if (residual_connection is True) and (strides == 1) and (filters_in == filters_out):
         if drop_rate > 0:
@@ -251,7 +240,6 @@ def EfficientBlock(inputs,
 def EfficientNet(width_coefficient,
                  depth_coefficient,
                  blocks_args=DEFAULT_BLOCKS_ARGS,
-                 activation=swish,
                  include_top=True,
                  weights='imagenet',
                  input_tensor=None,
@@ -301,8 +289,8 @@ def EfficientNet(width_coefficient,
                use_bias=False,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name='stem_conv')(x)
-    x = BatchNormalization(axis=bn_axis, name='stem_bn')(x)
-    x = Activation(activation, name='stem_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='stem_bn')(x)
+    x = get_activation_from_name('swish', name='stem_activation')(x)
 
     b = 0
     blocks = float(sum(args['repeats'] for args in blocks_args))
@@ -320,9 +308,10 @@ def EfficientNet(width_coefficient,
                                strides, 
                                expand_ratio, 
                                squeeze_ratio, 
-                               activation, 
-                               residual_connection,
-                               drop_connect_rate * b / blocks,
+                               activation='gelu',
+                               normalizer='layer-norm',
+                               residual_connection=residual_connection,
+                               drop_rate=drop_connect_rate * b / blocks,
                                name='block_{}{}_'.format(idx + 1, chr(i + 97)))
             b += 1
 
@@ -333,17 +322,17 @@ def EfficientNet(width_coefficient,
                use_bias=False,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name='top_conv')(x)
-    x = BatchNormalization(axis=bn_axis, name='top_bn')(x)
-    x = Activation(activation, name='top_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='top_bn')(x)
+    x = get_activation_from_name('swish', name='top_activation')(x)
 
     if include_top:
         x = GlobalAveragePooling2D(name='global_avgpool')(x)
         if drop_rate > 0:
             x = Dropout(drop_rate, name='top_dropout')(x)
         x = Dense(1 if classes == 2 else classes, 
-                  activation=final_activation, 
                   kernel_initializer=DENSE_KERNEL_INITIALIZER, 
                   name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)

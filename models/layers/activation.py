@@ -19,9 +19,9 @@ class Mish(tf.keras.layers.Layer):
         return inputs * tf.math.tanh(tf.math.softplus(inputs))
 
 
-def get_activation_from_name(name, *args, **kwargs):
-    activ_name = name.lower()
-    if activ_name in ['relu', 'sigmoid', 'softmax', 'softplus', 'phish', 'hard_swish', 'gelu']:
+def get_activation_from_name(activ_name, *args, **kwargs):
+    activ_name = activ_name.lower()
+    if activ_name in ['relu', 'sigmoid', 'softmax', 'softplus', 'phish', 'hard_swish', 'gelu', 'swish']:
         return Activation(activ_name)
     elif activ_name == 'relu6':
         return ReLU6(*args, **kwargs)

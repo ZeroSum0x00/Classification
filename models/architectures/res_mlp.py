@@ -31,7 +31,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import GlobalMaxPooling1D
 from tensorflow.keras.layers import Reshape
@@ -39,7 +38,7 @@ from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ChannelAffine, SAMModel
+from models.layers import ChannelAffine, SAMModel, get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -56,7 +55,7 @@ def res_mlp_block(inputs, channels_mlp_dim, drop_rate=0, activation="gelu", name
 
     nn = ChannelAffine(use_bias=True, axis=-1, name=name + "norm_2")(token_out)
     nn = Dense(channels_mlp_dim, name=name + "channel_mixing_1")(nn)
-    nn = Activation(activation, name=name + activation)(nn)
+    nn = get_activation_from_name(activation, name=name + activation)(nn)
     nn = Dense(inputs.shape[-1], name=name + "channel_mixing_2")(nn)
     channel_out = ChannelAffine(use_bias=False, axis=-1, name=name + "gamma_2")(nn)
     
@@ -78,7 +77,7 @@ def ResMLP(stem_width,
            pooling=None,
            final_activation="softmax",
            classes=1000,
-           sam_rho=0,
+           sam_rho=0.0,
            drop_rate=0):
         
     if weights not in {'imagenet', None}:
@@ -120,7 +119,7 @@ def ResMLP(stem_width,
     drop_connect_s, drop_connect_e = drop_connect_rate if isinstance(drop_rate, (list, tuple)) else [drop_rate, drop_rate]
     
     for ii in range(num_blocks):
-        name = "{}_{}_".format("gmlp", str(ii + 1))
+        name = "{}_{}_".format("res_block", str(ii + 1))
         block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * ii / num_blocks
         x = res_mlp_block(x, channels_mlp_dim=channels_mlp_dim, drop_rate=block_drop_rate, activation='gelu', name=name)
         
@@ -129,7 +128,8 @@ def ResMLP(stem_width,
     if include_top:
         x = GlobalAveragePooling1D()(x)
         x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling1D()(x)
@@ -142,7 +142,6 @@ def ResMLP(stem_width,
         inputs = get_source_inputs(input_tensor)
     else:
         inputs = img_input
-
 
     def __build_model(inputs, outputs, sam_rho, name):
         if sam_rho != 0:
@@ -181,7 +180,7 @@ def ResMLP_S12(include_top=True,
                pooling=None,
                final_activation="softmax",
                classes=1000,
-               sam_rho=0,
+               sam_rho=0.0,
                drop_rate=0.1) -> Model:
     
     model = ResMLP(stem_width=384,
@@ -207,7 +206,7 @@ def ResMLP_S24(include_top=True,
                pooling=None,
                final_activation="softmax",
                classes=1000,
-               sam_rho=0,
+               sam_rho=0.0,
                drop_rate=0.1) -> Model:
     
     model = ResMLP(stem_width=384,
@@ -233,7 +232,7 @@ def ResMLP_S36(include_top=True,
                pooling=None,
                final_activation="softmax",
                classes=1000,
-               sam_rho=0,
+               sam_rho=0.0,
                drop_rate=0.1) -> Model:
 
     model = ResMLP(stem_width=384,
@@ -259,7 +258,7 @@ def ResMLP_B24(include_top=True,
                pooling=None,
                final_activation="softmax",
                classes=1000,
-               sam_rho=0,
+               sam_rho=0.0,
                drop_rate=0.1) -> Model:
 
     model = ResMLP(stem_width=768,

@@ -39,6 +39,7 @@ from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -55,15 +56,14 @@ def VGGBlock(x, num_layers, filters, activation='relu', name='vgg_block'):
                    kernel_size=(3, 3),
                    strides=(1, 1),
                    padding='same',
-                   activation=activation,
                    name=name + "_conv" + str(i))(x)
+        x = get_activation_from_name(activation)(x)
     x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name=name + "_pool")(x)
     return x
 
 
 def VGG(layers,
         filters,
-        activation='relu',
         include_top=True,
         weights='imagenet',
         input_tensor=None,
@@ -103,26 +103,29 @@ def VGG(layers,
         bn_axis = 1    
 
     # Block 0
-    x = VGGBlock(img_input, layers[0], filters[0], activation, name='vgg_block0')
+    x = VGGBlock(img_input, layers[0], filters[0], 'relu', name='vgg_block0')
 
     # Block 1
-    x = VGGBlock(x, layers[1], filters[1], activation, name='vgg_block1')
+    x = VGGBlock(x, layers[1], filters[1], 'relu', name='vgg_block1')
 
     # Block 2
-    x = VGGBlock(x, layers[2], filters[2], activation, name='vgg_block2')
+    x = VGGBlock(x, layers[2], filters[2], 'relu', name='vgg_block2')
 
     # Block 3
-    x = VGGBlock(x, layers[3], filters[3], activation, name='vgg_block3')
+    x = VGGBlock(x, layers[3], filters[3], 'relu', name='vgg_block3')
 
     # Block 4
-    x = VGGBlock(x, layers[4], filters[4], activation, name='vgg_block4')
+    x = VGGBlock(x, layers[4], filters[4], 'relu', name='vgg_block4')
 
     if include_top:
         # Classification block
         x = Flatten(name='flatten')(x)
-        x = Dense(4096, activation='relu', name='fc1')(x)
-        x = Dense(4096, activation='relu', name='fc2')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(4096, name='fc1')(x)
+        x = get_activation_from_name('relu')(x)
+        x = Dense(4096, name='fc2')(x)
+        x = get_activation_from_name('relu')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D()(x)

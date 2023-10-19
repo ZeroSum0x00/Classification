@@ -34,8 +34,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
@@ -44,6 +42,7 @@ from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -51,7 +50,7 @@ RESNET50_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releas
 RESNET50_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
 
-def BasicBlock(input_tensor, filters, kernel_size=3, downsaple=False, stage='a', block=1):
+def BasicBlock(input_tensor, filters, kernel_size=3, downsaple=False, activation="relu", normalizer='batch-norm', stage='a', block=1):
     if K.image_data_format() == 'channels_last':
         bn_axis = 3
     else:
@@ -63,25 +62,26 @@ def BasicBlock(input_tensor, filters, kernel_size=3, downsaple=False, stage='a',
         strides = 2
     else:
         strides = 1
+        
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=kernel_size, strides=strides, padding='same', name=prefix + '_conv1')(input_tensor)
-    x = BatchNormalization(axis=bn_axis, name=prefix + '_batchnorm1')(x)
-    x = Activation('relu', name=prefix + '_activation1')(x)
-
+    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
+    x = get_activation_from_name(activation, name=prefix + '_activation1')(x)
+    
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=(1, 1), padding='same', name=prefix + '_conv2')(x)
-    x = BatchNormalization(axis=bn_axis, name=prefix + '_batchnorm2')(x)
+    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, name=prefix + '_shortcut')(shortcut)
-      shortcut = BatchNormalization(axis=bn_axis)(shortcut)
+      shortcut = get_nomalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
 
     x = add([x, shortcut], name=prefix + '_merge')
-    x = Activation('relu', name=prefix + '_final')(x)
+    x = get_activation_from_name(activation, name=prefix + '_final')(x)
     return x
 
 
-def Bottleneck(input_tensor, filters, kernel_size=3, downsaple=False, stage='a', block=1):
+def Bottleneck(input_tensor, filters, kernel_size=3, downsaple=False, activation="relu", normalizer='batch-norm', stage='a', block=1):
     if K.image_data_format() == 'channels_last':
         bn_axis = 3
     else:
@@ -93,25 +93,26 @@ def Bottleneck(input_tensor, filters, kernel_size=3, downsaple=False, stage='a',
         strides = 2
     else:
         strides = 1   
+        
     shortcut = input_tensor
 
     x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), name=prefix + '_conv1')(input_tensor)
-    x = BatchNormalization(axis=bn_axis, name=prefix + '_batchnorm1')(x)
-    x = Activation('relu', name=prefix + '_activation1')(x)
-
+    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
+    x = get_activation_from_name(activation, name=prefix + '_activation1')(x)
+    
     x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=strides, padding='same', name=prefix + '_conv2')(x)
-    x = BatchNormalization(axis=bn_axis, name=prefix + '_batchnorm2')(x)
-    x = Activation('relu', name=prefix + '_activation2')(x)
-
+    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
+    x = get_activation_from_name(activation, name=prefix + '_activation2')(x)
+    
     x = Conv2D(filters=filter3, kernel_size=(1, 1), strides=(1, 1), name=prefix + '_conv3')(x)
-    x = BatchNormalization(axis=bn_axis, name=prefix + '_batchnorm3')(x)
+    x = get_nomalizer_from_name(normalizer, name=prefix + '_batchnorm3')(x)
 
     if downsaple:
       shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, name=prefix + '_shortcut')(shortcut)
-      shortcut = BatchNormalization(axis=bn_axis)(shortcut)
+      shortcut = get_nomalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
 
     x = add([x, shortcut], name=prefix + '_merge')
-    x = Activation('relu', name=prefix + '_final')(x)
+    x = get_activation_from_name(activation, name=prefix + '_final')(x)
     return x
 
 
@@ -157,8 +158,8 @@ def ResNetA(num_blocks,
     # Block conv1
     x = ZeroPadding2D(padding=(3, 3), name='initial_block_zeropadding')(img_input)
     x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), name='initial_block_conv')(x)
-    x = BatchNormalization(axis=bn_axis, name='initial_block_batchnorm')(x)
-    x = Activation('relu', name='initial_block_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
+    x = get_activation_from_name('relu', name='initial_block_activation')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='initial_block_maxpool')(x)
 
     # Block conv2_x
@@ -186,7 +187,8 @@ def ResNetA(num_blocks,
     # Final Block
     if include_top:
         outputs = Flatten(name='flatten')(outputs)
-        outputs = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(outputs)
+        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
+        outputs = get_activation_from_name(final_activation)(outputs)
     else:
         if pooling == 'avg':
             outputs = GlobalAveragePooling2D(name='global_avgpool')(outputs)
@@ -282,8 +284,8 @@ def ResNetB(num_blocks,
     # Block conv1
     x = ZeroPadding2D(padding=(3, 3), name='initial_block_zeropadding')(img_input)
     x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), name='initial_block_conv')(x)
-    x = BatchNormalization(axis=bn_axis, name='initial_block_batchnorm')(x)
-    x = Activation('relu', name='initial_block_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
+    x = get_activation_from_name('relu', name='initial_block_activation')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='initial_block_maxpool')(x)
 
     # Block conv2_x
@@ -311,7 +313,8 @@ def ResNetB(num_blocks,
     # Final Block
     if include_top:
         outputs = Flatten(name='flatten')(outputs)
-        outputs = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(outputs)
+        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
+        outputs = get_activation_from_name(final_activation)(outputs)
     else:
         if pooling == 'avg':
             outputs = GlobalAveragePooling2D(name='global_avgpool')(outputs)

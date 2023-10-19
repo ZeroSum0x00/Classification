@@ -3,6 +3,16 @@
     - The following table comparing the params of the Data-efficient image Transformers (DeiT) in Tensorflow on 
     size 224 x 224 x 3:
 
+       ---------------------------------------
+      |     Model Name      |    Params       |
+      |---------------------------------------|
+      |      DeiT-Tiny      |   16,555,280    |
+      |---------------------|-----------------|
+      |     DeiT-Small      |   36,610,640    |
+      |---------------------|-----------------|
+      |      DeiT-Base      |   87,338,192    |
+       ---------------------------------------
+       
   # Reference:
     - [Training data-efficient image transformers
        & distillation through attention](https://arxiv.org/pdf/2012.12877.pdf)
@@ -22,16 +32,17 @@ from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import (ExtractPatches, ClassificationToken, AddPositionEmbedding
-                           TransformerBlock, DistillationToken, get_nomalizer_from_name)
+from models.layers import (ExtractPatches, ClassificationToken, AddPositionEmbedding,
+                           TransformerBlock, DistillationToken, SAMModel, 
+                           get_nomalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
-def DeiT(patch_size=16,
-         num_heads=12,
-         num_layers=12,
-         mlp_dim=3072,
-         hidden_size=768,
+def DeiT(num_layers,
+         patch_size,
+         num_heads,
+         mlp_dim,
+         hidden_dim,
          include_top=True, 
          weights='imagenet',
          input_tensor=None, 
@@ -39,6 +50,8 @@ def DeiT(patch_size=16,
          pooling=None,
          final_activation="softmax",
          classes=1000,
+         sam_rho=0.0,
+         norm_eps=1e-6,
          drop_rate=0.1,
          training=False):
          
@@ -72,7 +85,7 @@ def DeiT(patch_size=16,
     else:
         bn_axis = 1
 
-    x = ExtractPatches(patch_size, hidden_size, name="Extract_Patches")(img_input)
+    x = ExtractPatches(patch_size, hidden_dim, name="Extract_Patches")(img_input)
     x = DistillationToken(name="Distillation_Token")(x)
     x = ClassificationToken(name="Classification_Token")(x)
     x = AddPositionEmbedding(name="Add_Position_Embedding")(x)
@@ -81,7 +94,7 @@ def DeiT(patch_size=16,
                                 mlp_dim=mlp_dim,
                                 drop_rate=drop_rate,
                                 name=f"Transformer/encoderblock_{n}")(x)
-    x = get_nomalizer_from_name('layer-norm', epsilon=1e-6, name="Transformer/encoder_norm")(x)
+    x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
     x_head = Lambda(lambda v: v[:, 0], name="Extract_Predict_Token")(x)
     x_dist = Lambda(lambda v: v[:, 1], name="Extract_Distillation_Token")(x)
 
@@ -110,10 +123,23 @@ def DeiT(patch_size=16,
         inputs = get_source_inputs(input_tensor)
     else:
         inputs = img_input
-        
-    # Create model.
-    model = Model(inputs=inputs, outputs=x, name='DeiT')
 
+    def __build_model(inputs, outputs, sam_rho, name):
+        if sam_rho != 0:
+            return SAMModel(inputs, x, name=name + '_SAM')
+        else:
+            return Model(inputs, x, name=name)
+            
+    # Create model.
+    if num_heads == 3 and hidden_dim == 192:
+        model = __build_model(inputs, x, sam_rho, name='DeiT-Tiny')
+    elif num_heads == 6 and hidden_dim == 384:
+        model = __build_model(inputs, x, sam_rho, name='DeiT-Small')
+    elif num_heads == 12 and hidden_dim == 768:
+        model = __build_model(inputs, x, sam_rho, name='DeiT-Base')
+    else:
+        model = __build_model(inputs, x, sam_rho, name='DeiT')
+             
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
                       'are using the Theano '
@@ -123,4 +149,90 @@ def DeiT(patch_size=16,
                       '`image_data_format="channels_last"` in '
                       'your Keras config '
                       'at ~/.keras/keras.json.')
+    return model
+
+
+def DeiT_Ti(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            norm_eps=1e-6,
+            drop_rate=0.1):
+
+    model = DeiT(num_layers=12,
+                 patch_size=16,
+                 num_heads=3,
+                 mlp_dim=3072,
+                 hidden_dim=192,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor,
+                 input_shape=input_shape,
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes,
+                 sam_rho=sam_rho,
+                 norm_eps=norm_eps,
+                 drop_rate=drop_rate)
+    return model
+
+def DeiT_S(include_top=True, 
+           weights='imagenet',
+           input_tensor=None, 
+           input_shape=None,
+           pooling=None,
+           final_activation="softmax",
+           classes=1000,
+           sam_rho=0.0,
+           norm_eps=1e-6,
+           drop_rate=0.1):
+
+    model = DeiT(num_layers=12,
+                 patch_size=16,
+                 num_heads=6,
+                 mlp_dim=3072,
+                 hidden_dim=384,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor,
+                 input_shape=input_shape,
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes,
+                 sam_rho=sam_rho,
+                 norm_eps=norm_eps,
+                 drop_rate=drop_rate)
+    return model
+
+                
+def DeiT_B(include_top=True, 
+           weights='imagenet',
+           input_tensor=None, 
+           input_shape=None,
+           pooling=None,
+           final_activation="softmax",
+           classes=1000,
+           sam_rho=0.0,
+           norm_eps=1e-6,
+           drop_rate=0.1):
+
+    model = DeiT(num_layers=12,
+                 patch_size=16,
+                 num_heads=12,
+                 mlp_dim=3072,
+                 hidden_dim=768,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor,
+                 input_shape=input_shape,
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes,
+                 sam_rho=sam_rho,
+                 norm_eps=norm_eps,
+                 drop_rate=drop_rate)
     return model

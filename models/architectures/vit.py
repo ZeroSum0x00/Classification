@@ -39,9 +39,10 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock
+from models.layers import (ExtractPatches, ClassificationToken, 
+                           AddPositionEmbedding, TransformerBlock, SAMModel,
+                           get_activation_from_name, get_nomalizer_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
@@ -57,6 +58,7 @@ def ViT(num_layers=12,
         pooling=None,
         final_activation="softmax",
         classes=1000,
+        sam_rho=0.0,
         norm_eps=1e-6,
         drop_rate=0.1):
 
@@ -99,11 +101,12 @@ def ViT(num_layers=12,
                                 norm_eps=norm_eps,
                                 drop_rate=drop_rate,
                                 name=f"Transformer/encoderblock_{n}")(x)
-    x = LayerNormalization(epsilon=norm_eps, name="Transformer/encoder_norm")(x)
+    x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
     x = Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
 
     if include_top:
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)
@@ -117,30 +120,36 @@ def ViT(num_layers=12,
     else:
         inputs = img_input
 
+    def __build_model(inputs, outputs, sam_rho, name):
+        if sam_rho != 0:
+            return SAMModel(inputs, x, name=name + '_SAM')
+        else:
+            return Model(inputs, x, name=name)
+            
     # Create model.
     if num_layers == 12:
         if patch_size == 16:
-            model = Model(inputs, x, name='ViT-Base-16')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Base-16')
         elif patch_size == 32:
-            model = Model(inputs, x, name='ViT-Base-32')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Base-32')
         else:
-            model = Model(inputs, x, name='ViT-Base')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Base')
     elif num_layers == 24:
         if patch_size == 16:
-            model = Model(inputs, x, name='ViT-Large-16')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Large-16')
         elif patch_size == 32:
-            model = Model(inputs, x, name='ViT-Large-32')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Large-32')
         else:
-            model = Model(inputs, x, name='ViT-Large')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Large')
     elif num_layers == 32:
         if patch_size == 16:
-            model = Model(inputs, x, name='ViT-Huge-16')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Huge-16')
         elif patch_size == 32:
-            model = Model(inputs, x, name='ViT-Huge-32')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Huge-32')
         else:
-            model = Model(inputs, x, name='ViT-Huge')
+            model = __build_model(inputs, x, sam_rho, name='ViT-Huge')
     else:
-        model = Model(inputs, x, name='ViT')
+        model = __build_model(inputs, x, sam_rho, name='ViT')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
@@ -161,6 +170,7 @@ def ViTBase16(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
+              sam_rho=0.0,
               norm_eps=1e-6,
               drop_rate=0.1):
 
@@ -176,6 +186,7 @@ def ViTBase16(include_top=True,
                 pooling=pooling, 
                 final_activation=final_activation,
                 classes=classes,
+                sam_rho=sam_rho,
                 norm_eps=norm_eps,
                 drop_rate=drop_rate)
     return model
@@ -188,6 +199,7 @@ def ViTBase32(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
+              sam_rho=0.0,
               norm_eps=1e-6,
               drop_rate=0.1):
 
@@ -203,6 +215,7 @@ def ViTBase32(include_top=True,
                 pooling=pooling, 
                 final_activation=final_activation,
                 classes=classes,
+                sam_rho=sam_rho,
                 norm_eps=norm_eps,
                 drop_rate=drop_rate)
     return model
@@ -215,6 +228,7 @@ def ViTLarge16(include_top=True,
                pooling=None,
                final_activation="softmax",
                classes=1000,
+               sam_rho=0.0,
                norm_eps=1e-6,
                drop_rate=0.1):
 
@@ -230,6 +244,7 @@ def ViTLarge16(include_top=True,
                 pooling=pooling, 
                 final_activation=final_activation,
                 classes=classes,
+                sam_rho=sam_rho,
                 norm_eps=norm_eps,
                 drop_rate=drop_rate)
     return model
@@ -242,6 +257,7 @@ def ViTLarge32(include_top=True,
                pooling=None,
                final_activation="softmax",
                classes=1000,
+               sam_rho=0.0,
                norm_eps=1e-6,
                drop_rate=0.1):
 
@@ -257,6 +273,7 @@ def ViTLarge32(include_top=True,
                 pooling=pooling, 
                 final_activation=final_activation,
                 classes=classes,
+                sam_rho=sam_rho,
                 norm_eps=norm_eps,
                 drop_rate=drop_rate)
     return model
@@ -269,6 +286,7 @@ def ViTHuge16(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
+              sam_rho=0.0,
               norm_eps=1e-6,
               drop_rate=0.1):
 
@@ -284,6 +302,7 @@ def ViTHuge16(include_top=True,
                 pooling=pooling, 
                 final_activation=final_activation,
                 classes=classes,
+                sam_rho=sam_rho,
                 norm_eps=norm_eps,
                 drop_rate=drop_rate)
     return model
@@ -296,6 +315,7 @@ def ViTHuge32(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
+              sam_rho=0.0,
               norm_eps=1e-6,
               drop_rate=0.1):
 
@@ -311,6 +331,7 @@ def ViTHuge32(include_top=True,
                 pooling=pooling, 
                 final_activation=final_activation,
                 classes=classes,
+                sam_rho=sam_rho,
                 norm_eps=norm_eps,
                 drop_rate=drop_rate)
     return model

@@ -6,7 +6,7 @@
        -------------------------------------
       |     Model Name    |    Params       |
       |-------------------------------------|
-      |    SqueezeNet     |    1,236,904    |
+      |    SqueezeNet     |    2,237,904    |
        -------------------------------------
 
   # Reference:
@@ -36,19 +36,20 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name
 from utils.model_processing import _obtain_input_shape
 
 
-def fire_module(inputs, filters, squeeze_channel):
+def fire_module(inputs, filters, squeeze_channel, activation='relu'):
     x = Conv2D(filters=squeeze_channel, kernel_size=(1, 1), strides=(1, 1), padding="valid")(inputs)
-    x = Activation('relu')(x)
+    x = get_activation_from_name(activation)(x)
     expand_1x1 = Sequential([
         Conv2D(filters=filters // 2, kernel_size=(1, 1), strides=(1, 1), padding="valid"),
-        Activation('relu')
+        get_activation_from_name(activation)
     ])(x)
     expand_3x3 = Sequential([
         Conv2D(filters=filters // 2, kernel_size=(3, 3), strides=(1, 1), padding="same"),
-        Activation('relu')
+        get_activation_from_name(activation)
     ])(x)
     return concatenate([expand_1x1, expand_3x3])
 
@@ -91,8 +92,8 @@ def SqueezeNet(include_top=True,
     else:
         bn_axis = 1    
 
-    x = Conv2D(filters=96, kernel_size=(3, 3), strides=(2, 2), padding='valid')(inputs)
-    x = Activation('relu')(x)
+    x = Conv2D(filters=96, kernel_size=(3, 3), strides=(2, 2), padding='valid')(img_input)
+    x = get_activation_from_name('relu')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
     x = fire_module(x, 128, 16)
     x = fire_module(x, 128, 16)
@@ -110,7 +111,8 @@ def SqueezeNet(include_top=True,
     if include_top:
         # Classification block
         x = Flatten(name='flatten')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D()(x)

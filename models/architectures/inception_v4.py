@@ -3,11 +3,11 @@
     - The following table comparing the params of the Inception v4 in Tensorflow on 
     size 299 x 299 x 3:
 
-       --------------------------------------
-      |     Model Name     |    Params       |
-      |--------------------------------------|
-      |    Inception v4    |   139,476,168   |
-       --------------------------------------
+       --------------------------------------------
+      |        Model Name        |    Params       |
+      |--------------------------------------------|
+      |       Inception v4       |   139,456,552   |
+       --------------------------------------------
 
   # Reference:
     - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/pdf/1602.07261.pdf)
@@ -24,8 +24,6 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import Dense
@@ -35,25 +33,9 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name, get_nomalizer_from_name
+from .inception_v3 import convolution_block
 from utils.model_processing import _obtain_input_shape
-
-
-def convolution_block(inputs, 
-                      filters, 
-                      kernel_size, 
-                      strides=(1, 1), 
-                      padding='same', 
-                      use_bias=True, 
-                      name=None):
-    x = Conv2D(filters=filters, 
-               kernel_size=kernel_size, 
-               strides=strides, 
-               padding=padding, 
-               use_bias=use_bias,
-               name=name + '_conv')(inputs)
-    x = BatchNormalization(name=name + '_bn')(x)
-    x = Activation('relu', name=name + '_activ')(x)
-    return x
 
 
 def stem_block(inputs):
@@ -230,7 +212,8 @@ def Inception_v4(depths=[4, 7, 3],
         x = AveragePooling2D(pool_size=(8, 8), strides=(1, 1), padding='same', name='avg_pooling')(x)
         x = Dropout(rate=0.8, name='dropout')(x)
         x = Flatten(name='flatten')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avg_pooling')(x)

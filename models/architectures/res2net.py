@@ -31,8 +31,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
@@ -42,10 +40,11 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
-def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26, scale=4):
+def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26, scale=4, activation="relu", normalizer='batch-norm'):
     expansion = 4
     width = int(np.floor(filters * (baseWidth / 64.0)))
     nums = 1 if scale == 1 else scale - 1
@@ -53,23 +52,27 @@ def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26,
     if downsample:
         residual = AveragePooling2D(pool_size=stride, strides=stride, padding='same')(input_tensor)
         residual = Conv2D(filters=filters*expansion, kernel_size=1, strides=1, use_bias=False)(residual)
-        residual = BatchNormalization()(residual)
+        residual = get_nomalizer_from_name(normalizer)(residual)
+        
     else:
         residual = input_tensor
 
     x = Conv2D(filters=width*scale, kernel_size=1, strides=1, use_bias=False)(input_tensor)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-
+    x = get_nomalizer_from_name(normalizer)(x)
+    x = get_activation_from_name(activation)(x)
+    
     spx = tf.split(x, scale, axis=-1)
     for i in range(nums):
+        
         if i == 0 or downsample:
             sp = spx[i]
         else:
             sp = sp + spx[i]
+            
         sp = Conv2D(filters=width, kernel_size=3, strides=stride, padding="same", use_bias=False)(sp)
-        sp = BatchNormalization()(sp)
-        sp = Activation('relu')(sp)
+        sp = get_nomalizer_from_name(normalizer)(sp)
+        sp = get_activation_from_name(activation)(sp)
+        
         if i == 0:
             x = sp
         else:
@@ -83,9 +86,9 @@ def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26,
             x = concatenate([x, spx[nums]], axis=-1)
 
     x = Conv2D(filters=filters*expansion, kernel_size=1, strides=1, use_bias=False)(x)
-    x = BatchNormalization()(x)
+    x = get_nomalizer_from_name(normalizer)(x)
     x = add([x, residual])
-    x = Activation('relu')(x)
+    x = get_activation_from_name(activation)(x)
     return x
 
 
@@ -132,20 +135,19 @@ def Res2Net(num_blocks,
     
     # Block conv1
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', use_bias=False)(img_input)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm')(x)
+    x = get_activation_from_name('relu')(x)
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False)(x)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm')(x)
+    x = get_activation_from_name('relu')(x)
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False)(x)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+    x = get_nomalizer_from_name('batch-norm')(x)
+    x = get_activation_from_name('relu')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same')(x)
 
     # Block conv2_x
     for i in range(num_blocks[0]):
         downsaple = True if i == 0 else False
-        print(64, 1, downsaple, baseWidth, scale, num_blocks[0])
         x = Bottle2Neck(x, 64, 1, downsaple, baseWidth, scale)
     
     # Block conv3_x
@@ -165,17 +167,18 @@ def Res2Net(num_blocks,
         downsaple = True if i == 0 else False
         x = Bottle2Neck(x, 512, stride, downsaple, baseWidth, scale)
     
-    outputs = AveragePooling2D(pool_size=(24, 24), name='avg_pool')(x)
+    x = AveragePooling2D(pool_size=(24, 24), name='avg_pool')(x)
 
     # Final Block
     if include_top:
-        outputs = Flatten(name='flatten')(outputs)
-        outputs = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(outputs)
+        x = Flatten(name='flatten')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
-            outputs = GlobalAveragePooling2D(name='global_avgpool')(outputs)
+            x = GlobalAveragePooling2D(name='global_avgpool')(x)
         elif pooling == 'max':
-            outputs = GlobalMaxPooling2D(name='global_maxpool')(outputs)
+            x = GlobalMaxPooling2D(name='global_maxpool')(x)
             
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -186,13 +189,13 @@ def Res2Net(num_blocks,
 
     # Create model.
     if num_blocks == [3, 4, 6, 3]:
-        model = Model(inputs, outputs, name='Res2Net-50')
+        model = Model(inputs, x, name='Res2Net-50')
     elif num_blocks == [3, 4, 23, 3]:
-        model = Model(inputs, outputs, name='Res2Net-101')
+        model = Model(inputs, x, name='Res2Net-101')
     elif num_blocks == [3, 8, 36, 3]:
-        model = Model(inputs, outputs, name='Res2Net-152')
+        model = Model(inputs, x, name='Res2Net-152')
     else:
-        model = Model(inputs, outputs, name='Res2Net')
+        model = Model(inputs, x, name='Res2Net')
 
     # Load weights.
     if weights == 'imagenet':

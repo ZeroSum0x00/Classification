@@ -224,7 +224,7 @@ def ConvNext(depths=[3, 3, 9, 3],
                           name='block2_part' + str(i))
 
     cur += depths[2]
-    x = Downsamples(x, dims[3], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, norm_eps, name='downsaples3')
+    x = Downsamples(x, dims[3], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, name='downsaples3')
     for i in range(depths[3]):
         x = ConvNextBlock(x, 
                           dp_rates[cur + i], 

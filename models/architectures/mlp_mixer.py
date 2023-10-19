@@ -44,21 +44,24 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import GlobalMaxPooling1D
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ExtractPatches, ClassificationToken, AddPositionEmbedding, TransformerBlock, MLPBlock, SAMModel
+from models.layers import (ExtractPatches, ClassificationToken, 
+                           AddPositionEmbedding, TransformerBlock, 
+                           MLPBlock, SAMModel, 
+                           get_nomalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
 class MixerBlock(tf.keras.layers.Layer):
-    def __init__(self, tokens_mlp_dim, channels_mlp_dim, activation='gelu', norm_eps=1e-6, drop_rate=0.1):
+    def __init__(self, tokens_mlp_dim, channels_mlp_dim, activation='gelu', normalizer='layer-norm', norm_eps=1e-6, drop_rate=0.1):
         super(MixerBlock, self).__init__()
         self.tokens_mlp_dim = tokens_mlp_dim
         self.channels_mlp_dim = channels_mlp_dim
         self.activation = activation
+        self.normalizer = normalizer
         self.norm_eps = norm_eps
         self.drop_rate = drop_rate
 
@@ -69,8 +72,8 @@ class MixerBlock(tf.keras.layers.Layer):
         self.channel_mlp_block = MLPBlock(self.channels_mlp_dim, 
                                           activation=self.activation,
                                           drop_rate=self.drop_rate)
-        self.layerNorm1 = LayerNormalization(epsilon=self.norm_eps)
-        self.layerNorm2 = LayerNormalization(epsilon=self.norm_eps)
+        self.layerNorm1 = get_nomalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        self.layerNorm2 = get_nomalizer_from_name(self.normalizer, epsilon=self.norm_eps)
 
     def __token_mixing(self, x):
         # Token-mixing block
@@ -118,7 +121,7 @@ def MLPMixer(patch_size,
              pooling=None,
              final_activation="softmax",
              classes=1000,
-             sam_rho=0,
+             sam_rho=0.0,
              norm_eps=1e-6,
              drop_rate=0.1):
         
@@ -155,13 +158,15 @@ def MLPMixer(patch_size,
     x = ExtractPatches(patch_size, hidden_dim)(img_input)
 
     for i in range(num_blocks):
-        x = MixerBlock(tokens_mlp_dim, channels_mlp_dim, 'gelu', norm_eps, drop_rate)(x)
-    x = LayerNormalization(epsilon=norm_eps)(x)
+        x = MixerBlock(tokens_mlp_dim, channels_mlp_dim, 'gelu', 'layer-norm', norm_eps, drop_rate)(x)
+        
+    x = get_nomalizer_from_name('layer-norm', epsilon=norm_eps)(x)
     
     if include_top:
         x = GlobalAveragePooling1D()(x)
         x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling1D()(x)
@@ -174,7 +179,6 @@ def MLPMixer(patch_size,
         inputs = get_source_inputs(input_tensor)
     else:
         inputs = img_input
-
 
     def __build_model(inputs, outputs, sam_rho, name):
         if sam_rho != 0:
@@ -219,7 +223,7 @@ def MLPMixer_S16(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0,
+                 sam_rho=0.0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -248,7 +252,7 @@ def MLPMixer_S32(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0,
+                 sam_rho=0.0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -277,7 +281,7 @@ def MLPMixer_B16(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0,
+                 sam_rho=0.0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -306,7 +310,7 @@ def MLPMixer_B32(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0,
+                 sam_rho=0.0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -335,7 +339,7 @@ def MLPMixer_L16(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0,
+                 sam_rho=0.0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -364,7 +368,7 @@ def MLPMixer_L32(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0,
+                 sam_rho=0.0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     
@@ -393,7 +397,7 @@ def MLPMixer_H14(include_top=True,
                  pooling=None,
                  final_activation="softmax",
                  classes=1000,
-                 sam_rho=0,
+                 sam_rho=0.0,
                  norm_eps=1e-6,
                  drop_rate=0.1) -> Model:
     

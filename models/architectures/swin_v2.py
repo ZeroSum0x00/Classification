@@ -33,18 +33,16 @@ from tensorflow.keras import Sequential
 from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.utils import get_source_inputs, get_file
 from .swin import window_partition, window_reverse, PatchEmbed, PatchMerging
-from models.layers import MLPBlock, DropPath
+from models.layers import MLPBlock, DropPath, get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -88,7 +86,7 @@ class WindowAttention(tf.keras.layers.Layer):
         # mlp to generate continuous relative position bias
         self.cpb_mlp = Sequential([
             Dense(units=512, use_bias=True),
-            Activation('relu'),
+            get_activation_from_name('relu'),
             Dense(units=self.num_heads, use_bias=False)
         ])
 
@@ -152,7 +150,7 @@ class WindowAttention(tf.keras.layers.Layer):
         self.attention_dropout  = Dropout(self.attn_drop)
         self.projection         = Dense(self.dim)
         self.projection_dropout = Dropout(self.proj_drop)
-        self.softmax_activ      = Activation('softmax')
+        self.softmax_activ      = get_activation_from_name('softmax')
 
     def call(self, inputs, mask=None):
         B_, N, C = inputs.shape
@@ -214,7 +212,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
     """
     
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0, mlp_ratio=4.,
-                 qkv_bias=True, pretrained_window_size=0, activation='gelu', proj_drop=0., attn_drop=0., drop_path_prob=0., *args, **kwargs):
+                 qkv_bias=True, pretrained_window_size=0, activation='gelu', normalizer='layer-norm', proj_drop=0., attn_drop=0., drop_path_prob=0., *args, **kwargs):
         super(SwinTransformerBlock, self).__init__(*args, **kwargs)
         self.dim = dim
         self.input_resolution = input_resolution
@@ -231,12 +229,13 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
         self.qkv_bias = qkv_bias
         self.pretrained_window_size = pretrained_window_size
         self.activation = activation
+        self.normalizer = normalizer
         self.proj_drop = proj_drop
         self.attn_drop = attn_drop
         self.drop_path_prob = drop_path_prob
 
     def build(self, input_shape):
-        self.norm_layer1 = LayerNormalization(epsilon=1e-5)
+        self.norm_layer1 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
         self.attention   = WindowAttention(dim=self.dim,
                                            window_size=self.window_size,
                                            num_heads=self.num_heads,
@@ -246,7 +245,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
                                            proj_drop=self.proj_drop)
 
         self.drop_path   = DropPath(self.drop_path_prob if self.drop_path_prob > 0. else 0.)
-        self.norm_layer2 = LayerNormalization(epsilon=1e-5)
+        self.norm_layer2 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
         mlp_hidden_dim   = int(self.dim * self.mlp_ratio)
         self.mlp         = MLPBlock(mlp_dim=mlp_hidden_dim,
                                     activation=self.activation,
@@ -421,11 +420,12 @@ def Swin_v2(embed_dim=96,
         if (i < num_layers - 1):
             x   = PatchMerging(input_resolution)(x)
             
-    x = LayerNormalization(epsilon=1e-5)(x)
-
+    x = get_nomalizer_from_name('layer-norm', epsilon=1e-5)(x)
+                
     if include_top:
         x = GlobalAveragePooling1D()(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)

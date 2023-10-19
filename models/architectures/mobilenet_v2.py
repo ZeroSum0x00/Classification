@@ -36,8 +36,6 @@ from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import DepthwiseConv2D
@@ -53,11 +51,12 @@ from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import ReLU6
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape, correct_pad
 from utils.auxiliary_processing import make_divisible
 
 
-def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1):
+def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1, activation="relu6", normalizer='batch-norm'):
     filters = int(filters * alpha)
     x = ZeroPadding2D(padding=correct_pad(inputs, 3), name='stem_pad')(inputs)
     x = Conv2D(filters=filters, 
@@ -66,12 +65,12 @@ def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1):
                padding='valid',
                use_bias=False,
                name='stem_conv')(x)
-    x = BatchNormalization(axis=-1, name='stem_bn')(x)
-    x = ReLU6(name='stem_relu')(x)
+    x = get_nomalizer_from_name(normalizer, name='stem_bn')(x)
+    x = get_activation_from_name(activation, name='stem_relu')(x)
     return x
 
 
-def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=1, block_id=0):
+def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=1, activation="relu6", normalizer='batch-norm', block_id=0):
     bs, h, w, c = inputs.shape
     pointwise_filters = make_divisible(int(out_dim * alpha), 8)
 
@@ -86,11 +85,11 @@ def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=
                    use_bias=False,
                    activation=None,
                    name=prefix + 'expand')(x)
-        x = BatchNormalization(axis=-1,
-                               epsilon=1e-3,
-                               momentum=0.999,
-                               name=prefix + 'expand_bn')(x)
-        x = ReLU6(name=prefix + 'expand_activ')(x)
+        x = get_nomalizer_from_name(normalizer, 
+                                    epsilon=1e-3,
+                                    momentum=0.999,
+                                    name=prefix + 'expand_bn')(x)
+        x = get_activation_from_name(activation, name=prefix + 'expand_activ')(x)
     else:
         prefix = 'expanded_conv_'
 
@@ -103,12 +102,11 @@ def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=
                         use_bias=False,
                         padding='same' if strides == (1, 1) else 'valid',
                         name=prefix + 'depthwise')(x)
-    x = BatchNormalization(axis=-1,
-                           epsilon=1e-3,
-                           momentum=0.999,
-                           name=prefix + 'depthwise_BN')(x)
-
-    x = ReLU6(name=prefix + 'depthwise_relu')(x)
+    x = get_nomalizer_from_name(normalizer, 
+                                epsilon=1e-3,
+                                momentum=0.999,
+                                name=prefix + 'depthwise_BN')(x)
+    x = get_activation_from_name(activation, name=prefix + 'depthwise_relu')(x)
 
     # Project
     x = Conv2D(pointwise_filters,
@@ -117,10 +115,10 @@ def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=
                       use_bias=False,
                       activation=None,
                       name=prefix + 'project')(x)
-    x = BatchNormalization(axis=-1,
-                           epsilon=1e-3,
-                           momentum=0.999,
-                           name=prefix + 'project_BN')(x)
+    x = get_nomalizer_from_name(normalizer, 
+                                epsilon=1e-3,
+                                momentum=0.999,
+                                name=prefix + 'project_BN')(x)
     
     if c == pointwise_filters and strides == (1, 1):
         return add([inputs, x])
@@ -214,16 +212,17 @@ def MobileNet_v2(alpha=1,
                strides=(1, 1),
                use_bias=False,
                name='conv1')(x)
-    x = BatchNormalization(axis=-1,
-                           epsilon=1e-3,
-                           momentum=0.999,
-                           name='Conv_1_bn')(x)
-    x = ReLU6(name='out_relu')(x)
-
+    x = get_nomalizer_from_name('batch-norm', 
+                                epsilon=1e-3,
+                                momentum=0.999,
+                                name='Conv_1_bn')(x)
+    x = get_activation_from_name('relu6', name='out_relu')(x)
+                     
     if include_top:
         # Classification block
         x = GlobalAveragePooling2D(name='global_avg_pooling')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avg_pooling')(x)

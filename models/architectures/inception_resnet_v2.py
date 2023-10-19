@@ -24,8 +24,6 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import MaxPooling2D
@@ -38,10 +36,11 @@ from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
 from .inception_resnet_v1 import convolution_block
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
-def stem_block(inputs):
+def stem_block(inputs, activation="relu", normalizer='batch-norm'):
     x = convolution_block(inputs, 32, (3, 3), (2, 2), padding='valid', name='stem_b11')
     x = convolution_block(x, 32, (3, 3), padding='valid', name='stem_b12')
     x = convolution_block(x, 64, (3, 3), name='stem_b13')
@@ -64,13 +63,13 @@ def stem_block(inputs):
     branch1 = convolution_block(x, 192, (3, 3), strides=(2, 2), padding='valid', name='stem_b51')    
     branch2 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='valid', name='stem_b52')(x)
     
-    x = concatenate([branch1, branch2], axis=-1, name='stem_merged3')
-    x = BatchNormalization(axis=-1)(x)
-    x = Activation('relu')(x)
-    return x
+    out = concatenate([branch1, branch2], axis=-1, name='stem_merged3')
+    out = get_nomalizer_from_name(normalizer, name='stem_merged3_bn')(out)
+    out = get_activation_from_name(activation, name='stem_merged3_activ')(out)
+    return out
 
 
-def inception_resnet_A(inputs, scale_residual=True, prefix=None):
+def inception_resnet_A(inputs, scale_residual=True, activation="relu", normalizer='batch-norm', prefix=None):
     shortcut = inputs
     
     branch1 = convolution_block(inputs, 32, (1, 1), name=f"inceptionA_step{prefix}_b12")
@@ -89,12 +88,12 @@ def inception_resnet_A(inputs, scale_residual=True, prefix=None):
         x = Lambda(lambda s: s * 0.1, name=f'inceptionA_step{prefix}_scale')(x)
         
     out = add([shortcut, x], name=f'inceptionA_step{prefix}_merged')
-    out = BatchNormalization(axis=-1, name=f'inceptionA_step{prefix}_bn')(out)
-    out = Activation("relu", name=f'inceptionA_step{prefix}_activ')(out)
+    out = get_nomalizer_from_name(normalizer, name=f'inceptionA_step{prefix}_bn')(out)
+    out = get_activation_from_name(activation, name=f'inceptionA_step{prefix}_activ')(out)
     return out
 
 
-def reduction_A(inputs, k=192, l=224, m=256, n=384):
+def reduction_A(inputs, k=192, l=224, m=256, n=384, activation="relu", normalizer='batch-norm'):
     branch1 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b11")(inputs)
 
     branch2 = convolution_block(inputs, n, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b21")
@@ -104,12 +103,12 @@ def reduction_A(inputs, k=192, l=224, m=256, n=384):
     branch3 = convolution_block(branch3, m, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b33")
 
     out = concatenate([branch1, branch2, branch3], axis=-1, name=f'incep_reductionA_merged')
-    out = BatchNormalization(axis=-1, name=f'incep_reductionA_bn')(out)
-    out = Activation("relu", name=f'incep_reductionA_activ')(out)
+    out = get_nomalizer_from_name(normalizer, name=f'incep_reductionA_bn')(out)
+    out = get_activation_from_name(activation, name=f'incep_reductionA_activ')(out)
     return out
 
 
-def inception_resnet_B(inputs, scale_residual=True, prefix=None):
+def inception_resnet_B(inputs, scale_residual=True, activation="relu", normalizer='batch-norm', prefix=None):
     shortcut = inputs
     
     branch1 = convolution_block(inputs, 192, (1, 1), name=f"inceptionB_step{prefix}_b12")
@@ -125,12 +124,12 @@ def inception_resnet_B(inputs, scale_residual=True, prefix=None):
         x = Lambda(lambda s: s * 0.1, name=f'inceptionB_step{prefix}_scale')(x)
         
     out = add([shortcut, x], name=f'inceptionB_step{prefix}_merged')
-    out = BatchNormalization(axis=-1, name=f'inceptionB_step{prefix}_bn')(out)
-    out = Activation("relu", name=f'inceptionB_step{prefix}_activ')(out)
+    out = get_nomalizer_from_name(normalizer, name=f'inceptionB_step{prefix}_bn')(out)
+    out = get_activation_from_name(activation, name=f'inceptionB_step{prefix}_activ')(out)
     return out
 
 
-def reduction_B(inputs):
+def reduction_B(inputs, activation="relu", normalizer='batch-norm'):
     branch1 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b11")(inputs)
 
     branch2 = convolution_block(inputs, 256, (1, 1), name=f"incep_reductionB_b21")
@@ -144,12 +143,12 @@ def reduction_B(inputs):
     branch4 = convolution_block(branch4, 320, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b33")
     
     out = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f'incep_reductionB_merged')
-    out = BatchNormalization(axis=-1, name=f'incep_reductionB_bn')(out)
-    out = Activation("relu", name=f'incep_reductionB_activ')(out)
+    out = get_nomalizer_from_name(normalizer, name=f'incep_reductionB_bn')(out)
+    out = get_activation_from_name(activation, name=f'incep_reductionB_activ')(out)
     return out
 
 
-def inception_resnet_C(inputs, scale_residual=True, prefix=None):
+def inception_resnet_C(inputs, scale_residual=True, activation="relu", normalizer='batch-norm', prefix=None):
     shortcut = inputs
     
     branch1 = convolution_block(inputs, 192, (1, 1), name=f"inceptionC_step{prefix}_b12")
@@ -165,8 +164,8 @@ def inception_resnet_C(inputs, scale_residual=True, prefix=None):
         x = Lambda(lambda s: s * 0.1, name=f'inceptionC_step{prefix}_scale')(x)
         
     out = add([shortcut, x], name=f'inceptionC_step{prefix}_merged')
-    out = BatchNormalization(axis=-1, name=f'inceptionC_step{prefix}_bn')(out)
-    out = Activation("relu", name=f'inceptionC_step{prefix}_activ')(out)
+    out = get_nomalizer_from_name(normalizer, name=f'inceptionC_step{prefix}_bn')(out)
+    out = get_activation_from_name(activation, name=f'inceptionC_step{prefix}_activ')(out)
     return out
 
 
@@ -236,7 +235,8 @@ def Inception_Resnet_v2(depths=[1, 2, 1],
         x = AveragePooling2D(pool_size=(8, 8), strides=(1, 1), padding='same', name='avg_pooling')(x)
         x = Dropout(rate=0.8, name='dropout')(x)
         x = Flatten(name='flatten')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avg_pooling')(x)

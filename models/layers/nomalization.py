@@ -3,8 +3,8 @@ import tensorflow_addons as tfa
 from tensorflow.keras import backend as K
 
 
-def get_nomalizer_from_name(name, *args, **kwargs):
-    norm_name = name.lower()
+def get_nomalizer_from_name(norm_name, *args, **kwargs):
+    norm_name = norm_name.lower()
     if norm_name in ['bn', 'batch', 'batchnorm', 'batch-norm', 'batch norm', 'batch-normalization', 'batch normalization']:
         from tensorflow.keras.layers import BatchNormalization
         return BatchNormalization(*args, **kwargs)

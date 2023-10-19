@@ -29,8 +29,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import GlobalMaxPooling1D
 from tensorflow.keras.layers import Reshape
@@ -38,13 +36,13 @@ from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import add, multiply
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import SAMModel
+from models.layers import SAMModel, get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
-def spatial_gating_block(inputs, name=None):
+def spatial_gating_block(inputs, normalizer='layer-norm', name=None):
     xx, yy = tf.split(inputs, 2, axis=-1)
-    yy = LayerNormalization(name=name and name + "yy_ln")(yy)
+    yy = get_nomalizer_from_name(normalizer, name=name and name + "yy_ln")(yy)
     yy = Permute((2, 1), name=name and name + "permute_1")(yy)
     ww_init = tf.initializers.truncated_normal(stddev=1e-6)
     yy = Dense(yy.shape[-1], kernel_initializer=ww_init, bias_initializer="ones", name=name and name + "yy_dense")(yy)
@@ -53,11 +51,11 @@ def spatial_gating_block(inputs, name=None):
     return gated_out
 
 
-def res_gated_mlp_block(inputs, channels_mlp_dim, drop_rate=0, activation="gelu", name=None):
-    x = LayerNormalization(name=name + "pre_ln")(inputs)
+def res_gated_mlp_block(inputs, channels_mlp_dim, drop_rate=0, activation="gelu", normalizer='layer-norm', name=None):
+    x = get_nomalizer_from_name(normalizer, name=name + "pre_ln")(inputs)
     x = Dense(channels_mlp_dim, name=name + "pre_dense")(x)
-    x = Activation(activation)(x)
-    x = spatial_gating_block(x, name=name)
+    x = get_activation_from_name(activation)(x)
+    x = spatial_gating_block(x, normalizer=normalizer, name=name)
     x = Dense(inputs.shape[-1], name=name + "gated_dense")(x)
 
     if drop_rate > 0:
@@ -76,7 +74,7 @@ def gMLP(stem_width,
          pooling=None,
          final_activation="softmax",
          classes=1000,
-         sam_rho=0,
+         sam_rho=0.0,
          drop_rate=0):
         
     if weights not in {'imagenet', None}:
@@ -112,22 +110,24 @@ def gMLP(stem_width,
     x = Conv2D(filters=stem_width, 
                kernel_size=patch_size, 
                strides=patch_size, 
-               padding="valid", name="stem")(img_input)
+               padding="valid", 
+               name="stem")(img_input)
     x = Reshape(target_shape=(-1, stem_width))(x)
 
     drop_connect_s, drop_connect_e = drop_connect_rate if isinstance(drop_rate, (list, tuple)) else [drop_rate, drop_rate]
     
     for ii in range(num_blocks):
-        name = "{}_{}_".format("gmlp", str(ii + 1))
+        block_name = "{}_{}_".format("gmlp", str(ii + 1))
         block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * ii / num_blocks
-        x = res_gated_mlp_block(x, channels_mlp_dim=channels_mlp_dim, drop_rate=block_drop_rate, activation='gelu', name=name)
+        x = res_gated_mlp_block(x, channels_mlp_dim=channels_mlp_dim, drop_rate=block_drop_rate, activation='gelu', name=block_name)
         
-    x = LayerNormalization(name="pre_head_norm")(x)
-    
+    x = get_nomalizer_from_name('layer-norm', name="pre_head_norm")(x)
+             
     if include_top:
         x = GlobalAveragePooling1D()(x)
         x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling1D()(x)
@@ -177,7 +177,7 @@ def gMLP_T16(include_top=True,
              pooling=None,
              final_activation="softmax",
              classes=1000,
-             sam_rho=0,
+             sam_rho=0.0,
              drop_rate=0.1) -> Model:
     
     model = gMLP(stem_width=128,
@@ -203,7 +203,7 @@ def gMLP_S16(include_top=True,
              pooling=None,
              final_activation="softmax",
              classes=1000,
-             sam_rho=0,
+             sam_rho=0.0,
              drop_rate=0.1) -> Model:
     
     model = gMLP(stem_width=256,
@@ -229,7 +229,7 @@ def gMLP_B16(include_top=True,
              pooling=None,
              final_activation="softmax",
              classes=1000,
-             sam_rho=0,
+             sam_rho=0.0,
              drop_rate=0.1) -> Model:
     
     model = gMLP(stem_width=512,

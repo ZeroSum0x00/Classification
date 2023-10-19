@@ -32,8 +32,6 @@ from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import DepthwiseConv2D
@@ -48,11 +46,11 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ReLU6
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
-def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1):
+def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1, activation="relu6", normalizer='batch-norm'):
     filters = int(filters * alpha)
     x = ZeroPadding2D(padding=((0, 1), (0, 1)), name='stem_pad')(inputs)
     x = Conv2D(filters=filters, 
@@ -61,12 +59,12 @@ def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1):
                padding='valid',
                use_bias=False,
                name='stem_conv')(x)
-    x = BatchNormalization(axis=-1, name='stem_bn')(x)
-    x = ReLU6(name='stem_relu')(x)
+    x = get_nomalizer_from_name(normalizer, name='stem_bn')(x)
+    x = get_activation_from_name(activation, name='stem_relu')(x)
     return x
 
 
-def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, depth_multiplier=1, prefix=None):
+def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, depth_multiplier=1, activation="relu6", normalizer='batch-norm', prefix=None):
     pointwise_filters = int(out_dim * alpha)
 
     if strides != (1, 1):
@@ -82,9 +80,9 @@ def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, 
                         depth_multiplier=depth_multiplier,
                         use_bias=False,
                         name=f'conv_dw_{prefix}')(inputs)
-    x = BatchNormalization(axis=-1, name=f'conv_dw_{prefix}_bn')(x)
-    x = ReLU6(name=f'conv_dw_{prefix}_activ')(x)
-
+    x = get_nomalizer_from_name(normalizer, name=f'conv_dw_{prefix}_bn')(x)
+    x = get_activation_from_name(activation, name=f'conv_dw_{prefix}_activ')(x)
+    
     # Pointwise
     x = Conv2D(filters=pointwise_filters,
                kernel_size=(1, 1),
@@ -92,8 +90,8 @@ def depthwise_separable_convolutional(inputs, out_dim, strides=(1, 1), alpha=1, 
                padding='same',
                use_bias=False,
                name=f'conv_pw_{prefix}')(x)
-    x = BatchNormalization(axis=-1, name=f'conv_pw_{prefix}_bn')(x)
-    x = ReLU6(name=f'conv_pw_{prefix}_activ')(x)
+    x = get_nomalizer_from_name(normalizer, name=f'conv_pw_{prefix}_bn')(x)
+    x = get_activation_from_name(name=f'conv_pw_{prefix}_activ')(x)
     return x
     
 
@@ -173,7 +171,7 @@ def MobileNet_v1(alpha=1,
                    padding='same', 
                    name='conv_preds')(x)
         x = Reshape((out_dim,), name='reshape_layer2')(x)
-        x = Activation(final_activation, name='final_activation')(x)
+        x = get_activation_from_name(final_activation, name='final_activation')(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avg_pooling')(x)

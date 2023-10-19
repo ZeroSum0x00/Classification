@@ -38,11 +38,12 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import concatenate
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from tensorflow.keras.utils import get_source_inputs, get_file
 from utils.model_processing import _obtain_input_shape
 
 
-def inception_v1_naive_block(inputs, blocks):
+def inception_v1_naive_block(inputs, blocks, activation='relu'):
     """
     Inception module, naive version
 
@@ -51,21 +52,21 @@ def inception_v1_naive_block(inputs, blocks):
     :return: Output tensor for the block.
     """
     branch1 = Conv2D(filters=blocks[0], kernel_size=(1, 1), strides=(1, 1))(inputs)
-    branch1 = Activation('relu')(branch1)
+    branch1 = get_activation_from_name(activation)(branch1)
 
     branch2 = Conv2D(filters=blocks[1], kernel_size=(3, 3), strides=(1, 1), padding='same')(inputs)
-    branch2 = Activation('relu')(branch2)
+    branch2 = get_activation_from_name(activation)(branch2)
 
     branch3 = Conv2D(filters=blocks[2], kernel_size=(5, 5), strides=(1, 1), padding='same')(inputs)
-    branch3 = Activation('relu')(branch3)
-
+    branch3 = get_activation_from_name(activation)(branch3)
+    
     branch4 = MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same')(inputs)
 
     merger = concatenate([branch1, branch2, branch3, branch4])
     return merger
 
 
-def inception_v1_full_block(inputs, blocks):
+def inception_v1_full_block(inputs, blocks, activation='relu'):
     """
     Inception module with dimension reductions
 
@@ -73,22 +74,28 @@ def inception_v1_full_block(inputs, blocks):
     :param blocks: filter block, respectively: #1×1, #3×3 reduce, #3×3, #5×5 reduce, #5×5, pool proj
     :return: Output tensor for the block.
     """
-    branch_1x1 = Conv2D(filters=blocks[0], kernel_size=(1, 1), activation='relu')(inputs)
+    branch_1x1 = Conv2D(filters=blocks[0], kernel_size=(1, 1))(inputs)
+    branch_1x1 = get_activation_from_name(activation)(branch_1x1)
 
-    branch_3x3 = Conv2D(filters=blocks[1], kernel_size=(1, 1), activation='relu')(inputs)
-    branch_3x3 = Conv2D(filters=blocks[2], kernel_size=(3, 3), padding='same', activation='relu')(branch_3x3)
+    branch_3x3 = Conv2D(filters=blocks[1], kernel_size=(1, 1))(inputs)
+    branch_3x3 = get_activation_from_name(activation)(branch_3x3)
+    branch_3x3 = Conv2D(filters=blocks[2], kernel_size=(3, 3), padding='same')(branch_3x3)
+    branch_3x3 = get_activation_from_name(activation)(branch_3x3)
 
-    branch_5x5 = Conv2D(filters=blocks[3], kernel_size=(1, 1), activation='relu')(inputs)
-    branch_5x5 = Conv2D(filters=blocks[4], kernel_size=(5, 5), padding='same', activation='relu')(branch_5x5)
+    branch_5x5 = Conv2D(filters=blocks[3], kernel_size=(1, 1))(inputs)
+    branch_5x5 = get_activation_from_name(activation)(branch_5x5)
+    branch_5x5 = Conv2D(filters=blocks[4], kernel_size=(5, 5), padding='same')(branch_5x5)
+    branch_5x5 = get_activation_from_name(activation)(branch_5x5)
 
     branch_pool = MaxPooling2D(pool_size=(3, 3), strides=(1, 1), padding='same')(inputs)
-    branch_pool = Conv2D(filters=blocks[5], kernel_size=(1, 1), activation='relu')(branch_pool)
+    branch_pool = Conv2D(filters=blocks[5], kernel_size=(1, 1))(branch_pool)
+    branch_pool = get_activation_from_name(activation)(branch_pool)
 
     merger = concatenate([branch_1x1, branch_3x3, branch_5x5, branch_pool])
     return merger
 
 
-def inception_v1_auxiliary_block(inputs,  num_classes):
+def inception_v1_auxiliary_block(inputs,  num_classes, activation='relu', final_activation='softmax'):
     """
     Inception auxiliary classifier module
 
@@ -97,11 +104,14 @@ def inception_v1_auxiliary_block(inputs,  num_classes):
     :return: Output tensor for the block.
     """
     x = AveragePooling2D(pool_size=5, strides=3)(inputs)
-    x = Conv2D(filters=128, kernel_size=(1, 1), padding='valid', activation='relu')(x)
+    x = Conv2D(filters=128, kernel_size=(1, 1), padding='valid')(x)
+    x = get_activation_from_name(activation)(x)
     x = Flatten()(x)
     x = Dropout(rate=0.5)(x)
-    x = Dense(units=1024, activation='relu')(x)
-    x = Dense(units=num_classes, activation='softmax')(x)
+    x = Dense(units=1024)(x)
+    x = get_activation_from_name(activation)(x)
+    x = Dense(units=num_classes)(x)
+    x = get_activation_from_name(final_activation)(x)
     return x
 
 
@@ -145,10 +155,12 @@ def GoogleNet(block,
     else:
         bn_axis = 1    
 
-    x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), padding='same', activation='relu')(img_input)
+    x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), padding='same')(img_input)
+    x = get_activation_from_name('relu')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same')(x)
 
-    x = Conv2D(filters=192, kernel_size=(3, 3), padding='same', activation='relu')(x)
+    x = Conv2D(filters=192, kernel_size=(3, 3), padding='same')(x)
+    x = get_activation_from_name('relu')(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same')(x)
 
     x = block(x, [64, 96, 128, 16, 32, 32])
@@ -156,13 +168,17 @@ def GoogleNet(block,
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same')(x)
 
     x = block(x, [192, 96, 208, 16, 48, 64])
+                  
     if auxiliary_logits:
         aux1 = inception_v1_auxiliary_block(x, classes)
+        
     x = block(x, [160, 112, 224, 24, 64, 64])
     x = block(x, [128, 128, 256, 24, 64, 64])
     x = block(x, [112, 144, 288, 32, 64, 64])
+                  
     if auxiliary_logits:
         aux2 = inception_v1_auxiliary_block(x, classes)
+        
     x = block(x, [256, 160, 320, 32, 128, 128])
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same')(x)
 
@@ -174,7 +190,8 @@ def GoogleNet(block,
         x = AveragePooling2D(pool_size=(7, 7), strides=(1, 1), padding='same')(x)
         x = Dropout(rate=0.4)(x)
         x = Flatten(name='flatten')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D()(x)

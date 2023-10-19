@@ -32,17 +32,15 @@ from tensorflow.keras.models import Model
 from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import MLPBlock, DropPath
+from models.layers import MLPBlock, DropPath, get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -182,7 +180,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
     """
     
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0, mlp_ratio=4.,
-                 qkv_bias=True, qk_scale=None, activation='gelu', proj_drop=0., attn_drop=0., drop_path_prob=0., *args, **kwargs):
+                 qkv_bias=True, qk_scale=None, activation='gelu', normalizer='layer-norm', proj_drop=0., attn_drop=0., drop_path_prob=0., *args, **kwargs):
         super(SwinTransformerBlock, self).__init__(*args, **kwargs)
         self.dim = dim
         self.input_resolution = input_resolution
@@ -199,12 +197,13 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
         self.qkv_bias = qkv_bias
         self.qk_scale = qk_scale
         self.activation = activation
+        self.normalizer = normalizer
         self.proj_drop = proj_drop
         self.attn_drop = attn_drop
         self.drop_path_prob = drop_path_prob
 
     def build(self, input_shape):
-        self.norm_layer1 = LayerNormalization(epsilon=1e-5)
+        self.norm_layer1 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
         self.attention   = WindowAttention(dim=self.dim,
                                            window_size=self.window_size,
                                            num_heads=self.num_heads,
@@ -214,7 +213,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
                                            proj_drop=self.proj_drop)
 
         self.drop_path   = DropPath(self.drop_path_prob if self.drop_path_prob > 0. else 0.)
-        self.norm_layer2 = LayerNormalization(epsilon=1e-5)
+        self.norm_layer2 = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
         mlp_hidden_dim   = int(self.dim * self.mlp_ratio)
         self.mlp         = MLPBlock(mlp_dim=mlp_hidden_dim,
                                     activation=self.activation,
@@ -323,12 +322,13 @@ class PatchMerging(tf.keras.layers.Layer):
         input_resolution (tuple[int]): Resolution of input feature.
     """
     
-    def __init__(self, input_resolution, *args, **kwargs):
+    def __init__(self, input_resolution, normalizer='layer-norm', *args, **kwargs):
         super(PatchMerging, self).__init__(*args, **kwargs)
         self.input_resolution = input_resolution
+        self.normalizer       = normalizer
 
     def build(self, input_shape):
-        self.norm_layer = LayerNormalization(epsilon=1e-5)
+        self.norm_layer = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
         self.projection = Dense(2 * input_shape[-1], use_bias=False)
 
     def call(self, x):
@@ -366,20 +366,22 @@ class PatchEmbed(tf.keras.layers.Layer):
         patch_size (int): Patch token size. Default: 4.
         drop_rate (float): Dropout rate. Default: 0
     """
-    def __init__(self, embed_dim, patch_size, drop_rate=0., *args, **kwargs):
+    def __init__(self, embed_dim, patch_size, normalizer='layer-norm', drop_rate=0., *args, **kwargs):
         super(PatchEmbed, self).__init__(*args, **kwargs)
-        self.embed_dim = embed_dim
+        self.embed_dim  = embed_dim
         self.patch_size = patch_size
-        self.drop_rate = drop_rate
+        self.normalizer = normalizer
+        self.drop_rate  = drop_rate
 
     def build(self, input_shape):
         self.projection = Conv2D(self.embed_dim,
                                  kernel_size=self.patch_size,
                                  strides=self.patch_size,
                                  padding="valid")
-        self.norm_layer = LayerNormalization(epsilon=1e-5)
+        self.norm_layer = get_nomalizer_from_name(self.normalizer, epsilon=1e-5)
         self.reshape_tensor = Reshape(((input_shape[1] // self.patch_size[0]) * (input_shape[2] // self.patch_size[0]), self.embed_dim))
         self.drop_out = Dropout(self.drop_rate)
+        
         if input_shape[2] % self.patch_size[1] != 0:
             self.width_pad = self.patch_size[1] - W % self.patch_size[1]
         else:
@@ -485,11 +487,12 @@ def Swin(embed_dim=96,
         if (i < num_layers - 1):
             x   = PatchMerging(input_resolution)(x)
             
-    x = LayerNormalization(epsilon=1e-5)(x)
+    x = get_nomalizer_from_name('layer-norm', epsilon=1e-5)(x)
 
     if include_top:
         x = GlobalAveragePooling1D()(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)

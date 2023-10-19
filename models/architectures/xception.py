@@ -27,18 +27,16 @@ import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
-from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import SeparableConv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
+from models.layers import get_activation_from_name, get_nomalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -79,34 +77,29 @@ def Xception(include_top=True,
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-
     """ 
         Entry flow
     """
     # Block 1
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), use_bias=False, name='block1_conv1')(img_input)
-    x = BatchNormalization(axis=bn_axis, name='block1_conv1_batchnorm')(x)
-    x = Activation('relu', name='block1_conv1_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block1_conv1_batchnorm')(x)
+    x = get_activation_from_name('relu', name='block1_conv1_activation')(x)
 
     x = Conv2D(filters=64, kernel_size=(3, 3), use_bias=False, name='block1_conv2')(x)
-    x = BatchNormalization(axis=bn_axis, name='block1_conv2_batchnorm')(x)
-    x = Activation('relu', name='block1_conv2_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block1_conv2_batchnorm')(x)
+    x = get_activation_from_name('relu', name='block1_conv2_activation')(x)
 
     residual = Conv2D(filters=128, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='entry_residual1')(x)
-    residual = BatchNormalization(axis=bn_axis, name='entry_residual1_batchnorm')(residual)
+    residual = get_nomalizer_from_name('batch-norm', name='entry_residual1_batchnorm')(residual)
 
 
     # Block 2
     x = SeparableConv2D(filters=128, kernel_size=(3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
-    x = BatchNormalization(axis=bn_axis, name='block2_sepconv1_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block2_sepconv1_batchnorm')(x)
 
-    x = Activation('relu', name='block2_sepconv1_activation')(x)
+    x = get_activation_from_name('relu', name='block2_sepconv1_activation')(x)
     x = SeparableConv2D(filters=128, kernel_size=(3, 3), padding='same', use_bias=False, name='block2_sepconv2')(x)
-    x = BatchNormalization(axis=bn_axis, name='block2_sepconv2_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block2_sepconv2_batchnorm')(x)
 
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block2_maxpooling')(x)
 
@@ -115,15 +108,15 @@ def Xception(include_top=True,
 
     # Block 3
     residual = Conv2D(filters=256, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='entry_residual2')(x)
-    residual = BatchNormalization(axis=bn_axis, name='entry_residual2_batchnorm')(residual)
+    residual = get_nomalizer_from_name('batch-norm', name='entry_residual2_batchnorm')(residual)
 
-    x = Activation('relu', name='block3_sepconv1_activation')(x)
+    x = get_activation_from_name('relu', name='block3_sepconv1_activation')(x)
     x = SeparableConv2D(filters=256, kernel_size=(3, 3), padding='same', use_bias=False, name='block3_sepconv1')(x)
-    x = BatchNormalization(axis=bn_axis, name='block3_sepconv1_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block3_sepconv1_batchnorm')(x)
 
-    x = Activation('relu', name='block3_sepconv2_activation')(x)
+    x = get_activation_from_name('relu', name='block3_sepconv2_activation')(x)
     x = SeparableConv2D(filters=256, kernel_size=(3, 3), padding='same', use_bias=False, name='block3_sepconv2')(x)
-    x = BatchNormalization(axis=bn_axis, name='block3_sepconv2_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block3_sepconv2_batchnorm')(x)
 
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block3_maxpooling')(x)
 
@@ -132,15 +125,15 @@ def Xception(include_top=True,
 
     # Block4
     residual = Conv2D(filters=728, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='entry_residual3')(x)
-    residual = BatchNormalization(axis=bn_axis, name='entry_residual3_batchnorm')(residual)
+    residual = get_nomalizer_from_name('batch-norm', name='entry_residual3_batchnorm')(residual)
 
-    x = Activation('relu', name='block4_sepconv1_activation')(x)
+    x = get_activation_from_name('relu', name='block4_sepconv1_activation')(x)
     x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
-    x = BatchNormalization(axis=bn_axis, name='block4_sepconv1_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block4_sepconv1_batchnorm')(x)
 
-    x = Activation('relu', name='block4_sepconv2_activation')(x)
+    x = get_activation_from_name('relu', name='block4_sepconv2_activation')(x)
     x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name='block4_sepconv2')(x)
-    x = BatchNormalization(axis=bn_axis, name='block4_sepconv2_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block4_sepconv2_batchnorm')(x)
 
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block4_maxpooling')(x)
 
@@ -155,17 +148,17 @@ def Xception(include_top=True,
         prefix = 'block' + str(i + 5)
         residual = x
 
-        x = Activation('relu', name=prefix + '_sepconv1_activation')(x)
+        x = get_activation_from_name('relu', name=prefix + '_sepconv1_activation')(x)
         x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
-        x = BatchNormalization(axis=bn_axis, name=prefix + '_sepconv1_batchnorm')(x)
+        x = get_nomalizer_from_name('batch-norm', name=prefix + '_sepconv1_batchnorm')(x)
 
-        x = Activation('relu', name=prefix + '_sepconv2_activation')(x)
+        x = get_activation_from_name('relu', name=prefix + '_sepconv2_activation')(x)
         x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
-        x = BatchNormalization(axis=bn_axis, name=prefix + '_sepconv2_batchnorm')(x)
+        x = get_nomalizer_from_name('batch-norm', name=prefix + '_sepconv2_batchnorm')(x)
 
-        x = Activation('relu', name=prefix + '_sepconv3_activation')(x)
+        x = get_activation_from_name('relu', name=prefix + '_sepconv3_activation')(x)
         x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name=prefix + '_sepconv3')(x)
-        x = BatchNormalization(axis=bn_axis, name=prefix + '_sepconv3_batchnorm')(x)
+        x = get_nomalizer_from_name('batch-norm', name=prefix + '_sepconv3_batchnorm')(x)
 
         x = add([x, residual], name='block' + str(i + 5) + '_merge')
 
@@ -175,15 +168,15 @@ def Xception(include_top=True,
     """ 
     # Block 13
     residual = Conv2D(filters=1024, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='exit_residual1')(x)
-    residual = BatchNormalization(axis=bn_axis, name='exit_residual1_batchnorm')(residual)
+    residual = get_nomalizer_from_name('batch-norm', name='exit_residual1_batchnorm')(residual)
 
-    x = Activation('relu', name='block13_sepconv1_activation')(x)
+    x = get_activation_from_name('relu', name='block13_sepconv1_activation')(x)
     x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
-    x = BatchNormalization(axis=bn_axis, name='block13_sepconv1_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block13_sepconv1_batchnorm')(x)
 
-    x = Activation('relu', name='block13_sepconv2_activation')(x)
+    x = get_activation_from_name('relu', name='block13_sepconv2_activation')(x)
     x = SeparableConv2D(filters=1024, kernel_size=(3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
-    x = BatchNormalization(axis=bn_axis, name='block13_sepconv2_batchnorm')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block13_sepconv2_batchnorm')(x)
 
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block13_maxpooling')(x)
 
@@ -192,17 +185,18 @@ def Xception(include_top=True,
 
     # Block 14
     x = SeparableConv2D(filters=1536, kernel_size=(3, 3), padding='same', use_bias=False, name='block14_sepconv1')(x)
-    x = BatchNormalization(axis=bn_axis, name='block14_sepconv1_batchnorm')(x)
-    x = Activation('relu', name='block14_sepconv1_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block14_sepconv1_batchnorm')(x)
+    x = get_activation_from_name('relu', name='block14_sepconv1_activation')(x)
 
     x = SeparableConv2D(filters=2048, kernel_size=(3, 3), padding='same', use_bias=False, name='block14_sepconv2')(x)
-    x = BatchNormalization(axis=bn_axis, name='block14_sepconv2_batchnorm')(x)
-    x = Activation('relu', name='block14_sepconv2_activation')(x)
+    x = get_nomalizer_from_name('batch-norm', name='block14_sepconv2_batchnorm')(x)
+    x = get_activation_from_name('relu', name='block14_sepconv2_activation')(x)
 
     # Final Block
     if include_top:
         x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(x)
+        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_activation_from_name(final_activation)(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)

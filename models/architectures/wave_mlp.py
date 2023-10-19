@@ -158,7 +158,7 @@ def WaveMLP(filters,
             pooling=None,
             final_activation="softmax",
             classes=1000,
-            sam_rho=0,
+            sam_rho=0.0,
             drop_rate=0):
         
     if weights not in {'imagenet', None}:
@@ -237,14 +237,12 @@ def WaveMLP(filters,
     else:
         inputs = img_input
 
-
     def __build_model(inputs, outputs, sam_rho, name):
         if sam_rho != 0:
             return SAMModel(inputs, x, name=name + '_SAM')
         else:
             return Model(inputs, x, name=name)
             
-
     # Create model.
     if num_blocks == [2, 2, 4, 2] and filters == [64, 128, 320, 512] and mlp_ratios == [4, 4, 4, 4]:
         model = __build_model(inputs, x, sam_rho, name='WaveMLP-T')
@@ -276,7 +274,7 @@ def WaveMLP_T(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              sam_rho=0,
+              sam_rho=0.0,
               drop_rate=0.1) -> Model:
     
     model = WaveMLP(filters=[64, 128, 320, 512],
@@ -305,7 +303,7 @@ def WaveMLP_S(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              sam_rho=0,
+              sam_rho=0.0,
               drop_rate=0.1) -> Model:
     
     model = WaveMLP(filters=[64, 128, 320, 512],
@@ -334,7 +332,7 @@ def WaveMLP_M(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              sam_rho=0,
+              sam_rho=0.0,
               drop_rate=0.1) -> Model:
     
     model = WaveMLP(filters=[64, 128, 320, 512],
@@ -363,7 +361,7 @@ def WaveMLP_B(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              sam_rho=0,
+              sam_rho=0.0,
               drop_rate=0.1) -> Model:
     
     model = WaveMLP(filters=[96, 192, 384, 768],
