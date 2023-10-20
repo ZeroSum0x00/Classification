@@ -170,7 +170,9 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({"num_heads": self.num_heads})
+        config.update({
+                "num_heads": self.num_heads
+        })
         return config
 
     @classmethod
@@ -180,21 +182,24 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable()
 class MLPBlock(tf.keras.layers.Layer):
-    def __init__(self, mlp_dim, out_dim=-1, use_conv=False, use_bias=True, activation='gelu', drop_rate=0.1, *args, **kwargs):
+    def __init__(self, mlp_dim, out_dim=-1, use_conv=False, use_bias=True, use_gated=False, activation='gelu', normalizer=None, drop_rate=0.1, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mlp_dim = mlp_dim
-        self.out_dim = out_dim
-        self.use_conv = use_conv
-        self.use_bias = use_bias
+        self.mlp_dim    = mlp_dim
+        self.out_dim    = out_dim
+        self.use_conv   = use_conv
+        self.use_bias   = use_bias
+        self.use_gated  = use_gated
         self.activation = activation
-        self.drop_rate = drop_rate
+        self.normalizer = normalizer
+        self.drop_rate  = drop_rate
     
     def build(self, input_shape):
+        hidden_dim = self.mlp_dim * 2 if self.use_gated else self.mlp_dim
         if not self.use_conv:
-            self.linear1 = Dense(self.mlp_dim, use_bias=self.use_bias)
+            self.linear1 = Dense(hidden_dim, use_bias=self.use_bias)
             self.linear2 = Dense(self.out_dim if self.out_dim > 0 else input_shape[-1], use_bias=self.use_bias)
         else:
-            self.linear1 = Conv2D(filters=self.mlp_dim, 
+            self.linear1 = Conv2D(filters=hidden_dim, 
                                   kernel_size=(1, 1), 
                                   strides=(1, 1),
                                   use_bias=self.use_bias)
@@ -202,15 +207,27 @@ class MLPBlock(tf.keras.layers.Layer):
                                   kernel_size=(1, 1), 
                                   strides=(1, 1),
                                   use_bias=self.use_bias)
-
+        if self.normalizer:
+            self.norm = get_normalizer_from_name(self.normalizer)
+            
         self.activation = get_activation_from_name(self.activation)
         self.dropout = Dropout(self.drop_rate)
         
     def call(self, inputs, training):
-        x = self.linear1(inputs)
-        x = self.activation(x)
+        x = self.linear1(inputs, training=training)
+        
+        if self.use_gated:
+            gate, x = tf.split(x, 2, axis=-1)
+            gate = self.activation(gate)
+            x = gate * x
+        else:
+            x = self.activation(x)
+            
         x = self.dropout(x)
-        x = self.linear2(x)
+        
+        if self.normalizer:
+            x = self.norm(x, training=training)
+        x = self.linear2(x, training=training)
         x = self.dropout(x)
         return x
 
@@ -218,6 +235,12 @@ class MLPBlock(tf.keras.layers.Layer):
         config = super().get_config()
         config.update({
                 "mlp_dim": self.mlp_dim,
+                "out_dim": self.out_dim,
+                "use_conv": self.use_conv,
+                "use_bias": self.use_bias,
+                "use_gated": self.use_gated,
+                "activation": self.activation,
+                "normalizer": self.normalizer,
                 "drop_rate": self.drop_rate,
             })
         return config
@@ -261,6 +284,7 @@ class TransformerBlock(tf.keras.layers.Layer):
         config.update({
                 "num_heads": self.num_heads,
                 "mlp_dim": self.mlp_dim,
+                "normalizer": self.normalizer,
                 "norm_eps": self.norm_eps,
                 "drop_rate": self.drop_rate
             })
