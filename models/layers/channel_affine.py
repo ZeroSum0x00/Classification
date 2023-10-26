@@ -25,7 +25,7 @@ class ChannelAffine(tf.keras.layers.Layer):
             self.bb = self.add_weight(name="bias", shape=ww_shape, initializer=self.bb_init, trainable=True)
         super().build(input_shape)
 
-    def call(self, inputs, **kwargs):
+    def call(self, inputs, training=False):
         return inputs * self.ww + self.bb if self.use_bias else inputs * self.ww
 
     def compute_output_shape(self, input_shape):

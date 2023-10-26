@@ -33,7 +33,6 @@ import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
-from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Lambda
@@ -41,7 +40,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import (ExtractPatches, ClassificationToken, 
-                           AddPositionEmbedding, TransformerBlock, SAMModel,
+                           PositionalEmbedding, TransformerBlock, SAMModel,
                            get_activation_from_name, get_normalizer_from_name)
 from utils.model_processing import _obtain_input_shape
 
@@ -94,7 +93,7 @@ def ViT(num_layers=12,
 
     x = ExtractPatches(patch_size, hidden_dim)(img_input)
     x = ClassificationToken(name="class_token")(x)
-    x = AddPositionEmbedding(name="Transformer/posembed_input")(x)
+    x = PositionalEmbedding(name="Transformer/posembed_input")(x)
     for n in range(num_layers):
         x, _ = TransformerBlock(num_heads=num_heads,
                                 mlp_dim=mlp_dim,
