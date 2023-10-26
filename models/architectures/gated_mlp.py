@@ -149,14 +149,14 @@ def gMLP(stem_width,
             return Model(inputs, x, name=name)
             
     # Create model.
-    if patch_size == 16 and stem_width == 128:
-        model = __build_model(inputs, x, sam_rho, name='gMLP-T16')
-    elif patch_size == 16 and stem_width == 256:
-        model = __build_model(inputs, x, sam_rho, name='gMLP-S16')
-    elif patch_size == 16 and stem_width == 512:
-        model = __build_model(inputs, x, sam_rho, name='gMLP-B16')
+    if stem_width == 128:
+        model = __build_model(inputs, x, sam_rho, name=f'gMLP-T{stem_width}')
+    elif stem_width == 256:
+        model = __build_model(inputs, x, sam_rho, name=f'gMLP-S{stem_width}')
+    elif stem_width == 512:
+        model = __build_model(inputs, x, sam_rho, name=f'gMLP-B{stem_width}')
     else:
-        model = __build_model(inputs, x, sam_rho, name='gMLP')
+        model = __build_model(inputs, x, sam_rho, name=f'gMLP-{stem_width}')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '

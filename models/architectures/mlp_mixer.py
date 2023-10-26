@@ -185,22 +185,16 @@ def MLPMixer(patch_size,
             return Model(inputs, x, name=name)
             
     # Create model.
-    if patch_size == 16 and num_blocks == 8:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer-S16')
-    elif patch_size == 32 and num_blocks == 8:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer-S32')
-    elif patch_size == 16 and num_blocks == 12:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer-B16')
-    elif patch_size == 32 and num_blocks == 12:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer-B32')
-    elif patch_size == 16 and num_blocks == 24:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer-L16')
-    elif patch_size == 32 and num_blocks == 24:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer-L32')
-    elif patch_size == 14 and num_blocks == 32:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer-H14')
+    if num_blocks == 8:
+        model = __build_model(inputs, x, sam_rho, name=f'MLPMixer-S{patch_size}')
+    elif num_blocks == 12:
+        model = __build_model(inputs, x, sam_rho, name=f'MLPMixer-B{patch_size}')
+    elif num_blocks == 24:
+        model = __build_model(inputs, x, sam_rho, name=f'MLPMixer-L{patch_size}')
+    elif num_blocks == 32:
+        model = __build_model(inputs, x, sam_rho, name=f'MLPMixer-H{patch_size}')
     else:
-        model = __build_model(inputs, x, sam_rho, name='MLPMixer')
+        model = __build_model(inputs, x, sam_rho, name=f'MLPMixer-{patch_size}')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '

@@ -127,28 +127,13 @@ def ViT(num_layers=12,
             
     # Create model.
     if num_layers == 12:
-        if patch_size == 16:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Base-16')
-        elif patch_size == 32:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Base-32')
-        else:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Base')
+        model = __build_model(inputs, x, sam_rho, name=f'ViT-Base-{patch_size}')
     elif num_layers == 24:
-        if patch_size == 16:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Large-16')
-        elif patch_size == 32:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Large-32')
-        else:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Large')
+        model = __build_model(inputs, x, sam_rho, name=f'ViT-Large-{patch_size}')
     elif num_layers == 32:
-        if patch_size == 16:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Huge-16')
-        elif patch_size == 32:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Huge-32')
-        else:
-            model = __build_model(inputs, x, sam_rho, name='ViT-Huge')
+        model = __build_model(inputs, x, sam_rho, name=f'ViT-Huge-{patch_size}')
     else:
-        model = __build_model(inputs, x, sam_rho, name='ViT')
+        model = __build_model(inputs, x, sam_rho, name=f'ViT-{patch_size}')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '

@@ -6,9 +6,17 @@
        ---------------------------------------
       |     Model Name      |    Params       |
       |---------------------------------------|
-      |     BEiT-Base-16    |   86,567,656    |
+      |     BEiT-Base-16    |   86,530,984    |
       |---------------------|-----------------|
-      |     BEiT-Base-16    |   86,567,656    |
+      |     BEiT-Base-32    |   88,219,816    |
+      |---------------------------------------|
+      |     BEiT-Large-16   |  304,430,568    |
+      |---------------------|-----------------|
+      |     BEiT-Large-32   |  306,574,824    |
+      |---------------------------------------|
+      |     BEiT-Huge-16    |  632,362,984    |
+      |---------------------|-----------------|
+      |     BEiT-Huge-32    |  635,025,384    |
        ---------------------------------------
 
   # Reference:
@@ -31,6 +39,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.initializers import RandomUniform, TruncatedNormal
+from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import (get_activation_from_name, get_normalizer_from_name, 
                            ClassToken, PositionalIndex, SAMModel,
                            PatchConv2DWithResampleWeights, PositionalEmbedding,
@@ -217,8 +226,15 @@ def BEiT(vocab_size=0,  # [Text model] Set value > 0 for building text model
         else:
             return Model(inputs, x, name=name)
             
-    model = __build_model(inputs, x, sam_rho, name='BEiT-Base-16')
-
+    if num_layers == 12:
+        model = __build_model(inputs, x, sam_rho, name=f'BEiT-Base-{patch_size}')
+    elif num_layers == 24:
+        model = __build_model(inputs, x, sam_rho, name=f'BEiT-Large-{patch_size}')
+    elif num_layers == 32:
+        model = __build_model(inputs, x, sam_rho, name=f'BEiT-Huge-{patch_size}')
+    else:
+        model = __build_model(inputs, x, sam_rho, name=f'BEiT-{patch_size}')
+        
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
                       'are using the Theano '
@@ -242,31 +258,39 @@ def BEiTBase16(include_top=True,
                norm_eps=1e-6,
                drop_rate=0.1):
 
-    model = BEiT(vocab_size=0,
-                 num_layers=12,
+    model = BEiT(num_layers=12,
                  patch_size=16,
                  num_heads=12,
                  embed_dim=768,
-                 use_patch_bias=True,
-                 use_pre_norm=False,
-                 attn_key_dim=0,
-                 attn_qv_bias=True,
-                 attn_qkv_bias=False,
-                 attn_return_weight=True,
-                 attn_return_bias=True,
-                 attn_layer_scale=0.1,
-                 attn_dropout=0,
-                 use_abs_pos_emb=False,
-                 use_abs_pos_emb_on_cls_token=True,
-                 use_rot_pos_emb=False,
-                 mlp_ratio=4,
-                 use_gated_mlp=False,
-                 use_mlp_norm=False,
-                 use_mean_pooling_head=True,
-                 use_cat_head=False,
-                 max_block_size=77,
-                 text_positional_dropout=0,
-                 text_use_positional_embedding=True,
+                 include_top=include_top,
+                 weights=weights,
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape,
+                 pooling=pooling,
+                 activation='gelu',
+                 final_activation=final_activation,
+                 classes=classes,
+                 sam_rho=sam_rho,
+                 norm_eps=norm_eps,
+                 drop_rate=drop_rate)
+    return model
+
+
+def BEiTBase32(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
+
+    model = BEiT(num_layers=12,
+                 patch_size=32,
+                 num_heads=12,
+                 embed_dim=768,
                  include_top=include_top,
                  weights=weights,
                  input_tensor=input_tensor, 
@@ -292,31 +316,101 @@ def BEiTLarge16(include_top=True,
                 norm_eps=1e-6,
                 drop_rate=0.1):
 
-    model = BEiT(vocab_size=0,
-                 num_layers=24,
+    model = BEiT(num_layers=24,
                  patch_size=16,
                  num_heads=16,
                  embed_dim=1024,
-                 use_patch_bias=True,
-                 use_pre_norm=False,
-                 attn_key_dim=0,
-                 attn_qv_bias=True,
-                 attn_qkv_bias=False,
-                 attn_return_weight=True,
-                 attn_return_bias=True,
                  attn_layer_scale=1e-05,
-                 attn_dropout=0,
-                 use_abs_pos_emb=False,
-                 use_abs_pos_emb_on_cls_token=True,
-                 use_rot_pos_emb=False,
-                 mlp_ratio=4,
-                 use_gated_mlp=False,
-                 use_mlp_norm=False,
-                 use_mean_pooling_head=True,
-                 use_cat_head=False,
-                 max_block_size=77,
-                 text_positional_dropout=0,
-                 text_use_positional_embedding=True,
+                 include_top=include_top,
+                 weights=weights,
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape,
+                 pooling=pooling,
+                 activation='gelu',
+                 final_activation=final_activation,
+                 classes=classes,
+                 sam_rho=sam_rho,
+                 norm_eps=norm_eps,
+                 drop_rate=drop_rate)
+    return model
+
+
+def BEiTLarge32(include_top=True, 
+                weights='imagenet',
+                input_tensor=None, 
+                input_shape=None,
+                pooling=None,
+                final_activation="softmax",
+                classes=1000,
+                sam_rho=0.0,
+                norm_eps=1e-6,
+                drop_rate=0.1):
+
+    model = BEiT(num_layers=24,
+                 patch_size=32,
+                 num_heads=16,
+                 embed_dim=1024,
+                 attn_layer_scale=1e-05,
+                 include_top=include_top,
+                 weights=weights,
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape,
+                 pooling=pooling,
+                 activation='gelu',
+                 final_activation=final_activation,
+                 classes=classes,
+                 sam_rho=sam_rho,
+                 norm_eps=norm_eps,
+                 drop_rate=drop_rate)
+    return model
+
+
+def BEiTHuge16(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
+
+    model = BEiT(num_layers=32,
+                 patch_size=16,
+                 num_heads=16,
+                 embed_dim=1280,
+                 attn_layer_scale=1e-05,
+                 include_top=include_top,
+                 weights=weights,
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape,
+                 pooling=pooling,
+                 activation='gelu',
+                 final_activation=final_activation,
+                 classes=classes,
+                 sam_rho=sam_rho,
+                 norm_eps=norm_eps,
+                 drop_rate=drop_rate)
+    return model
+
+
+def BEiTHuge32(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
+
+    model = BEiT(num_layers=32,
+                 patch_size=32,
+                 num_heads=16,
+                 embed_dim=1280,
+                 attn_layer_scale=1e-05,
                  include_top=include_top,
                  weights=weights,
                  input_tensor=input_tensor, 

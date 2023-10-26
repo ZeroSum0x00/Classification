@@ -150,14 +150,10 @@ def ResMLP(stem_width,
             return Model(inputs, x, name=name)
 
     # Create model.
-    if num_blocks == 12 and stem_width == 384:
-        model = __build_model(inputs, x, sam_rho, name='ResMLP-S12')
-    elif num_blocks == 24 and stem_width == 384:
-        model = __build_model(inputs, x, sam_rho, name='ResMLP-S24')
-    elif num_blocks == 36 and stem_width == 384:
-        model = __build_model(inputs, x, sam_rho, name='ResMLP-S36')
-    elif num_blocks == 24 and stem_width == 768:
-        model = __build_model(inputs, x, sam_rho, name='ResMLP-B24')
+    if stem_width == 384:
+        model = __build_model(inputs, x, sam_rho, name=f'ResMLP-S{num_blocks}')
+    elif stem_width == 768:
+        model = __build_model(inputs, x, sam_rho, name=f'ResMLP-B{num_blocks}')
     else:
         model = __build_model(inputs, x, sam_rho, name='ResMLP')
 
