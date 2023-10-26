@@ -24,6 +24,7 @@ from .wave_mlp import WaveMLP, WaveMLP_T, WaveMLP_S, WaveMLP_M, WaveMLP_B
 from .vit import ViT, ViTBase16, ViTBase32, ViTLarge16, ViTLarge32, ViTHuge16, ViTHuge32
 from .deit import DeiT, DeiT_Ti, DeiT_S, DeiT_B
 from .beit import BEiT, BEiTBase16, BEiTBase32, BEiTLarge16, BEiTLarge32, BEiTHuge16, BEiTHuge32
-from .vit_beit import ViT_BEiT, ViT_BEiT_Base16, ViT_BEiT_Base32, ViT_BEiT_Large16, ViT_BEiT_Large32, ViT_BEiT_Huge16, ViT_BEiT_Huge32
+from .vit_beit import ViT_BEiT, ViT_BEiT_Tiny16, ViT_BEiT_Tiny32, ViT_BEiT_Base16, ViT_BEiT_Base32, ViT_BEiT_Large14, ViT_BEiT_Large16, ViT_BEiT_Large32, ViT_BEiT_Huge14, ViT_BEiT_Huge16, ViT_BEiT_Huge32
+from .dino_v2 import DINOv2, DINOv2_Small14, DINOv2_Base14, DINOv2_Large14, DINOv2_Huge14, DINOv2_Gaint14
 from .swin import Swin, SwinT, SwinS, SwinB, SwinL
 from .swin_v2 import Swin_v2, SwinT_v2, SwinS_v2, SwinB_v2, SwinL_v2

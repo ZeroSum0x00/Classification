@@ -368,13 +368,15 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
     def call(self, inputs, training=False):
         x = self.norm_layer1(inputs, training=training)
         x = self.attention_layer(x, training=training)
-        x = self.affine1(x, training=training)
+        if self.layer_scale > 0:
+            x = self.affine1(x, training=training)
         x = self.drop1(x, training=training)
         attn_out = add([inputs, x])
 
         x = self.norm_layer2(attn_out, training=training)
         x = self.mlp_block(x, training=training)
-        x = self.affine2(x, training=training)
+        if self.layer_scale > 0:
+            x = self.affine2(x, training=training)
         x = self.drop2(x, training=training)
         x = add([attn_out, x])
         return x
