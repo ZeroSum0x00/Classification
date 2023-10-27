@@ -1,16 +1,16 @@
 """
   # Description:
     - The following table comparing the params of the Explore the limits of Flexible Vision Transformer (FlexiViT) base BEiT block
-    in Tensorflow on in Tensorflow on size 224 x 224 x 3:
+    in Tensorflow on in Tensorflow on size 240 x 240 x 3:
 
        -----------------------------------------
       |        Model Name       |    Params     |
       |-----------------------------------------|
-      |     FlexiViT-Small-16   |   22,050,280  |
+      |     FlexiViT-Small-16   |   22,061,416  |
       |-------------------------|---------------|
-      |     FlexiViT-Base-16    |   86,566,888  |
+      |     FlexiViT-Base-16    |   86,589,160  |
       |-------------------------|---------------|
-      |     FlexiViT-Large-16   |  304,325,608  |
+      |     FlexiViT-Large-16   |  304,355,304  |
        -----------------------------------------
 
   # Reference:
@@ -61,8 +61,8 @@ def FlexiViT(num_layers,
         
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
+                                      default_size=240,
+                                      min_size=16,
                                       data_format=K.image_data_format(),
                                       require_flatten=include_top,
                                       weights=weights)

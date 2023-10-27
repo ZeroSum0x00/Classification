@@ -1,20 +1,20 @@
 """
   # Description:
     - The following table comparing the params of the self-DIstillation with NO labels version 2 (DINO v2) base BEiT block
-    in Tensorflow on in Tensorflow on size 224 x 224 x 3:
+    in Tensorflow on in Tensorflow on size 518 x 518 x 3:
 
        ---------------------------------------------
       |       Model Name        |      Params       |
       |---------------------------------------------|
-      |     DINOv2-Small-14     |     22,397,800    |
+      |     DINOv2-Small-14     |     22,825,192    |
       |-------------------------|-------------------|
-      |     DINOv2-Base-14      |     87,261,928    |
+      |     DINOv2-Base-14      |     88,116,712    |
       |-------------------------|-------------------|
-      |     DINOv2-Large-14     |    305,276,904    |
+      |     DINOv2-Large-14     |    306,416,616    |
       |-------------------------|-------------------|
-      |     DINOv2-Huge-14      |    601,517,704    |
+      |     DINOv2-Huge-14      |    602,906,728    |
       |-------------------------|-------------------|
-      |     DINOv2-Gaint-14     |  1,137,842,664    |
+      |     DINOv2-Gaint-14     |  1,139,552,232    |
        ---------------------------------------------
 
   # Reference:
@@ -144,7 +144,9 @@ def DINOv2(num_layers,
             
     # Create model.
     if num_layers == 12:
-        if num_heads < 8:
+        if num_heads < 5:
+            model = __build_model(inputs, x, sam_rho, name=f'DINOv2-Tiny-{patch_size}')
+        elif num_heads < 8:
             model = __build_model(inputs, x, sam_rho, name=f'DINOv2-Small-{patch_size}')
         else:
             model = __build_model(inputs, x, sam_rho, name=f'DINOv2-Base-{patch_size}')
@@ -156,7 +158,7 @@ def DINOv2(num_layers,
         model = __build_model(inputs, x, sam_rho, name=f'DINOv2-Gaint-{patch_size}')
     else:
         model = __build_model(inputs, x, sam_rho, name=f'DINOv2-{patch_size}')
-
+        
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
                       'are using the Theano '

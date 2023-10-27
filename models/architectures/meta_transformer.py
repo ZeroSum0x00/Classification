@@ -1,14 +1,16 @@
 """
   # Description:
     - The following table comparing the params of the Explore the limits of Meta-Transformer, base BEiT block
-    in Tensorflow on in Tensorflow on size 224 x 224 x 3:
+    in Tensorflow on in Tensorflow on size 224 x 224 x 3 for 'Base' variant and 336 x 336 x 3 for 'Large' variant:
 
        ------------------------------------------------
       |           Model Name           |    Params     |
       |------------------------------------------------|
       |     MetaTransformer-Base-16    |   86,568,424  |
       |--------------------------------|---------------|
-      |     MetaTransformer-Large-16   |  304,327,656  |
+      |     MetaTransformer-Large-14   |  304,532,456  |
+      |--------------------------------|---------------|
+      |     MetaTransformer-Large-16   |  451,715,848  |
        ------------------------------------------------
 
   # Reference:
@@ -59,7 +61,7 @@ def MetaTransformer(num_layers,
         
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
+                                      default_size=224 if num_layers < 24 else 336,
                                       min_size=32,
                                       data_format=K.image_data_format(),
                                       require_flatten=include_top,
@@ -191,6 +193,34 @@ def MetaTransformer_Base16(include_top=True,
     return model
 
 
+def MetaTransformer_Large14(include_top=True, 
+                            weights='imagenet',
+                            input_tensor=None, 
+                            input_shape=None,
+                            pooling=None,
+                            final_activation="softmax",
+                            classes=1000,
+                            sam_rho=0.0,
+                            norm_eps=1e-6,
+                            drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=24,
+                            patch_size=14,
+                            num_heads=16,
+                            hidden_dim=1024,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
 def MetaTransformer_Large16(include_top=True, 
                             weights='imagenet',
                             input_tensor=None, 
@@ -204,8 +234,8 @@ def MetaTransformer_Large16(include_top=True,
 
     model = MetaTransformer(num_layers=24,
                             patch_size=16,
-                            num_heads=16,
-                            hidden_dim=1024,
+                            num_heads=24,
+                            hidden_dim=1248,
                             include_top=include_top,
                             weights=weights, 
                             input_tensor=input_tensor,

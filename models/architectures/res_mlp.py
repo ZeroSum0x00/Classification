@@ -155,7 +155,7 @@ def ResMLP(stem_width,
     elif stem_width == 768:
         model = __build_model(inputs, x, sam_rho, name=f'ResMLP-B{num_blocks}')
     else:
-        model = __build_model(inputs, x, sam_rho, name='ResMLP')
+        model = __build_model(inputs, x, sam_rho, name=f'ResMLP-{num_blocks}')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '
@@ -258,7 +258,7 @@ def ResMLP_B24(include_top=True,
                drop_rate=0.1) -> Model:
 
     model = ResMLP(stem_width=768,
-                   patch_size=16,
+                   patch_size=8,
                    num_blocks=24,
                    channels_mlp_dim=768 * 4,
                    include_top=include_top,

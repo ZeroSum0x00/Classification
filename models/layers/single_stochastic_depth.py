@@ -38,8 +38,8 @@ class DropPath(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         if self.drop_prob > 0:
-            noise_shape = [None] + [1] * (len(input_shape.shape) - 1)  # [None, 1, 1, 1]
-            self.drop_layer = Dropout(drop_rate, noise_shape=noise_shape)
+            noise_shape = [None] + [1] * (len(input_shape) - 1)  # [None, 1, 1, 1]
+            self.drop_layer = Dropout(self.drop_prob, noise_shape=noise_shape)
         else:
             self.drop_layer = None
             

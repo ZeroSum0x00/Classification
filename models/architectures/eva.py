@@ -1,14 +1,14 @@
 """
   # Description:
     - The following table comparing the params of the Explore the limits of Visual representation at scAle (EVA) base BEiT block
-    in Tensorflow on in Tensorflow on size 224 x 224 x 3:
+    in Tensorflow on in Tensorflow on size 196 x 196 x 3 for 'Large' variant and 224 x 224 x 3 for 'Gaint' variant:
 
        -----------------------------------------
       |      Model Name     |      Params       |
       |-----------------------------------------|
-      |     EVA-Large-14    |    305,227,752    |
+      |     EVA-Large-14    |    304,142,312    |
       |---------------------|-------------------|
-      |     EVA-Gaint-14    |  1,360,295,272    |
+      |     EVA-Gaint-14    |  1,012,555,112    |
        -----------------------------------------
 
   # Reference:
@@ -38,7 +38,7 @@ def EVA(num_layers,
         num_heads,
         hidden_dim,
         mlp_ratio,
-        use_gated_mlp=False,
+        attn_qkv_bias=False,
         include_top=True, 
         weights='imagenet',
         input_tensor=None, 
@@ -88,8 +88,8 @@ def EVA(num_layers,
                     use_patch_bias=True,
                     use_pre_norm=False,
                     attn_key_dim=0,
-                    attn_qv_bias=False,
-                    attn_qkv_bias=True,
+                    attn_qv_bias=True,
+                    attn_qkv_bias=attn_qkv_bias,
                     attn_return_weight=True,
                     attn_return_bias=True,
                     attn_layer_scale=0.0,
@@ -98,10 +98,10 @@ def EVA(num_layers,
                     use_abs_pos_emb_on_cls_token=True,
                     use_rot_pos_emb=False,
                     mlp_ratio=mlp_ratio,
-                    use_gated_mlp=use_gated_mlp,
+                    use_gated_mlp=False,
                     use_mlp_norm=False,
-                    use_mean_pooling_head=False,
-                    use_cat_head=True,
+                    use_mean_pooling_head=True,
+                    use_cat_head=False,
                     max_block_size=77,
                     text_positional_dropout=0,
                     text_use_positional_embedding=True,
@@ -181,7 +181,7 @@ def EVA_Large14(include_top=True,
                 num_heads=16,
                 hidden_dim=1024,
                 mlp_ratio=4,
-                use_gated_mlp=False,
+                attn_qkv_bias=True,
                 include_top=include_top,
                 weights=weights, 
                 input_tensor=input_tensor,
@@ -211,7 +211,7 @@ def EVA_Gaint14(include_top=True,
                 num_heads=16,
                 hidden_dim=1408,
                 mlp_ratio=6144 / 1408,
-                use_gated_mlp=True,
+                attn_qkv_bias=False,
                 include_top=include_top,
                 weights=weights, 
                 input_tensor=input_tensor,

@@ -1,18 +1,18 @@
 """
   # Description:
     - The following table comparing the params of the EVA-02 base BEiT block
-    in Tensorflow on in Tensorflow on size 224 x 224 x 3:
+    in Tensorflow on in Tensorflow on size 336 x 336 x 3:
 
        -------------------------------------------
       |       Model Name      |      Params       |
       |-------------------------------------------|
-      |     EVA02-Tiny-14     |      5,889,448    |
+      |     EVA02-Tiny-14     |      5,756,584    |
       |-----------------------|-------------------|
-      |     EVA02-Small-14    |     22,394,728    |
+      |     EVA02-Small-14    |     22,129,000    |
       |-----------------------|-------------------|
-      |     EVA02-Base-14     |     87,304,936    |
+      |     EVA02-Base-14     |     87,117,544    |
       |-----------------------|-------------------|
-      |     EVA02-Large-14    |    305,342,376    |
+      |     EVA02-Large-14    |    305,080,232    |
        -------------------------------------------
 
   # Reference:
@@ -91,20 +91,20 @@ def EVA02(num_layers,
                     use_patch_bias=True,
                     use_pre_norm=False,
                     attn_key_dim=0,
-                    attn_qv_bias=False,
-                    attn_qkv_bias=True,
+                    attn_qv_bias=True,
+                    attn_qkv_bias=False,
                     attn_return_weight=True,
                     attn_return_bias=True,
                     attn_layer_scale=0.0,
                     attn_dropout=0,
                     use_abs_pos_emb=True,
                     use_abs_pos_emb_on_cls_token=True,
-                    use_rot_pos_emb=True,
+                    use_rot_pos_emb=False,
                     mlp_ratio=4 * 2 / 3,
                     use_gated_mlp=True,
                     use_mlp_norm=use_mlp_norm,
-                    use_mean_pooling_head=False,
-                    use_cat_head=True,
+                    use_mean_pooling_head=True,
+                    use_cat_head=False,
                     max_block_size=77,
                     text_positional_dropout=0,
                     text_use_positional_embedding=True,
