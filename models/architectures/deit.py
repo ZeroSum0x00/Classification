@@ -32,7 +32,7 @@ from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import (ExtractPatches, ClassificationToken, AddPositionEmbedding,
+from models.layers import (ExtractPatches, ClassificationToken, PositionalEmbedding,
                            TransformerBlock, DistillationToken, SAMModel, 
                            get_normalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
@@ -88,7 +88,7 @@ def DeiT(num_layers,
     x = ExtractPatches(patch_size, hidden_dim, name="Extract_Patches")(img_input)
     x = DistillationToken(name="Distillation_Token")(x)
     x = ClassificationToken(name="Classification_Token")(x)
-    x = AddPositionEmbedding(name="Add_Position_Embedding")(x)
+    x = PositionalEmbedding(name="Positional_Embedding")(x)
     for n in range(num_layers):
         x, _ = TransformerBlock(num_heads=num_heads,
                                 mlp_dim=mlp_dim,

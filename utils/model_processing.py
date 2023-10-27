@@ -1,4 +1,5 @@
 import warnings
+import numpy as np
 
 from tensorflow.keras import backend as K
 
@@ -126,3 +127,10 @@ def correct_pad(inputs, kernel_size):
 
     return ((correct[0] - adjust[0], correct[0]),
             (correct[1] - adjust[1], correct[1]))
+
+
+def drop_connect_rates_split(num_blocks, start=0.0, end=0.0):
+    """split drop connect rate in range `(start, end)` according to `num_blocks`"""
+    cum_split = [sum(num_blocks[: id + 1]) for id, _ in enumerate(num_blocks[:-1])]
+    drop_connect_rates = np.split(np.linspace(start, end, sum(num_blocks)), cum_split)
+    return [ii.tolist() for ii in drop_connect_rates]

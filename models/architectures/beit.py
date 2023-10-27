@@ -226,12 +226,20 @@ def BEiT(vocab_size=0,  # [Text model] Set value > 0 for building text model
         else:
             return Model(inputs, x, name=name)
             
+    # Create model.
     if num_layers == 12:
-        model = __build_model(inputs, x, sam_rho, name=f'BEiT-Base-{patch_size}')
+        if num_heads < 5:
+            model = __build_model(inputs, x, sam_rho, name=f'BEiT-Tiny-{patch_size}')
+        elif num_heads < 8:
+            model = __build_model(inputs, x, sam_rho, name=f'BEiT-Small-{patch_size}')
+        else:
+            model = __build_model(inputs, x, sam_rho, name=f'BEiT-Base-{patch_size}')
     elif num_layers == 24:
         model = __build_model(inputs, x, sam_rho, name=f'BEiT-Large-{patch_size}')
     elif num_layers == 32:
         model = __build_model(inputs, x, sam_rho, name=f'BEiT-Huge-{patch_size}')
+    elif num_layers == 40:
+        model = __build_model(inputs, x, sam_rho, name=f'BEiT-Gaint-{patch_size}')
     else:
         model = __build_model(inputs, x, sam_rho, name=f'BEiT-{patch_size}')
         
