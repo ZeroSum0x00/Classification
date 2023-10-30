@@ -3,35 +3,35 @@
     - The following table comparing the params of the RepVGG in Tensorflow on 
     size 224 x 224 x 3:
 
-       ---------------------------------------------------------------
-      |      Model Name       |    Train params   |    Test params    |
-      |---------------------------------------------------------------|
-      |       RepVGG-A0       |       9,132,616   |      8,309,384    |
-      |---------------------------------------------------------------|
-      |       RepVGG-A1       |      14,122,088   |     12,789,864    |
-      |---------------------------------------------------------------|
-      |       RepVGG-A2       |      28,253,160   |     25,499,944    |
-      |---------------------------------------------------------------|
-      |       RepVGG-B0       |      15,853,160   |     14,339,048    |
-      |---------------------------------------------------------------|
-      |       RepVGG-B1       |      57,483,112   |     51,829,480    |
-      |---------------------------------------------------------------|
-      |      RepVGG-B1g2      |      45,850,472   |     41,360,104    |
-      |---------------------------------------------------------------|
-      |      RepVGG-B1g4      |      40,034,152   |     36,125,416    |
-      |---------------------------------------------------------------|
-      |       RepVGG-B2       |      89,107,432   |     80,315,112    |
-      |---------------------------------------------------------------|
-      |      RepVGG-B2g2      |      70,931,432   |     63,956,712    |
-      |---------------------------------------------------------------|
-      |      RepVGG-B2g4      |      61,843,432   |     55,777,512    |
-      |---------------------------------------------------------------|
-      |       RepVGG-B3       |    123,185,256    |    110,960,872    |
-      |---------------------------------------------------------------|
-      |      RepVGG-B3g2      |     97,011,816    |     87,404,776    |
-      |---------------------------------------------------------------|
-      |      RepVGG-B3g4      |     83,925,096    |     75,626,728    |
-       ---------------------------------------------------------------
+       --------------------------------------------------------------
+      |      Model Name       |    Test params   |    Train params   |
+      |--------------------------------------------------------------|
+      |       RepVGG-A0       |      9,132,616   |      8,309,384    |
+      |--------------------------------------------------------------|
+      |       RepVGG-A1       |     14,122,088   |     12,789,864    |
+      |--------------------------------------------------------------|
+      |       RepVGG-A2       |     28,253,160   |     25,499,944    |
+      |--------------------------------------------------------------|
+      |       RepVGG-B0       |     15,853,160   |     14,339,048    |
+      |--------------------------------------------------------------|
+      |       RepVGG-B1       |     57,483,112   |     51,829,480    |
+      |--------------------------------------------------------------|
+      |      RepVGG-B1g2      |     45,850,472   |     41,360,104    |
+      |--------------------------------------------------------------|
+      |      RepVGG-B1g4      |     40,034,152   |     36,125,416    |
+      |--------------------------------------------------------------|
+      |       RepVGG-B2       |     89,107,432   |     80,315,112    |
+      |--------------------------------------------------------------|
+      |      RepVGG-B2g2      |     70,931,432   |     63,956,712    |
+      |--------------------------------------------------------------|
+      |      RepVGG-B2g4      |     61,843,432   |     55,777,512    |
+      |--------------------------------------------------------------|
+      |       RepVGG-B3       |   123,185,256    |    110,960,872    |
+      |--------------------------------------------------------------|
+      |      RepVGG-B3g2      |    97,011,816    |     87,404,776    |
+      |--------------------------------------------------------------|
+      |      RepVGG-B3g4      |    83,925,096    |     75,626,728    |
+       --------------------------------------------------------------
 
   # Reference:
     - [RepVGG: Making VGG-style ConvNets Great Again](https://arxiv.org/pdf/2101.03697.pdf)
@@ -76,7 +76,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
         groups=1,
         activation='relu', 
         normalizer='batch-norm',
-        deploy=False,
+        training=False,
         *args, 
         **kwargs
     ):
@@ -89,7 +89,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
         self.groups = groups
         self.activation = activation
         self.normalizer = normalizer
-        self.deploy = deploy
+        self.training = training
 
         assert kernel_size == 3
         assert padding == 1
@@ -100,7 +100,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
         self.in_channels = input_shape[-1]
         self.nonlinearity = get_activation_from_name(self.activation)
 
-        if self.deploy:
+        if self.training:
             self.rbr_reparam = Sequential([
                     ZeroPadding2D(padding=self.padding),
                     Conv2D(filters=self.filters,
@@ -214,7 +214,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
 def RepVGG(num_blocks,
            width_multiplier=None,
            override_groups_map=None,
-           deploy=False,
+           training=False,
            include_top=True,
            weights='imagenet',
            input_tensor=None,
@@ -268,7 +268,7 @@ def RepVGG(num_blocks,
                     padding=1,
                     activation='relu', 
                     normalizer='batch-norm',
-                    deploy=deploy,
+                    training=training,
                     name=f"RepVGG_block_{cur_layer_idx + 1}")(img_input)
     cur_layer_idx += 1
                
@@ -281,7 +281,7 @@ def RepVGG(num_blocks,
                         groups=cur_groups,
                         activation='relu', 
                         normalizer='batch-norm',
-                        deploy=deploy,
+                        training=training,
                         name=f"RepVGG_block_{cur_layer_idx + 1}")(x)
         cur_layer_idx += 1
 
@@ -294,7 +294,7 @@ def RepVGG(num_blocks,
                         groups=cur_groups,
                         activation='relu', 
                         normalizer='batch-norm',
-                        deploy=deploy,
+                        training=training,
                         name=f"RepVGG_block_{cur_layer_idx + 1}")(x)
         cur_layer_idx += 1
 
@@ -307,7 +307,7 @@ def RepVGG(num_blocks,
                         groups=cur_groups,
                         activation='relu', 
                         normalizer='batch-norm',
-                        deploy=deploy,
+                        training=training,
                         name=f"RepVGG_block_{cur_layer_idx + 1}")(x)
         cur_layer_idx += 1
 
@@ -320,7 +320,7 @@ def RepVGG(num_blocks,
                         groups=cur_groups,
                         activation='relu', 
                         normalizer='batch-norm',
-                        deploy=deploy,
+                        training=training,
                         name=f"RepVGG_block_{cur_layer_idx + 1}")(x)
 
     if include_top:
@@ -399,12 +399,12 @@ def RepVGG_A0(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[2, 4, 14, 1],
                    width_multiplier=[0.75, 0.75, 0.75, 2.5],
                    override_groups_map=None,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -422,12 +422,12 @@ def RepVGG_A1(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[2, 4, 14, 1],
                    width_multiplier=[1, 1, 1, 2.5],
                    override_groups_map=None,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -445,12 +445,12 @@ def RepVGG_A2(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[2, 4, 14, 1],
                    width_multiplier=[1.5, 1.5, 1.5, 2.75],
                    override_groups_map=None,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -468,12 +468,12 @@ def RepVGG_B0(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[1, 1, 1, 2.5],
                    override_groups_map=None,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -491,12 +491,12 @@ def RepVGG_B1(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[2, 2, 2, 4],
                    override_groups_map=None,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -514,12 +514,12 @@ def RepVGG_B1g2(include_top=True,
                 pooling=None,
                 final_activation="softmax",
                 classes=1000,
-                deploy=False) -> Model:
+                training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[2, 2, 2, 4],
                    override_groups_map=g2_map,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -537,12 +537,12 @@ def RepVGG_B1g4(include_top=True,
                 pooling=None,
                 final_activation="softmax",
                 classes=1000,
-                deploy=False) -> Model:
+                training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[2, 2, 2, 4],
                    override_groups_map=g4_map,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -560,12 +560,12 @@ def RepVGG_B2(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[2.5, 2.5, 2.5, 5],
                    override_groups_map=None,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -583,12 +583,12 @@ def RepVGG_B2g2(include_top=True,
                 pooling=None,
                 final_activation="softmax",
                 classes=1000,
-                deploy=False) -> Model:
+                training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[2.5, 2.5, 2.5, 5],
                    override_groups_map=g2_map,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -606,12 +606,12 @@ def RepVGG_B2g4(include_top=True,
                 pooling=None,
                 final_activation="softmax",
                 classes=1000,
-                deploy=False) -> Model:
+                training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[2.5, 2.5, 2.5, 5],
                    override_groups_map=g4_map,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -629,12 +629,12 @@ def RepVGG_B3(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[3, 3, 3, 5],
                    override_groups_map=None,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -652,12 +652,12 @@ def RepVGG_B3g2(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[3, 3, 3, 5],
                    override_groups_map=g2_map,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
@@ -675,12 +675,12 @@ def RepVGG_B3g4(include_top=True,
               pooling=None,
               final_activation="softmax",
               classes=1000,
-              deploy=False) -> Model:
+              training=False) -> Model:
     
     model = RepVGG(num_blocks=[4, 6, 16, 1],
                    width_multiplier=[3, 3, 3, 5],
                    override_groups_map=g4_map,
-                   deploy=deploy,
+                   training=training,
                    include_top=include_top,
                    weights=weights, 
                    input_tensor=input_tensor, 
