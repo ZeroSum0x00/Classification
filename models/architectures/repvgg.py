@@ -3,35 +3,35 @@
     - The following table comparing the params of the RepVGG in Tensorflow on 
     size 224 x 224 x 3:
 
-       --------------------------------------------------------------
-      |      Model Name       |    Test params   |    Train params   |
-      |--------------------------------------------------------------|
-      |       RepVGG-A0       |      9,132,616   |      8,309,384    |
-      |--------------------------------------------------------------|
-      |       RepVGG-A1       |     14,122,088   |     12,789,864    |
-      |--------------------------------------------------------------|
-      |       RepVGG-A2       |     28,253,160   |     25,499,944    |
-      |--------------------------------------------------------------|
-      |       RepVGG-B0       |     15,853,160   |     14,339,048    |
-      |--------------------------------------------------------------|
-      |       RepVGG-B1       |     57,483,112   |     51,829,480    |
-      |--------------------------------------------------------------|
-      |      RepVGG-B1g2      |     45,850,472   |     41,360,104    |
-      |--------------------------------------------------------------|
-      |      RepVGG-B1g4      |     40,034,152   |     36,125,416    |
-      |--------------------------------------------------------------|
-      |       RepVGG-B2       |     89,107,432   |     80,315,112    |
-      |--------------------------------------------------------------|
-      |      RepVGG-B2g2      |     70,931,432   |     63,956,712    |
-      |--------------------------------------------------------------|
-      |      RepVGG-B2g4      |     61,843,432   |     55,777,512    |
-      |--------------------------------------------------------------|
-      |       RepVGG-B3       |   123,185,256    |    110,960,872    |
-      |--------------------------------------------------------------|
-      |      RepVGG-B3g2      |    97,011,816    |     87,404,776    |
-      |--------------------------------------------------------------|
-      |      RepVGG-B3g4      |    83,925,096    |     75,626,728    |
-       --------------------------------------------------------------
+       ---------------------------------------------------------------
+      |      Model Name       |    Train params   |    Test params    |
+      |---------------------------------------------------------------|
+      |       RepVGG-A0       |      9,132,616    |      8,309,384    |
+      |---------------------------------------------------------------|
+      |       RepVGG-A1       |     14,122,088    |     12,789,864    |
+      |---------------------------------------------------------------|
+      |       RepVGG-A2       |     28,253,160    |     25,499,944    |
+      |---------------------------------------------------------------|
+      |       RepVGG-B0       |     15,853,160    |     14,339,048    |
+      |---------------------------------------------------------------|
+      |       RepVGG-B1       |     57,483,112    |     51,829,480    |
+      |---------------------------------------------------------------|
+      |      RepVGG-B1g2      |     45,850,472    |     41,360,104    |
+      |---------------------------------------------------------------|
+      |      RepVGG-B1g4      |     40,034,152    |     36,125,416    |
+      |---------------------------------------------------------------|
+      |       RepVGG-B2       |     89,107,432    |     80,315,112    |
+      |---------------------------------------------------------------|
+      |      RepVGG-B2g2      |     70,931,432    |     63,956,712    |
+      |---------------------------------------------------------------|
+      |      RepVGG-B2g4      |     61,843,432    |     55,777,512    |
+      |---------------------------------------------------------------|
+      |       RepVGG-B3       |   123,185,256     |    110,960,872    |
+      |---------------------------------------------------------------|
+      |      RepVGG-B3g2      |    97,011,816     |     87,404,776    |
+      |---------------------------------------------------------------|
+      |      RepVGG-B3g4      |    83,925,096     |     75,626,728    |
+       ---------------------------------------------------------------
 
   # Reference:
     - [RepVGG: Making VGG-style ConvNets Great Again](https://arxiv.org/pdf/2101.03697.pdf)
@@ -43,6 +43,7 @@ from __future__ import absolute_import
 
 import warnings
 
+import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 from tensorflow.keras import backend as K
@@ -53,6 +54,7 @@ from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import ZeroPadding2D
+from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
@@ -98,9 +100,9 @@ class RepVGGBlock(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         self.in_channels = input_shape[-1]
-        self.nonlinearity = get_activation_from_name(self.activation)
+        self.nonlinearity = get_activation_from_name(self.activation, name=self.name + '_nonlinearity')
 
-        if self.training:
+        if not self.training:
             self.rbr_reparam = Sequential([
                     ZeroPadding2D(padding=self.padding),
                     Conv2D(filters=self.filters,
@@ -109,36 +111,40 @@ class RepVGGBlock(tf.keras.layers.Layer):
                            padding="valid",
                            dilation_rate=self.dilation,
                            groups=self.groups,
-                           use_bias=True)
+                           use_bias=True,
+                           name=self.name + '_rbr_reparam')
             ])
         else:
-            self.rbr_identity = get_normalizer_from_name(self.normalizer) if self.filters == self.in_channels and self.strides == 1 else None
+            self.rbr_identity = get_normalizer_from_name(self.normalizer, name=self.name + '_rbr_identity') if self.filters == self.in_channels and self.strides == 1 else None
             
             self.rbr_dense = self.convolution_block(filters=self.filters,
                                                     kernel_size=self.kernel_size,
                                                     strides=self.strides,
                                                     padding=self.padding,
                                                     groups=self.groups,
+                                                    name=self.name + '_rbr_dense'
             )
             self.rbr_1x1 = self.convolution_block(filters=self.filters,
                                                   kernel_size=1,
                                                   strides=self.strides,
                                                   padding=self.padding_11,
                                                   groups=self.groups,
+                                                  name=self.name + '_rbr_1x1'
             )
 
-    def convolution_block(self, filters, kernel_size, strides, padding, groups=1):
+    def convolution_block(self, filters, kernel_size, strides, padding, groups=1, name=None):
         return Sequential([
-                ZeroPadding2D(padding=padding),
+                ZeroPadding2D(padding=padding, name="reppadding"),
                 Conv2D(filters=filters,
                        kernel_size=kernel_size,
                        strides=strides,
                        padding="valid",
                        groups=groups,
                        use_bias=False,
-                       name="conv"),
-                get_normalizer_from_name(self.normalizer, name="bn")
-        ])
+                       name="repconv"),
+                get_normalizer_from_name(self.normalizer, name="repbn")
+        ], name=name
+        )
         
     def call(self, inputs):
         if hasattr(self, "rbr_reparam"):
@@ -178,12 +184,12 @@ class RepVGGBlock(tf.keras.layers.Layer):
         if branch is None:
             return 0, 0
         if isinstance(branch, Sequential):
-            kernel = branch.get_layer("conv").weights[0]
-            running_mean = branch.get_layer("bn").moving_mean
-            running_var = branch.get_layer("bn").moving_variance
-            gamma = branch.get_layer("bn").gamma
-            beta = branch.get_layer("bn").beta
-            eps = branch.get_layer("bn").epsilon
+            kernel = branch.get_layer("repconv").weights[0]
+            running_mean = branch.get_layer("repbn").moving_mean
+            running_var = branch.get_layer("repbn").moving_variance
+            gamma = branch.get_layer("repbn").gamma
+            beta = branch.get_layer("repbn").beta
+            eps = branch.get_layer("repbn").epsilon
         else:
             assert isinstance(branch, BatchNormalization)
             if not hasattr(self, "id_tensor"):
@@ -689,3 +695,25 @@ def RepVGG_B3g4(include_top=True,
                    final_activation=final_activation,
                    classes=classes)
     return model
+
+
+def repvgg_reparameter(model: tf.keras.Model, structure, input_shape=(224, 224, 3), classes=1000, save_path=None):
+    deploy_model = structure(input_shape=input_shape, classes=classes, training=False)
+    for layer, deploy_layer in zip(model.layers, deploy_model.layers):
+        if hasattr(layer, "repvgg_convert"):
+            kernel, bias = layer.repvgg_convert()
+            deploy_layer.rbr_reparam.layers[1].set_weights([kernel, bias])
+        elif isinstance(layer, tf.keras.Sequential):
+            assert isinstance(deploy_layer, tf.keras.Sequential)
+            for sub_layer, deploy_sub_layer in zip(layer.layers, deploy_layer.layers):
+                kernel, bias = sub_layer.repvgg_convert()
+                deploy_sub_layer.rbr_reparam.layers[1].set_weights([kernel, bias])
+        elif isinstance(layer, tf.keras.layers.Dense):
+            assert isinstance(deploy_layer, tf.keras.layers.Dense)
+            weights = layer.get_weights()
+            deploy_layer.set_weights(weights)
+
+    if save_path is not None:
+        deploy_model.save_weights(save_path)
+
+    return deploy_model
