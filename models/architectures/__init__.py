@@ -14,6 +14,9 @@ from .efficientnet import EfficientNet, EfficientNetB0, EfficientNetB1, Efficien
 from .res2net import Res2Net, Res2Net50, ResNet50_backbone, Res2Net101, ResNet101_backbone, Res2Net152, ResNet152_backbone
 from .xception import Xception
 from .ddrnet import DDRNet23_slim, DDRNet23, DDRNet39
+from .darknet53 import DarkNet53, DarkNet53_backbone
+from .cspdarknet53 import CSPDarkNet53, CSPDarkNet53_backbone
+from .darknetc3 import DarkNetC3, DarkNetC3_nano, DarkNetC3_nano_backbone, DarkNetC3_small, DarkNetC3_small_backbone, DarkNetC3_medium, DarkNetC3_medium_backbone, DarkNetC3_large, DarkNetC3_large_backbone, DarkNetC3_xlarge, DarkNetC3_xlarge_backbone
 from .bit import ResnetV2, BiT_S_R50x1, BiT_S_R50x3, BiT_M_R50x1, BiT_M_R50x3, BiT_S_R101x1, BiT_S_R101x3, BiT_M_R101x1, BiT_M_R101x3, BiT_S_R152x4, BiT_M_R152x4
 from .repvgg import RepVGG, RepVGG_A0, RepVGG_A1, RepVGG_A2, RepVGG_B0, RepVGG_B1, RepVGG_B1g2, RepVGG_B1g4, RepVGG_B2, RepVGG_B2g2, RepVGG_B2g4, RepVGG_B3, RepVGG_B3g2, RepVGG_B3g4, repvgg_reparameter
 from .convnext import ConvNext, ConvNextT, ConvNextT_backbone, ConvNextS, ConvNextS_backbone, ConvNextB, ConvNextB_backbone, ConvNextL, ConvNextL_backbone, ConvNextXL, ConvNextXL_backbone
