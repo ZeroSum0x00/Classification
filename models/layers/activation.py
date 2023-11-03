@@ -324,7 +324,6 @@ class ELSA(tf.keras.layers.Layer):
 def get_activation_from_name(activ_name, *args, **kwargs):
     activ_name = activ_name.lower()
     if activ_name in ['relu', 'sigmoid', 'softmax', 'softplus', 'phish', 'gelu', 'swish']:
-        print(args, kwargs, activ_name)
         return Activation(activ_name, *args, **kwargs)
     elif activ_name == 'relu6':
         return ReLU6(*args, **kwargs)
