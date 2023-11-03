@@ -3,6 +3,7 @@ from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import ReLU
+from .normalization import get_normalizer_from_name
 
 
 class Mixture(tf.keras.layers.Layer):
@@ -323,7 +324,8 @@ class ELSA(tf.keras.layers.Layer):
 def get_activation_from_name(activ_name, *args, **kwargs):
     activ_name = activ_name.lower()
     if activ_name in ['relu', 'sigmoid', 'softmax', 'softplus', 'phish', 'gelu', 'swish']:
-        return Activation(activ_name)
+        print(args, kwargs, activ_name)
+        return Activation(activ_name, *args, **kwargs)
     elif activ_name == 'relu6':
         return ReLU6(*args, **kwargs)
     elif activ_name == 'arelu':
