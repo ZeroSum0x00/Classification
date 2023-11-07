@@ -273,17 +273,20 @@ class SPP(tf.keras.layers.Layer):
     def __init__(self, 
                  filters, 
                  pool_pyramid = (5, 9, 13),
+                 expansion    = 0.5,
                  activation   = 'silu', 
                  norm_layer   = 'batch-norm', 
                  **kwargs):
         super(SPP, self).__init__(**kwargs)
         self.filters      = filters
         self.pool_pyramid = pool_pyramid
+        self.expansion    = expansion
         self.activation   = activation
         self.norm_layer   = norm_layer
                      
     def build(self, input_shape):
-        self.conv1 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.pool1 = MaxPooling2D(pool_size=self.pool_pyramid[0], strides=(1, 1), padding='same')
         self.pool2 = MaxPooling2D(pool_size=self.pool_pyramid[1], strides=(1, 1), padding='same')
         self.pool3 = MaxPooling2D(pool_size=self.pool_pyramid[2], strides=(1, 1), padding='same')
@@ -333,17 +336,19 @@ class SPPF(tf.keras.layers.Layer):
     def __init__(self, 
                  filters, 
                  pool_size  = (5, 5),
+                 expansion  = 0.5,
                  activation = 'silu', 
                  norm_layer = 'batch-norm', 
                  **kwargs):
         super(SPPF, self).__init__(**kwargs)
         self.filters    = filters
         self.pool_size  = pool_size
+        self.expansion  = expansion
         self.activation = activation
         self.norm_layer = norm_layer
                      
     def build(self, input_shape):
-        hidden_dim = input_shape[-1] // 2
+        hidden_dim = int(input_shape[-1] * self.expansion)
         self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.pool1 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
         self.pool2 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
@@ -394,17 +399,19 @@ class GhostConv(tf.keras.layers.Layer):
     def __init__(self, 
                  filters, 
                  kernel_size =(1, 1),
+                 expansion   = 0.5,
                  activation  = 'silu', 
                  norm_layer  = 'batch-norm', 
                  **kwargs):
         super(GhostConv, self).__init__(**kwargs)
         self.filters     = filters
         self.kernel_size = kernel_size
+        self.expansion   = expansion
         self.activation  = activation
         self.norm_layer  = norm_layer
                      
     def build(self, input_shape):
-        hidden_dim = int(self.filters // 2)
+        hidden_dim = int(self.filters * self.expansion)
         self.conv1 = ConvolutionBlock(hidden_dim, self.kernel_size, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = ConvolutionBlock(hidden_dim, 5, groups=hidden_dim, activation=self.activation, norm_layer=self.norm_layer)
 
@@ -421,6 +428,7 @@ class GhostBottleneck(tf.keras.layers.Layer):
                  filters, 
                  dwkernel   = 3,
                  stride     = 1,
+                 expansion  = 0.5,
                  activation = 'silu', 
                  norm_layer = 'batch-norm', 
                  **kwargs):
@@ -428,11 +436,12 @@ class GhostBottleneck(tf.keras.layers.Layer):
         self.filters    = filters
         self.dwkernel   = dwkernel
         self.stride     = stride
+        self.expansion  = expansion
         self.activation = activation
         self.norm_layer = norm_layer
                      
     def build(self, input_shape):
-        hidden_dim = int(self.filters // 2)
+        hidden_dim = int(self.filters * self.expansion)
         self.conv1 = GhostConv(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = GhostConv(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
         
