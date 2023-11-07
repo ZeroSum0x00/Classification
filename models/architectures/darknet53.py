@@ -17,50 +17,78 @@ from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
-def convolutional_block(x, 
-                        filters, 
-                        kernel_size, 
-                        dilation_rate=(1, 1), 
-                        groups=1, 
-                        downsample=False, 
-                        activation='leaky', 
-                        norm_layer='batch-norm', 
-                        regularizer_decay=5e-4,
-                        name=None):
-    if downsample:
-        x = ZeroPadding2D(padding=((1, 0), (1, 0)), name=name + "/padding")(x)
-        padding = 'valid'
-        strides = 2
-    else:
-        strides = 1
-        padding = 'same'
-
-    x = Conv2D(filters=filters, 
-               kernel_size=kernel_size, 
-               strides=strides,
-               padding=padding, 
-               dilation_rate=dilation_rate,
-               groups=groups,
-               use_bias=not norm_layer, 
-               kernel_initializer=RandomNormal(stddev=0.02),
-               kernel_regularizer=l2(regularizer_decay), 
-               name=name + "/conv")(x)
-                            
-    if norm_layer:
-        x = get_normalizer_from_name(norm_layer, name=name + "/norm")(x)
+class ConvolutionBlock(tf.keras.layers.Layer):
+    def __init__(self, 
+                 filters, 
+                 kernel_size       = 3, 
+                 downsample        = False, 
+                 dilation_rate     = (1, 1),
+                 groups            = 1,
+                 activation        = 'leaky', 
+                 norm_layer        = 'batch-norm', 
+                 regularizer_decay = 5e-4,
+                 **kwargs):
+        super(ConvolutionBlock, self).__init__(**kwargs)
+        self.filters           = filters
+        self.kernel_size       = kernel_size
+        self.downsample        = downsample
+        self.dilation_rate     = dilation_rate
+        self.groups            = groups
+        self.activation        = activation
+        self.norm_layer        = norm_layer
+        self.regularizer_decay = regularizer_decay
         
-    if activation:
-        x = get_activation_from_name(activation, name=name + "/activ")(x)
-        
-    return x
+        if downsample:
+            self.padding = 'valid'
+            self.strides = 2
+        else:
+            self.padding = 'same'
+            self.strides = 1
+
+    def build(self, input_shape):
+        self.padding_layer = ZeroPadding2D(padding=((1, 0), (1, 0))) if self.downsample else None
+        self.conv = Conv2D(filters=self.filters, 
+                           kernel_size=self.kernel_size, 
+                           strides=self.strides,
+                           padding=self.padding, 
+                           dilation_rate=self.dilation_rate,
+                           groups=self.groups,
+                           use_bias=False if self.norm_layer else True, 
+                           kernel_initializer=RandomNormal(stddev=0.02),
+                           kernel_regularizer=l2(self.regularizer_decay))
+        self.norm_layer = get_normalizer_from_name(self.norm_layer)
+        self.activation = get_activation_from_name(self.activation)
+
+    def call(self, inputs, training=False):
+        if self.downsample:
+            inputs = self.padding_layer(inputs)
+        x = self.conv(inputs, training=training)
+        if self.norm_layer:
+            x = self.norm_layer(x, training=training)
+        if self.activation:
+            x = self.activation(x)
+        return x
 
 
-def residual_block(x, num_filters, activation='leaky', norm_layer='batch-norm', name=None):
-    shortcut = x
-    x = convolutional_block(x, num_filters[0], 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-    x = convolutional_block(x, num_filters[1], 3, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
-    x = add([shortcut, x], name=name + '_residual')
-    return x
+class ResidualBlock(tf.keras.layers.Layer):
+    def __init__(self, 
+                 num_filters, 
+                 activation        = 'leaky', 
+                 norm_layer        = 'batch-norm', 
+                 **kwargs):
+        super(ResidualBlock, self).__init__(**kwargs)
+        self.num_filters = num_filters
+        self.activation  = activation
+        self.norm_layer  = norm_layer
+                     
+    def build(self, input_shape):
+        self.conv1 = ConvolutionBlock(self.num_filters[0], 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.num_filters[1], 3, activation=self.activation, norm_layer=self.norm_layer)
+    
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        x = self.conv2(x, training=training)
+        return add([inputs, x])
 
 
 def DarkNet53(include_top=True,
@@ -103,32 +131,32 @@ def DarkNet53(include_top=True,
     else:
         bn_axis = 1    
         
-    x = convolutional_block(img_input, 32, 3, activation=activation, norm_layer=norm_layer, name="stage1_block1")
+    x = ConvolutionBlock(32, 3, activation=activation, norm_layer=norm_layer, name="stage1_block1")(img_input)
     
-    x = convolutional_block(x, 64, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage2_block1")
+    x = ConvolutionBlock(64, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage2_block1")(x)
     
     for i in range(1):
-        x = residual_block(x,  [32, 64], activation=activation, norm_layer=norm_layer, name=f'stage2_block{i + 1}')
+        x = ResidualBlock(num_filters=[32, 64], activation=activation, norm_layer=norm_layer, name=f'stage2_block{i + 2}')(x)
 
-    x = convolutional_block(x, 128, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage3_block1")
+    x = ConvolutionBlock(128, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage3_block1")(x)
 
     for i in range(2):
-        x = residual_block(x, [64, 128], activation=activation, norm_layer=norm_layer, name=f'stage3_block{i + 1}')
+        x = ResidualBlock(num_filters=[64, 128], activation=activation, norm_layer=norm_layer, name=f'stage3_block{i + 2}')(x)
 
-    x = convolutional_block(x, 256, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage4_block1")
-
-    for i in range(8):
-        x = residual_block(x, [128, 256], activation=activation, norm_layer=norm_layer, name=f'stage4_block{i + 1}')
-
-    x = convolutional_block(x, 512, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage5_block1")
+    x = ConvolutionBlock(256, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage4_block1")(x)
 
     for i in range(8):
-        x = residual_block(x, [256, 512], activation=activation, norm_layer=norm_layer, name=f'stage5_block{i + 1}')
+        x = ResidualBlock(num_filters=[128, 256], activation=activation, norm_layer=norm_layer, name=f'stage4_block{i + 2}')(x)
 
-    x = convolutional_block(x, 1024, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage6_block1")
+    x = ConvolutionBlock(512, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage5_block1")(x)
+
+    for i in range(8):
+        x = ResidualBlock(num_filters=[256, 512], activation=activation, norm_layer=norm_layer, name=f'stage5_block{i + 2}')(x)
+
+    x = ConvolutionBlock(1024, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage6_block1")(x)
 
     for i in range(4):
-        x = residual_block(x, [512, 1024], activation=activation, norm_layer=norm_layer, name=f'stage6_block{i + 1}')
+        x = ResidualBlock(num_filters=[512, 1024], activation=activation, norm_layer=norm_layer, name=f'stage6_block{i + 2}')(x)
         
     if include_top:
         # Classification block
@@ -182,9 +210,9 @@ def DarkNet53_backbone(input_shape=(416, 416, 3),
             y_i.append(model.get_layer(layer).output)
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
-        y_2 = model.get_layer("stage2_block1_residual").output
-        y_4 = model.get_layer("stage3_block2_residual").output
-        y_8 = model.get_layer("stage4_block8_residual").output
-        y_16 = model.get_layer("stage5_block8_residual").output
-        y_32 = model.get_layer("stage6_block4_residual").output
+        y_2 = model.get_layer("stage2_block2").output
+        y_4 = model.get_layer("stage3_block3").output
+        y_8 = model.get_layer("stage4_block9").output
+        y_16 = model.get_layer("stage5_block9").output
+        y_32 = model.get_layer("stage6_block5").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')

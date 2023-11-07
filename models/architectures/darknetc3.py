@@ -30,6 +30,7 @@ import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
+from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import DepthwiseConv2D
@@ -45,231 +46,440 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.initializers import VarianceScaling
 
-from .darknet53 import convolutional_block
+from .darknet53 import ConvolutionBlock
 from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
-def stem(x, filters, kernel_size, strides, activation='silu', norm_layer='batch-norm', regularizer_decay=5e-4, name=None):
-    x = ZeroPadding2D(padding=((2, 2),(2, 2)), name=name + "_padding")(x)
-    x = Conv2D(filters=filters, 
-               kernel_size=kernel_size, 
-               strides=strides,
-               padding="valid", 
-               use_bias=not norm_layer, 
-               kernel_initializer=RandomNormal(stddev=0.02),
-               kernel_regularizer=l2(regularizer_decay),
-               name=name + "_conv")(x)
-    x = get_normalizer_from_name(norm_layer, name=name + "_norm")(x)
-    x = get_activation_from_name(activation, name=name + "_activ")(x)
-    return x
-
-
-def Bottleneck(inputs, filters, expansion=1, shortcut=True, activation='silu', norm_layer='batch-norm', name=None):
-    hidden_dim = filters * expansion
-    input_channel = inputs.shape[-1]
-    x = convolutional_block(inputs, hidden_dim, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-    x = convolutional_block(x, filters, 3, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
-    
-    if shortcut and input_channel == filters:
-        x = add([inputs, x], name=name + '_residual')
+class StemBlock(tf.keras.layers.Layer):
+    def __init__(self, 
+                 filters, 
+                 kernel_size,
+                 strides,
+                 activation        = 'silu', 
+                 norm_layer        = 'batch-norm', 
+                 regularizer_decay = 5e-4,
+                 **kwargs):
+        super(StemBlock, self).__init__(**kwargs)
+        self.filters           = filters
+        self.kernel_size       = kernel_size
+        self.strides           = strides       
+        self.activation        = activation
+        self.norm_layer        = norm_layer
+        self.regularizer_decay = regularizer_decay
+                     
+    def build(self, input_shape):
+        self.padding = ZeroPadding2D(padding=((2, 2),(2, 2)))
+        self.conv    = Conv2D(filters=self.filters, 
+                              kernel_size=self.kernel_size, 
+                              strides=self.strides,
+                              padding="valid", 
+                              use_bias=not self.norm_layer, 
+                              kernel_initializer=RandomNormal(stddev=0.02),
+                              kernel_regularizer=l2(self.regularizer_decay))
+        self.norm    = get_normalizer_from_name(self.norm_layer)
+        self.activ   = get_activation_from_name(self.activation)
         
-    return x
-
-
-def BottleneckCSP(inputs, filters, iters, expansion=1, shortcut=True, activation='silu', norm_layer='batch-norm', regularizer_decay=5e-4, name=None):
-    """ CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks """
-    hidden_dim = filters * expansion
-    x = convolutional_block(inputs, hidden_dim, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-    
-    for i in range(iters):
-        x = Bottleneck(x, hidden_dim, shortcut=shortcut, activation=activation, norm_layer=norm_layer, name=name + f'_bottleneck{i + 1}')
-        
-    x = Conv2D(filters=hidden_dim, 
-               kernel_size=(1, 1), 
-               strides=(1, 1),
-               padding="valid", 
-               use_bias=not norm_layer, 
-               kernel_initializer=RandomNormal(stddev=0.02),
-               kernel_regularizer=l2(regularizer_decay),
-               name=name + '_conv2')(x)
-
-    y = Conv2D(filters=hidden_dim, 
-               kernel_size=(1, 1), 
-               strides=(1, 1),
-               padding="valid", 
-               use_bias=not norm_layer, 
-               kernel_initializer=RandomNormal(stddev=0.02),
-               kernel_regularizer=l2(regularizer_decay),
-               name=name + '_conv3')(inputs)
-
-    o = concatenate([x, y], name=name + '_merger')
-    o = get_normalizer_from_name(norm_layer, name=name + '_norm')(o)
-    o = get_activation_from_name(activation, name=name + '_activ')(o)
-    o = Conv2D(filters=filters, 
-               kernel_size=(1, 1), 
-               strides=(1, 1),
-               padding="valid", 
-               use_bias=not norm_layer, 
-               kernel_initializer=RandomNormal(stddev=0.02),
-               kernel_regularizer=l2(regularizer_decay),
-               name=name + '_projection')(o)
-    return o
-
-    
-def C3(inputs, filters, iters, expansion=0.5, shortcut=True, activation='silu', norm_layer='batch-norm', name=None):
-    # CSP Bottleneck with 3 convolutions
-    hidden_channels = int(filters * expansion)
-    x = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-
-    for i in range(iters):
-        x = Bottleneck(x, hidden_channels, shortcut=shortcut, activation=activation, norm_layer=norm_layer, name=name + f'_bottleneck{i + 1}')
-
-    y = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
-
-    merger = concatenate([x, y], axis=-1, name=name + '_merger')
-    merger = convolutional_block(merger, filters, 1, activation=activation, norm_layer=norm_layer, name=name + '_projection')
-    return merger
-
-
-def CrossConv2D(inputs, filters, kernel_size, expansion=1, shortcut=True, activation='silu', norm_layer='batch-norm', regularizer_decay=5e-4, name=None):
-    """ Cross Convolution Downsample """
-    hidden_channels = int(filters * expansion)
-    input_channel = inputs.shape[-1]
-    x = convolutional_block(inputs, hidden_channels, (1, kernel_size), activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-    x = convolutional_block(x, filters, (kernel_size, 1), activation=activation, norm_layer=norm_layer, name=name + '_conv2')
-    
-    if shortcut and input_channel == filters:
-        return add([inputs, x], name=name + '_residual')
-    else: 
+    def call(self, inputs, training=False):
+        x = self.padding(inputs)
+        x = self.conv(x, training=training)
+        x = self.norm(x, training=training)
+        x = self.activ(x, training=training)
         return x
 
+        
+class Bottleneck(tf.keras.layers.Layer):
+    def __init__(self, 
+                 filters, 
+                 expansion  = 1,
+                 shortcut   = True,
+                 activation = 'silu', 
+                 norm_layer = 'batch-norm', 
+                 **kwargs):
+        super(Bottleneck, self).__init__(**kwargs)
+        self.filters    = filters
+        self.expansion  = expansion
+        self.shortcut   = shortcut       
+        self.activation = activation
+        self.norm_layer = norm_layer
+                     
+    def build(self, input_shape):
+        self.c     = input_shape[-1]
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, 3, activation=self.activation, norm_layer=self.norm_layer)
+
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        x = self.conv2(x, training=training)
+        
+        if self.shortcut and self.c == self.filters:
+            x = add([inputs, x])
+        return x
+
+        
+class BottleneckCSP(tf.keras.layers.Layer):
+    """ CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks """
     
-def C3x(inputs, filters, iters, expansion=0.5, shortcut=True, activation='silu', norm_layer='batch-norm', name=None):
+    def __init__(self, 
+                 filters, 
+                 iters,
+                 expansion         = 0.5,
+                 shortcut          = True,
+                 activation        = 'silu', 
+                 norm_layer        = 'batch-norm', 
+                 regularizer_decay = 5e-4,
+                 **kwargs):
+        super(BottleneckCSP, self).__init__(**kwargs)
+        self.filters           = filters
+        self.iters             = iters
+        self.expansion         = expansion
+        self.shortcut          = shortcut       
+        self.activation        = activation
+        self.norm_layer        = norm_layer
+        self.regularizer_decay = regularizer_decay
+                     
+    def build(self, input_shape):
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.middle = Sequential([
+            Bottleneck(hidden_dim, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+        ])
+        self.conv2 = Conv2D(filters=hidden_dim, 
+                            kernel_size=(1, 1), 
+                            strides=(1, 1),
+                            padding="valid", 
+                            use_bias=not self.norm_layer, 
+                            kernel_initializer=RandomNormal(stddev=0.02),
+                            kernel_regularizer=l2(self.regularizer_decay))
+        self.shortcut = Conv2D(filters=hidden_dim, 
+                               kernel_size=(1, 1), 
+                               strides=(1, 1),
+                               padding="valid", 
+                               use_bias=not self.norm_layer, 
+                               kernel_initializer=RandomNormal(stddev=0.02),
+                               kernel_regularizer=l2(self.regularizer_decay))
+        self.norm = get_normalizer_from_name(self.norm_layer)
+        self.activ = get_activation_from_name(self.activation)
+        self.conv3 = Conv2D(filters=self.filters, 
+                            kernel_size=(1, 1), 
+                            strides=(1, 1),
+                            padding="valid", 
+                            use_bias=not self.norm_layer, 
+                            kernel_initializer=RandomNormal(stddev=0.02),
+                            kernel_regularizer=l2(self.regularizer_decay))
+
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        x = self.middle(x, training=training)
+        x = self.conv2(x, training=training)
+        y = self.shortcut(inputs, training=training)
+        
+        merger = concatenate([x, y], axis=-1)
+        merger = self.norm(merger, training=training)
+        merger = self.activ(merger, training=training)
+        merger = self.conv3(merger, training=training)
+        return merger
+
+        
+class C3(tf.keras.layers.Layer):
+    """ CSP Bottleneck with 3 convolutions """
+    
+    def __init__(self, 
+                 filters, 
+                 iters,
+                 expansion  = 0.5,
+                 shortcut   = True,
+                 activation = 'silu', 
+                 norm_layer = 'batch-norm', 
+                 **kwargs):
+        super(C3, self).__init__(**kwargs)
+        self.filters    = filters
+        self.iters      = iters
+        self.expansion  = expansion
+        self.shortcut   = shortcut       
+        self.activation = activation
+        self.norm_layer = norm_layer
+                     
+    def build(self, input_shape):
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.middle = Sequential([
+            Bottleneck(hidden_dim, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+        ])
+        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        x = self.middle(x, training=training)
+        y = self.shortcut(inputs, training=training)
+        
+        merger = concatenate([x, y], axis=-1)
+        merger = self.conv2(merger, training=training)
+        return merger
+
+        
+class CrossConv2D(tf.keras.layers.Layer):
+    """ Cross Convolution Downsample """
+    
+    def __init__(self, 
+                 filters, 
+                 kernel_size,
+                 expansion  = 1,
+                 shortcut   = True,
+                 activation = 'silu', 
+                 norm_layer = 'batch-norm', 
+                 **kwargs):
+        super(CrossConv2D, self).__init__(**kwargs)
+        self.filters     = filters
+        self.kernel_size = kernel_size
+        self.expansion   = expansion
+        self.shortcut    = shortcut       
+        self.activation  = activation
+        self.norm_layer  = norm_layer
+                     
+    def build(self, input_shape):
+        self.c     = input_shape[-1]
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, (1, self.kernel_size), activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, (self.kernel_size, 1), activation=self.activation, norm_layer=self.norm_layer)
+
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        x = self.conv2(x, training=training)
+        
+        if self.shortcut and self.c == self.filters:
+            x = add([inputs, x])
+        return x
+
+
+class C3x(C3):
     """ C3 module with cross-convolutions """
-    hidden_channels = int(filters * expansion)
-    x = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
 
-    for i in range(iters):
-        x = CrossConv2D(x, hidden_channels, kernel_size=3, shortcut=shortcut, activation=activation, norm_layer=norm_layer, name=name + f'_crossconv{i + 1}')
+    def build(self, input_shape):
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.middle = Sequential([
+            CrossConv2D(hidden_dim, kernel_size=3, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+        ])
+        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
-    y = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
 
-    merger = concatenate([x, y], axis=-1, name=name + '_merger')
-    merger = convolutional_block(merger, filters, 1, activation=activation, norm_layer=norm_layer, name=name + '_projection')
-    return merger
-
-    
-def SPP(inputs, out_dim, pool_pyramid=(5, 9, 13), activation='silu', norm_layer='batch-norm', name=None):
+class SPP(tf.keras.layers.Layer):
     """ Spatial Pyramid Pooling (SPP) layer https://arxiv.org/abs/1406.4729 """
-    x = convolutional_block(inputs, out_dim // 2, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv')
+    
+    def __init__(self, 
+                 filters, 
+                 pool_pyramid = (5, 9, 13),
+                 activation   = 'silu', 
+                 norm_layer   = 'batch-norm', 
+                 **kwargs):
+        super(SPP, self).__init__(**kwargs)
+        self.filters      = filters
+        self.pool_pyramid = pool_pyramid
+        self.activation   = activation
+        self.norm_layer   = norm_layer
+                     
+    def build(self, input_shape):
+        self.conv1 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.pool1 = MaxPooling2D(pool_size=self.pool_pyramid[0], strides=(1, 1), padding='same')
+        self.pool2 = MaxPooling2D(pool_size=self.pool_pyramid[1], strides=(1, 1), padding='same')
+        self.pool3 = MaxPooling2D(pool_size=self.pool_pyramid[2], strides=(1, 1), padding='same')
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
-    pool1 = MaxPooling2D(pool_size=pool_pyramid[0], strides=(1, 1), padding='same', name=name + '_pool1')(x)
-    pool2 = MaxPooling2D(pool_size=pool_pyramid[1], strides=(1, 1), padding='same', name=name + '_pool2')(pool1)
-    pool3 = MaxPooling2D(pool_size=pool_pyramid[2], strides=(1, 1), padding='same', name=name + '_pool3')(pool2)
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        p1 = self.pool1(x)
+        p2 = self.pool2(p1)
+        p3 = self.pool3(p2)
+        x = concatenate([x, p1, p2, p3], axis=-1)
+        x = self.conv2(x, training=training)
+        return x
 
-    x = concatenate([x, pool1, pool2, pool3], axis=-1, name=name + '_merger')
-    x = convolutional_block(x, out_dim, 1, activation=activation, norm_layer=norm_layer, name=name + '_projection')
-    return x
 
-
-def C3SPP(inputs, filters, iters, pool_pyramid=(5, 9, 13), expansion=0.5, shortcut=True, activation='silu', norm_layer='batch-norm', name=None):
+class C3SPP(C3):
     """ C3 module with SPP """
-    hidden_channels = int(filters * expansion)
-    x = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-    
-    for i in range(iters):
-        x = SPP(x, hidden_channels, pool_pyramid, name=name + f'_spp{i + 1}')
+
+    def __init__(self, 
+                 filters, 
+                 iters,
+                 pool_pyramid = (5, 9, 13),
+                 expansion    = 0.5,
+                 activation   = 'silu', 
+                 norm_layer   = 'batch-norm', 
+                 **kwargs):
+        super().__init__(filters, 
+                         iters,
+                         expansion,
+                         activation,
+                         **kwargs)
+        self.pool_pyramid = pool_pyramid
+                     
+    def build(self, input_shape):
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.middle = Sequential([
+            SPP(hidden_dim, self.pool_pyramid) for i in range(self.iters)
+        ])
+        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
         
-    y = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
 
-    merger = concatenate([x, y], axis=-1, name=name + '_merger')
-    merger = convolutional_block(merger, filters, 1, activation=activation, norm_layer=norm_layer, name=name + '_projection')
-    return merger
-
-
-def SPPF(inputs, out_dim, pool_size=(5, 5), activation='silu', norm_layer='batch-norm', name=None):
+class SPPF(tf.keras.layers.Layer):
     """ Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher """
-    hidden_dim = inputs.shape[-1] // 2
-    x = convolutional_block(inputs, hidden_dim, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv')
-    y = MaxPooling2D(pool_size=pool_size, strides=(1, 1), padding='same', name=name + '_pool1')(x)
-    z = MaxPooling2D(pool_size=pool_size, strides=(1, 1), padding='same', name=name + '_pool2')(y)
-    t = MaxPooling2D(pool_size=pool_size, strides=(1, 1), padding='same', name=name + '_pool3')(z)
-
-    out = concatenate([x, y, z, t], axis=-1, name=name + '_merger')
-    out = convolutional_block(out, out_dim, 1, activation=activation, norm_layer=norm_layer, name=name + '_projection')
-    return out
-
-
-def C3SPPF(inputs, filters, iters, pool_size=(5, 5), expansion=0.5, shortcut=True, activation='silu', norm_layer='batch-norm', name=None):
-    """ C3 module with SPPF """
-    hidden_channels = int(filters * expansion)
-    x = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
     
-    for i in range(iters):
-        x = SPPF(x, hidden_channels, pool_size, name=name + f'_sppf{i + 1}')
+    def __init__(self, 
+                 filters, 
+                 pool_size  = (5, 5),
+                 activation = 'silu', 
+                 norm_layer = 'batch-norm', 
+                 **kwargs):
+        super(SPPF, self).__init__(**kwargs)
+        self.filters    = filters
+        self.pool_size  = pool_size
+        self.activation = activation
+        self.norm_layer = norm_layer
+                     
+    def build(self, input_shape):
+        hidden_dim = input_shape[-1] // 2
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.pool1 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
+        self.pool2 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
+        self.pool3 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
-    y = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        p1 = self.pool1(x)
+        p2 = self.pool2(p1)
+        p3 = self.pool3(p2)
+        x = concatenate([x, p1, p2, p3], axis=-1)
+        x = self.conv2(x, training=training)
+        return x
 
-    merger = concatenate([x, y], axis=-1, name=name + '_merger')
-    merger = convolutional_block(merger, filters, 1, activation=activation, norm_layer=norm_layer, name=name + '_projection')
-    return merger
 
+class C3SPPF(C3):
+    """ C3 module with SPP """
+
+    def __init__(self, 
+                 filters, 
+                 iters,
+                 pool_size  = (5, 5),
+                 expansion  = 0.5,
+                 activation = 'silu', 
+                 norm_layer = 'batch-norm', 
+                 **kwargs):
+        super().__init__(filters, 
+                         iters,
+                         expansion,
+                         activation,
+                         **kwargs)
+        self.pool_size = pool_size
+                     
+    def build(self, input_shape):
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.middle = Sequential([
+            SPPF(hidden_dim, self.pool_size) for i in range(self.iters)
+        ])
+        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+
+
+class GhostConv(tf.keras.layers.Layer):
+    """ Ghost Convolution https://github.com/huawei-noah/ghostnet """
     
-def GhostConv(inputs, filters, kernel_size=1, activation='silu', norm_layer='batch-norm', name=None):
+    def __init__(self, 
+                 filters, 
+                 kernel_size =(1, 1),
+                 activation  = 'silu', 
+                 norm_layer  = 'batch-norm', 
+                 **kwargs):
+        super(GhostConv, self).__init__(**kwargs)
+        self.filters     = filters
+        self.kernel_size = kernel_size
+        self.activation  = activation
+        self.norm_layer  = norm_layer
+                     
+    def build(self, input_shape):
+        hidden_dim = int(self.filters // 2)
+        self.conv1 = ConvolutionBlock(hidden_dim, self.kernel_size, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(hidden_dim, 5, groups=hidden_dim, activation=self.activation, norm_layer=self.norm_layer)
+
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+        y = self.conv2(x, training=training)
+        return concatenate([x, y], axis=-1)
+
+
+class GhostBottleneck(tf.keras.layers.Layer):
     """ Ghost Convolution https://github.com/huawei-noah/ghostnet """
-    hidden_dim = filters // 2
-    x = convolutional_block(inputs, hidden_dim, kernel_size, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-    y = convolutional_block(x, hidden_dim, 5, groups=hidden_dim, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
-    return concatenate([x, y], axis=-1, name=name + '_merger')
-
-
-def GhostBottleneck(inputs, filters, dwkernel=3, stride=1, activation='silu', norm_layer='batch-norm', name=None):
-    """ Ghost Convolution https://github.com/huawei-noah/ghostnet """
-    hidden_dim = filters // 2
-    x = GhostConv(inputs, hidden_dim, 1, activation=activation, norm_layer=norm_layer, name=name + '_ghost1')
-    if stride == 2:
-        x = DepthwiseConv2D(dwkernel, 
-                            stride, 
-                            padding="same", 
-                            use_bias=False, 
-                            depthwise_initializer=VarianceScaling(scale=2.0, mode="fan_out", distribution="truncated_normal"),
-                            name=name + '/dw1')(x)
-        x = get_normalizer_from_name(norm_layer, name=name + '/norm1')(x)
-        x = get_activation_from_name(activation, name=name + '/activ1')(x)
-    x = GhostConv(x, filters, 1, activation=activation, norm_layer=norm_layer, name=name + '_ghost2')
-
-    if stride == 2:
-        y = DepthwiseConv2D(dwkernel, 
-                            stride, 
-                            padding="same", 
-                            use_bias=False, 
-                            depthwise_initializer=VarianceScaling(scale=2.0, mode="fan_out", distribution="truncated_normal"),
-                            name=name + '/dw2')(inputs)
-        y = get_normalizer_from_name(norm_layer, name=name + '/norm2')(y)
-        y = get_activation_from_name(activation, name=name + '/activ2')(y)
-        y = convolutional_block(y, filters, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
-    else:
-        y = inputs
+    
+    def __init__(self, 
+                 filters, 
+                 dwkernel   = 3,
+                 stride     = 1,
+                 activation = 'silu', 
+                 norm_layer = 'batch-norm', 
+                 **kwargs):
+        super(GhostBottleneck, self).__init__(**kwargs)
+        self.filters    = filters
+        self.dwkernel   = dwkernel
+        self.stride     = stride
+        self.activation = activation
+        self.norm_layer = norm_layer
+                     
+    def build(self, input_shape):
+        hidden_dim = int(self.filters // 2)
+        self.conv1 = GhostConv(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = GhostConv(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
         
-    return add([x, y], name=name + '_merger')
+        if self.stride == 2:
+            self.dw1 = _depthwise_block(dwkernel, stride, self.activation, self.norm_layer)
+            self.dw2 = _depthwise_block(dwkernel, stride, self.activation, self.norm_layer)
+            self.shortcut = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+
+    def _depthwise_block(self, dwkernel, stride, activation, norm_layer):
+        return Sequential([
+            DepthwiseConv2D(dwkernel, 
+                            stride, 
+                            padding="same", 
+                            use_bias=False, 
+                            depthwise_initializer=VarianceScaling(scale=2.0, mode="fan_out", distribution="truncated_normal")),
+            get_normalizer_from_name(norm_layer),
+            get_activation_from_name(activation)
+        ])
+        
+    def call(self, inputs, training=False):
+        x = self.conv1(inputs, training=training)
+
+        if self.stride == 2:
+            x = self.dw1(x, training=training)
+
+            y = self.dw2(inputs, training=training)
+            y = self.shortcut(y, training=training)
+        else:
+            y = inputs
+            
+        x = self.conv2(x, training=training)
+        return add([x, y])
 
 
-def C3Ghost(inputs, filters, iters, expansion=0.5, activation='silu', norm_layer='batch-norm', name=None):
+class C3Ghost(C3):
     """ C3 module with GhostBottleneck """
-    hidden_channels = int(filters * expansion)
-    x = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv1')
 
-    for i in range(iters):
-        x = GhostBottleneck(x, hidden_channels, activation=activation, norm_layer=norm_layer, name=name + f'_goshbottleneck{i + 1}')
+    def build(self, input_shape):
+        hidden_dim = int(self.filters * self.expansion)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.middle = Sequential([
+            GhostBottleneck(hidden_dim, dwkernel=3, stride=1, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+        ])
+        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
-    y = convolutional_block(inputs, hidden_channels, 1, activation=activation, norm_layer=norm_layer, name=name + '_conv2')
-
-    merger = concatenate([x, y], axis=-1, name=name + '_merger')
-    merger = convolutional_block(merger, filters, 1, activation=activation, norm_layer=norm_layer, name=name + '_projection')
-    return merger
-
-
+        
 def DarkNetC3(c3_block,
               spp_block,
               layers,
@@ -316,20 +526,20 @@ def DarkNetC3(c3_block,
         
     l0, l1, l2, l3 = layers
             
-    x = stem(img_input, filters, 6, 2, activation=activation, norm_layer=norm_layer, name='stem')
+    x = StemBlock(filters, 6, 2, activation=activation, norm_layer=norm_layer, name='stem')(img_input)
 
-    x = convolutional_block(x, filters * 2, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage1_block1')
-    x = c3_block(x, filters * 2, l0, activation=activation, norm_layer=norm_layer, name='stage1_block2')
+    x = ConvolutionBlock(filters * 2, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage1_block1')(x)
+    x = c3_block(filters * 2, l0, activation=activation, norm_layer=norm_layer, name='stage1_block2')(x)
 
-    x = convolutional_block(x, filters * 4, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage2_block1')
-    x = c3_block(x, filters * 4, l1, activation=activation, norm_layer=norm_layer, name='stage2_block2')
+    x = ConvolutionBlock(filters * 4, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage2_block1')(x)
+    x = c3_block(filters * 4, l1, activation=activation, norm_layer=norm_layer, name='stage2_block2')(x)
 
-    x = convolutional_block(x, filters * 8, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage3_block1')
-    x = c3_block(x, filters * 8, l2, activation=activation, norm_layer=norm_layer, name='stage3_block2')
+    x = ConvolutionBlock(filters * 8, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage3_block1')(x)
+    x = c3_block(filters * 8, l2, activation=activation, norm_layer=norm_layer, name='stage3_block2')(x)
 
-    x = convolutional_block(x, filters * 16, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage4_block1')
-    x = c3_block(x, filters * 16, l3, activation=activation, norm_layer=norm_layer, name='stage4_block2')
-    x = spp_block(x, filters * 16, name='stage4_block3')
+    x = ConvolutionBlock(filters * 16, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage4_block1')(x)
+    x = c3_block(filters * 16, l3, activation=activation, norm_layer=norm_layer, name='stage4_block2')(x)
+    x = spp_block(filters * 16, name='stage4_block3')(x)
 
     if include_top:
         # Classification block
@@ -426,11 +636,11 @@ def DarkNetC3_nano_backbone(c3_block=C3,
             y_i.append(model.get_layer(layer).output)
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
-        y_2 = model.get_layer("stem_activ").output
-        y_4 = model.get_layer("stage1_block2_projection/activ").output
-        y_8 = model.get_layer("stage2_block2_projection/activ").output
-        y_16 = model.get_layer("stage3_block2_projection/activ").output
-        y_32 = model.get_layer("stage4_block3_projection/activ").output
+        y_2 = model.get_layer("stem").output
+        y_4 = model.get_layer("stage1_block2").output
+        y_8 = model.get_layer("stage2_block2").output
+        y_16 = model.get_layer("stage3_block2").output
+        y_32 = model.get_layer("stage4_block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
         
 
@@ -485,11 +695,11 @@ def DarkNetC3_small_backbone(c3_block=C3,
             y_i.append(model.get_layer(layer).output)
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
-        y_2 = model.get_layer("stem_activ").output
-        y_4 = model.get_layer("stage1_block2_projection/activ").output
-        y_8 = model.get_layer("stage2_block2_projection/activ").output
-        y_16 = model.get_layer("stage3_block2_projection/activ").output
-        y_32 = model.get_layer("stage4_block3_projection/activ").output
+        y_2 = model.get_layer("stem").output
+        y_4 = model.get_layer("stage1_block2").output
+        y_8 = model.get_layer("stage2_block2").output
+        y_16 = model.get_layer("stage3_block2").output
+        y_32 = model.get_layer("stage4_block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
 
         
@@ -544,11 +754,11 @@ def DarkNetC3_medium_backbone(c3_block=C3,
             y_i.append(model.get_layer(layer).output)
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
-        y_2 = model.get_layer("stem_activ").output
-        y_4 = model.get_layer("stage1_block2_projection/activ").output
-        y_8 = model.get_layer("stage2_block2_projection/activ").output
-        y_16 = model.get_layer("stage3_block2_projection/activ").output
-        y_32 = model.get_layer("stage4_block3_projection/activ").output
+        y_2 = model.get_layer("stem").output
+        y_4 = model.get_layer("stage1_block2").output
+        y_8 = model.get_layer("stage2_block2").output
+        y_16 = model.get_layer("stage3_block2").output
+        y_32 = model.get_layer("stage4_block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
 
         
@@ -603,11 +813,11 @@ def DarkNetC3_large_backbone(c3_block=C3,
             y_i.append(model.get_layer(layer).output)
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
-        y_2 = model.get_layer("stem_activ").output
-        y_4 = model.get_layer("stage1_block2_projection/activ").output
-        y_8 = model.get_layer("stage2_block2_projection/activ").output
-        y_16 = model.get_layer("stage3_block2_projection/activ").output
-        y_32 = model.get_layer("stage4_block3_projection/activ").output
+        y_2 = model.get_layer("stem").output
+        y_4 = model.get_layer("stage1_block2").output
+        y_8 = model.get_layer("stage2_block2").output
+        y_16 = model.get_layer("stage3_block2").output
+        y_32 = model.get_layer("stage4_block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
 
         
@@ -662,9 +872,9 @@ def DarkNetC3_xlarge_backbone(c3_block=C3,
             y_i.append(model.get_layer(layer).output)
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
-        y_2 = model.get_layer("stem_activ").output
-        y_4 = model.get_layer("stage1_block2_projection/activ").output
-        y_8 = model.get_layer("stage2_block2_projection/activ").output
-        y_16 = model.get_layer("stage3_block2_projection/activ").output
-        y_32 = model.get_layer("stage4_block3_projection/activ").output
+        y_2 = model.get_layer("stem").output
+        y_4 = model.get_layer("stage1_block2").output
+        y_8 = model.get_layer("stage2_block2").output
+        y_16 = model.get_layer("stage3_block2").output
+        y_32 = model.get_layer("stage4_block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
