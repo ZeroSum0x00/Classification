@@ -68,6 +68,9 @@ g4_map = {l: 4 for l in optional_groupwise_layers}
 
 
 class RepVGGBlock(tf.keras.layers.Layer):
+    ''' RepVGGBlock is a basic rep-style block, including training and deploy status
+        This code is based on https://github.com/DingXiaoH/RepVGG/blob/main/repvgg.py
+    '''
     def __init__(
         self,
         filters,
