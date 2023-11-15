@@ -115,8 +115,8 @@ class ClassificationToken(tf.keras.layers.Layer):
         cls_init = tf.zeros_initializer()
         self.hidden_size = input_shape[-1]
         self.cls = tf.Variable(name="cls_variable",
-                          initial_value=cls_init(shape=(1, 1, input_shape[-1]), dtype=tf.float32),
-                          trainable=True)
+                               initial_value=cls_init(shape=(1, 1, input_shape[-1]), dtype=tf.float32),
+                               trainable=True)
     
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]

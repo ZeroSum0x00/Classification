@@ -350,16 +350,14 @@ class SPPF(tf.keras.layers.Layer):
     def build(self, input_shape):
         hidden_dim = int(input_shape[-1] * self.expansion)
         self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.pool1 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
-        self.pool2 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
-        self.pool3 = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
+        self.pool  = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
         self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
-        p1 = self.pool1(x)
-        p2 = self.pool2(p1)
-        p3 = self.pool3(p2)
+        p1 = self.pool(x)
+        p2 = self.pool(p1)
+        p3 = self.pool(p2)
         x = concatenate([x, p1, p2, p3], axis=-1)
         x = self.conv2(x, training=training)
         return x
