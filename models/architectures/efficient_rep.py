@@ -3,23 +3,25 @@
     - The following table comparing the params of the EfficientRep architectures (in YOLOv6) in Tensorflow on 
     size 640 x 640 x 3:
 
-       ------------------------------------------------
-      |         Model Name          |     Params       |
-      |------------------------------------------------|
-      |    Efficient-Rep lite       |       823,748    |
-      |------------------------------------------------|
-      |    Efficient-Rep-small      |   135,327,080    |
-      |------------------------------------------------|
-      |    Efficient-Rep6-small     |   177,331,560    |
-      |------------------------------------------------|
-      |    Efficient-Rep-medium     |    67,253,821    |
-      |------------------------------------------------|
-      |    Efficient-Rep6-medium    |    91,159,104    |
-      |------------------------------------------------|
-      |    Efficient-Rep-large      |    43,286,397    |
-      |------------------------------------------------|
-      |    Efficient-Rep6-large     |    59,906,944    |
-       ------------------------------------------------
+       ---------------------------------------------------
+      |         Model Name             |     Params       |
+      |---------------------------------------------------|
+      |    Efficient-Rep lite          |       823,748    |
+      |---------------------------------------------------|
+      |    Efficient-Rep-MBLA-small    |    56,263,546    |
+      |---------------------------------------------------|
+      |    Efficient-Rep-small         |   135,327,080    |
+      |---------------------------------------------------|
+      |    Efficient-Rep6-small        |   177,331,560    |
+      |---------------------------------------------------|
+      |    Efficient-Rep-medium        |    67,253,821    |
+      |---------------------------------------------------|
+      |    Efficient-Rep6-medium       |    91,159,104    |
+      |---------------------------------------------------|
+      |    Efficient-Rep-large         |    43,286,397    |
+      |---------------------------------------------------|
+      |    Efficient-Rep6-large        |    59,906,944    |
+       ----------------------------------------------------
 
   # Reference:
     - Source: https://github.com/meituan/YOLOv6/tree/main
@@ -55,7 +57,7 @@ class CustomLayer(tf.keras.layers.Layer):
                  rep_block    = RepVGGBlock,
                  scale_weight = False,
                  iters        = 1,
-                 activation   = 'silu', 
+                 activation   = 'relu', 
                  norm_layer   = 'batch-norm', 
                  training     = False,
                  *args, 
@@ -73,14 +75,14 @@ class CustomLayer(tf.keras.layers.Layer):
 class CSPSPPF(CustomLayer):
     
     """ 
-    CSP https://github.com/WongKinYiu/CrossStagePartialNetworks
+        CSP https://github.com/WongKinYiu/CrossStagePartialNetworks
     """
     
     def __init__(self, 
                  filters, 
                  pool_size  = (5, 5),
                  expansion  = 0.5,
-                 activation = 'silu', 
+                 activation = 'relu', 
                  norm_layer = 'batch-norm', 
                  *args, 
                  **kwargs):
@@ -121,11 +123,22 @@ class CSPSPPF(CustomLayer):
         out = self.conv6(out, training=training)
         return out
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "pool_size": self.pool_size,
+            "expansion": self.expansion,
+            "activation": self.activation,
+            "norm_layer": self.norm_layer
+        })
+        return config
+
 
 class LinearAddBlock(CustomLayer):
     
     '''
-    A CSLA block is a LinearAddBlock with is_csla=True
+        A CSLA block is a LinearAddBlock with is_csla=True
     '''
     
     def __init__(self,
@@ -185,6 +198,22 @@ class LinearAddBlock(CustomLayer):
         out = self.norm(out, training=training)
         out = self.activ(out, training=training)
         return out
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "strides": self.strides,
+            "padding": self.padding,
+            "dilation": self.dilation,
+            "groups": self.groups,
+            "is_csla": self.is_csla,
+            "conv_scale_init": self.conv_scale_init,
+            "activation": self.activation,
+            "norm_layer": self.norm_layer
+        })
+        return config
 
 
 class BottleRep(CustomLayer):
@@ -333,7 +362,7 @@ class BepC3(CustomLayer):
                  filters, 
                  expansion=0.5, 
                  iters=1, 
-                 activation = 'silu', 
+                 activation = 'relu', 
                  norm_layer = 'batch-norm', 
                  training=False, 
                  *args, 
@@ -381,7 +410,7 @@ class MBLABlock(CustomLayer):
                  filters, 
                  expansion=0.5, 
                  iters=1, 
-                 activation = 'silu', 
+                 activation = 'relu', 
                  norm_layer = 'batch-norm', 
                  training=False, 
                  *args, 
@@ -429,7 +458,8 @@ class MBLABlock(CustomLayer):
 
         out = concatenate(merge_list, axis=-1)
         out = self.conv2(out, training=training)
-
+        return out
+        
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -506,7 +536,7 @@ class SEBlock(CustomLayer):
         hidden_dim = int(bs * self.expansion)
         self.avg_pool = GlobalAveragePooling2D(keepdims=True)
         self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(bs, 1, activation='hard_sigmoid', norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(bs, 1, activation='hard-sigmoid', norm_layer=self.norm_layer)
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -531,7 +561,7 @@ class Lite_EffiBlockS1(CustomLayer):
                  filters, 
                  strides=(1, 1),
                  expansion = 1,
-                 activation = 'hard-sigmoid', 
+                 activation = 'hard-swish', 
                  norm_layer = 'batch-norm', 
                  *args, 
                  **kwargs):
@@ -590,7 +620,7 @@ class Lite_EffiBlockS2(CustomLayer):
                  filters, 
                  strides=(1, 1),
                  expansion = 1,
-                 activation = 'hard-sigmoid', 
+                 activation = 'hard-swish', 
                  norm_layer = 'batch-norm', 
                  *args, 
                  **kwargs):
@@ -611,7 +641,7 @@ class Lite_EffiBlockS2(CustomLayer):
         self.se_block  = SEBlock(expansion=0.25)
         self.conv_2 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.conv_pw_3 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv_dw_3 = self.convolution_block(self.filters, 3, 1, norm_layer=self.norm_layer)
+        self.conv_dw_3 = ConvolutionBlock(self.filters, 3, activation=self.activation, norm_layer=self.norm_layer)
         super().build(input_shape)
 
     def convolution_block(self, filters, kernel_size, strides, norm_layer):
@@ -638,6 +668,17 @@ class Lite_EffiBlockS2(CustomLayer):
         out = self.conv_dw_3(out, training=training)
         out = self.conv_pw_3(out, training=training)
         return out
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "strides": self.strides,
+            "expansion": self.expansion,
+            "activation": self.activation,
+            "norm_layer": self.norm_layer,
+        })
+        return config
 
 
 class DPBlock(CustomLayer):
@@ -689,6 +730,19 @@ class DPBlock(CustomLayer):
         x = self.activ_2(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "strides": self.strides,
+            "padding": self.padding,
+            "activation": self.activation,
+            "norm_layer": self.norm_layer,
+            "fuse": self.fuse
+        })
+        return config
+
 
 class DarknetBlock(CustomLayer):
     
@@ -719,6 +773,18 @@ class DarknetBlock(CustomLayer):
         x = self.conv1(inputs, training=training)
         x = self.conv2(x, training=training)
         return x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "expansion": self.expansion,
+            "activation": self.activation,
+            "norm_layer": self.norm_layer,
+            "fuse": self.fuse
+        })
+        return config
 
 
 class CSPBlock(CustomLayer):
@@ -757,6 +823,18 @@ class CSPBlock(CustomLayer):
         x = self.conv3(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "expansion": self.expansion,
+            "activation": self.activation,
+            "norm_layer": self.norm_layer,
+            "fuse": self.fuse
+        })
+        return config
+
 
 def EfficientRep(blocks=[RepVGGBlock, RepBlock],
                  filters=[64, 128, 256, 512, 1024],
@@ -768,12 +846,18 @@ def EfficientRep(blocks=[RepVGGBlock, RepBlock],
                  input_tensor=None,
                  input_shape=None,
                  pooling=None,
-                 activation='silu',
+                 activation='relu',
                  norm_layer='batch-norm',
                  final_activation="softmax",
                  classes=1000,
                  training=False):
-
+    
+    '''
+        EfficientRep Backbone
+        EfficientRep is handcrafted by hardware-aware neural network design.
+        With rep-style struct, EfficientRep is friendly to high-computation hardware(e.g. GPU).
+    '''
+    
     if weights not in {'imagenet', None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
@@ -880,7 +964,7 @@ def EfficientRep_small(blocks=[RepVGGBlock, RepBlock],
                        input_tensor=None,
                        input_shape=None,
                        pooling=None,
-                       activation='silu',
+                       activation='relu',
                        norm_layer='batch-norm',
                        final_activation="softmax",
                        classes=1000,
@@ -908,11 +992,21 @@ def EfficientRep_small_backbone(blocks=[RepVGGBlock, RepBlock],
                                 input_shape=(640, 640, 3),
                                 include_top=False, 
                                 weights='imagenet', 
-                                activation='silu',
+                                activation='relu',
                                 norm_layer='batch-norm',
                                 training=False,
                                 custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv6n and YOLOv6s
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n_finetune.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s_finetune.py
+    """
+    
     model = EfficientRep_small(blocks=blocks,
                                include_top=include_top, 
                                weights=weights,
@@ -942,7 +1036,7 @@ def EfficientRep6_small(blocks=[RepVGGBlock, RepBlock],
                         input_tensor=None,
                         input_shape=None,
                         pooling=None,
-                        activation='silu',
+                        activation='relu',
                         norm_layer='batch-norm',
                         final_activation="softmax",
                         classes=1000,
@@ -970,11 +1064,21 @@ def EfficientRep6_small_backbone(blocks=[RepVGGBlock, RepBlock],
                                  input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
-                                 activation='silu',
+                                 activation='relu',
                                  norm_layer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv6n6 and YOLOv6s6
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n6_finetune.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s6_finetune.py
+    """
+    
     model = EfficientRep6_small(blocks=blocks,
                                 include_top=include_top, 
                                 weights=weights,
@@ -1006,7 +1110,7 @@ def EfficientRep_medium(blocks=[RepVGGBlock, BepC3],
                         input_tensor=None,
                         input_shape=None,
                         pooling=None,
-                        activation='silu',
+                        activation='relu',
                         norm_layer='batch-norm',
                         final_activation="softmax",
                         classes=1000,
@@ -1034,11 +1138,19 @@ def EfficientRep_medium_backbone(blocks=[RepVGGBlock, BepC3],
                                  input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
-                                 activation='silu',
+                                 activation='relu',
                                  norm_layer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv6m
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m_finetune.py
+    """
+    
     model = EfficientRep_medium(blocks=blocks,
                                 include_top=include_top, 
                                 weights=weights,
@@ -1069,7 +1181,7 @@ def EfficientRep6_medium(blocks=[RepVGGBlock, BepC3],
                          input_tensor=None,
                          input_shape=None,
                          pooling=None,
-                         activation='silu',
+                         activation='relu',
                          norm_layer='batch-norm',
                          final_activation="softmax",
                          classes=1000,
@@ -1097,11 +1209,19 @@ def EfficientRep6_medium_backbone(blocks=[RepVGGBlock, BepC3],
                                   input_shape=(640, 640, 3),
                                   include_top=False, 
                                   weights='imagenet', 
-                                  activation='silu',
+                                  activation='relu',
                                   norm_layer='batch-norm',
                                   training=False,
                                   custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv6m6
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m6_finetune.py
+    """
+    
     model = EfficientRep6_medium(blocks=blocks,
                                  include_top=include_top, 
                                  weights=weights,
@@ -1133,7 +1253,7 @@ def EfficientRep_large(blocks=[RepVGGBlock, BepC3],
                        input_tensor=None,
                        input_shape=None,
                        pooling=None,
-                       activation='silu',
+                       activation='relu',
                        norm_layer='batch-norm',
                        final_activation="softmax",
                        classes=1000,
@@ -1161,10 +1281,18 @@ def EfficientRep_large_backbone(blocks=[RepVGGBlock, BepC3],
                                 input_shape=(640, 640, 3),
                                 include_top=False, 
                                 weights='imagenet', 
-                                activation='silu',
+                                activation='relu',
                                 norm_layer='batch-norm',
                                 training=False,
                                 custom_layers=None) -> Model:
+
+    """
+        - Used in YOLOv6l
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l_finetune.py
+    """
 
     model = EfficientRep_large(blocks=blocks,
                                include_top=include_top, 
@@ -1196,7 +1324,7 @@ def EfficientRep6_large(blocks=[RepVGGBlock, BepC3],
                        input_tensor=None,
                        input_shape=None,
                        pooling=None,
-                       activation='silu',
+                       activation='relu',
                        norm_layer='batch-norm',
                        final_activation="softmax",
                        classes=1000,
@@ -1224,11 +1352,19 @@ def EfficientRep6_large_backbone(blocks=[RepVGGBlock, BepC3],
                                  input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
-                                 activation='silu',
+                                 activation='relu',
                                  norm_layer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv6l6
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l6_finetune.py
+    """
+    
     model = EfficientRep6_large(blocks=blocks,
                                 include_top=include_top, 
                                 weights=weights,
@@ -1252,6 +1388,83 @@ def EfficientRep6_large_backbone(blocks=[RepVGGBlock, BepC3],
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_64], name=model.name + '_backbone')
 
 
+def EfficientRepMBLA(blocks=[RepVGGBlock, MBLABlock],
+                     use_csp=False,
+                     csp_epsilon=1/2,
+                     include_top=True,
+                     weights='imagenet',
+                     input_tensor=None,
+                     input_shape=None,
+                     pooling=None,
+                     activation='relu',
+                     norm_layer='batch-norm',
+                     final_activation="softmax",
+                     classes=1000,
+                     training=False) -> Model:
+    
+    model = EfficientRep(blocks=blocks,
+                         filters=[64, 128, 256, 512, 1024],
+                         layers=[4, 8, 8, 4],
+                         use_csp=use_csp,
+                         csp_epsilon=csp_epsilon,
+                         include_top=include_top,
+                         weights=weights, 
+                         input_tensor=input_tensor, 
+                         input_shape=input_shape, 
+                         pooling=pooling, 
+                         activation=activation,
+                         norm_layer=norm_layer,
+                         final_activation=final_activation,
+                         classes=classes,
+                         training=training)
+    return model
+
+
+def EfficientRepMBLA_backbone(blocks=[RepVGGBlock, MBLABlock],
+                              input_shape=(640, 640, 3),
+                              include_top=False, 
+                              weights='imagenet', 
+                              activation='relu',
+                              norm_layer='batch-norm',
+                              training=False,
+                              custom_layers=None) -> Model:
+    
+    """
+        - Used in YOLOv6 MBLA version small, medium, large and xlarge
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6s_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6s_mbla_finetune.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6m_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6m_mbla_finetune.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6l_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6l_mbla_finetune.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6x_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6x_mbla_finetune.py
+    """
+    
+    model = EfficientRepMBLA(blocks=blocks,
+                             include_top=include_top, 
+                             weights=weights,
+                             activation=activation,
+                             norm_layer=norm_layer,
+                             input_shape=input_shape,
+                             training=training)
+
+    if custom_layers is not None:
+        y_i = []
+        for layer in custom_layers:
+            y_i.append(model.get_layer(layer).output)
+        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
+    else:
+        y_2 = model.get_layer("stem").output
+        y_4 = model.get_layer("stage1_block2").output
+        y_8 = model.get_layer("stage2_block2").output
+        y_16 = model.get_layer("stage3_block2").output
+        y_32 = model.get_layer("stage4_block3").output
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
+
+
 def EfficientLite(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                   filters=[24, 32, 64, 128, 256],
                   layers=[1, 3, 7, 3],
@@ -1260,7 +1473,7 @@ def EfficientLite(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                   input_tensor=None,
                   input_shape=None,
                   pooling=None,
-                  activation='silu',
+                  activation='hard-swish',
                   norm_layer='batch-norm',
                   final_activation="softmax",
                   classes=1000,
@@ -1341,11 +1554,23 @@ def EfficientLite_backbone(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                            input_shape=(640, 640, 3),
                            include_top=False, 
                            weights='imagenet', 
-                           activation='silu',
+                           activation='hard-swish',
                            norm_layer='batch-norm',
                            training=False,
                            custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv6 lite version small, medium and large
+        - In YOLOv6, feature extractor downsample percentage is: 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_s.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_s_finetune.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_m.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_m_finetune.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_l.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_l_finetune.py
+    """
+    
     model = EfficientLite(blocks=blocks,
                           include_top=include_top, 
                           weights=weights,
