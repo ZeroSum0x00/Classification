@@ -1,7 +1,7 @@
 """
   # Description:
-    - The following table comparing the params of the DarkNet 53 with C3 Block (in YOLOv5) in Tensorflow on 
-    size 640 x 640 x 3:
+    - The following table comparing the params of the DarkNet 53 with C3 Block (YOLOv5 backbone) in Tensorflow on 
+    image size 640 x 640 x 3:
 
        ----------------------------------------
       |      Model Name      |    Params       |
@@ -91,6 +91,8 @@ class StemBlock(tf.keras.layers.Layer):
 class Bottleneck(tf.keras.layers.Layer):
     def __init__(self, 
                  filters, 
+                 downsample = False,
+                 groups     = 1,
                  expansion  = 1,
                  shortcut   = True,
                  activation = 'silu', 
@@ -98,6 +100,8 @@ class Bottleneck(tf.keras.layers.Layer):
                  **kwargs):
         super(Bottleneck, self).__init__(**kwargs)
         self.filters    = filters
+        self.downsample = downsample
+        self.groups     = groups
         self.expansion  = expansion
         self.shortcut   = shortcut       
         self.activation = activation
@@ -107,7 +111,7 @@ class Bottleneck(tf.keras.layers.Layer):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
         self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 3, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.filters, 3, downsample=self.downsample, groups=self.groups, activation=self.activation, norm_layer=self.norm_layer)
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -397,6 +401,7 @@ class GhostConv(tf.keras.layers.Layer):
     def __init__(self, 
                  filters, 
                  kernel_size =(1, 1),
+                 downsample  = False,
                  expansion   = 0.5,
                  activation  = 'silu', 
                  norm_layer  = 'batch-norm', 
@@ -404,13 +409,14 @@ class GhostConv(tf.keras.layers.Layer):
         super(GhostConv, self).__init__(**kwargs)
         self.filters     = filters
         self.kernel_size = kernel_size
+        self.downsample  = downsample
         self.expansion   = expansion
         self.activation  = activation
         self.norm_layer  = norm_layer
                      
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, self.kernel_size, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, self.kernel_size, downsample=self.downsample, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = ConvolutionBlock(hidden_dim, 5, groups=hidden_dim, activation=self.activation, norm_layer=self.norm_layer)
 
     def call(self, inputs, training=False):
@@ -535,18 +541,18 @@ def DarkNetC3(c3_block,
             
     x = StemBlock(filters, 6, 2, activation=activation, norm_layer=norm_layer, name='stem')(img_input)
 
-    x = ConvolutionBlock(filters * 2, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage1_block1')(x)
-    x = c3_block(filters * 2, l0, activation=activation, norm_layer=norm_layer, name='stage1_block2')(x)
+    x = ConvolutionBlock(filters * 2, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage1.block1')(x)
+    x = c3_block(filters * 2, l0, activation=activation, norm_layer=norm_layer, name='stage1.block2')(x)
 
-    x = ConvolutionBlock(filters * 4, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage2_block1')(x)
-    x = c3_block(filters * 4, l1, activation=activation, norm_layer=norm_layer, name='stage2_block2')(x)
+    x = ConvolutionBlock(filters * 4, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage2.block1')(x)
+    x = c3_block(filters * 4, l1, activation=activation, norm_layer=norm_layer, name='stage2.block2')(x)
 
-    x = ConvolutionBlock(filters * 8, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage3_block1')(x)
-    x = c3_block(filters * 8, l2, activation=activation, norm_layer=norm_layer, name='stage3_block2')(x)
+    x = ConvolutionBlock(filters * 8, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage3.block1')(x)
+    x = c3_block(filters * 8, l2, activation=activation, norm_layer=norm_layer, name='stage3.block2')(x)
 
-    x = ConvolutionBlock(filters * 16, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage4_block1')(x)
-    x = c3_block(filters * 16, l3, activation=activation, norm_layer=norm_layer, name='stage4_block2')(x)
-    x = spp_block(filters * 16, name='stage4_block3')(x)
+    x = ConvolutionBlock(filters * 16, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage4.block1')(x)
+    x = c3_block(filters * 16, l3, activation=activation, norm_layer=norm_layer, name='stage4.block2')(x)
+    x = spp_block(filters * 16, name='stage4.block3')(x)
 
     if include_top:
         # Classification block
@@ -628,7 +634,14 @@ def DarkNetC3_nano_backbone(c3_block=C3,
                             activation='silu',
                             norm_layer='batch-norm',
                             custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv5 version nano
+        - In YOLOv5, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/ultralytics/yolov5/blob/master/models/yolov5n.yaml
+    """
+    
     model = DarkNetC3_nano(c3_block=c3_block,
                            spp_block=spp_block,
                            include_top=include_top, 
@@ -644,10 +657,10 @@ def DarkNetC3_nano_backbone(c3_block=C3,
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
         y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1_block2").output
-        y_8 = model.get_layer("stage2_block2").output
-        y_16 = model.get_layer("stage3_block2").output
-        y_32 = model.get_layer("stage4_block3").output
+        y_4 = model.get_layer("stage1.block2").output
+        y_8 = model.get_layer("stage2.block2").output
+        y_16 = model.get_layer("stage3.block2").output
+        y_32 = model.get_layer("stage4.block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
         
 
@@ -688,6 +701,13 @@ def DarkNetC3_small_backbone(c3_block=C3,
                              norm_layer='batch-norm',
                              custom_layers=None) -> Model:
 
+    """
+        - Used in YOLOv5 version small
+        - In YOLOv5, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/ultralytics/yolov5/blob/master/models/yolov5s.yaml
+    """
+    
     model = DarkNetC3_small(c3_block=c3_block,
                             spp_block=spp_block,
                             include_top=include_top, 
@@ -703,10 +723,10 @@ def DarkNetC3_small_backbone(c3_block=C3,
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
         y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1_block2").output
-        y_8 = model.get_layer("stage2_block2").output
-        y_16 = model.get_layer("stage3_block2").output
-        y_32 = model.get_layer("stage4_block3").output
+        y_4 = model.get_layer("stage1.block2").output
+        y_8 = model.get_layer("stage2.block2").output
+        y_16 = model.get_layer("stage3.block2").output
+        y_32 = model.get_layer("stage4.block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
 
         
@@ -746,7 +766,14 @@ def DarkNetC3_medium_backbone(c3_block=C3,
                               activation='silu',
                               norm_layer='batch-norm',
                               custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv5 version medium
+        - In YOLOv5, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/ultralytics/yolov5/blob/master/models/yolov5m.yaml
+    """
+    
     model = DarkNetC3_medium(c3_block=c3_block,
                              spp_block=spp_block,
                              include_top=include_top, 
@@ -762,10 +789,10 @@ def DarkNetC3_medium_backbone(c3_block=C3,
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
         y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1_block2").output
-        y_8 = model.get_layer("stage2_block2").output
-        y_16 = model.get_layer("stage3_block2").output
-        y_32 = model.get_layer("stage4_block3").output
+        y_4 = model.get_layer("stage1.block2").output
+        y_8 = model.get_layer("stage2.block2").output
+        y_16 = model.get_layer("stage3.block2").output
+        y_32 = model.get_layer("stage4.block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
 
         
@@ -805,7 +832,14 @@ def DarkNetC3_large_backbone(c3_block=C3,
                              activation='silu',
                              norm_layer='batch-norm',
                              custom_layers=None) -> Model:
-
+    
+    """
+        - Used in YOLOv5 version large
+        - In YOLOv5, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/ultralytics/yolov5/blob/master/models/yolov5l.yaml
+    """
+    
     model = DarkNetC3_large(c3_block=c3_block,
                             spp_block=spp_block,
                             include_top=include_top, 
@@ -821,10 +855,10 @@ def DarkNetC3_large_backbone(c3_block=C3,
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
         y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1_block2").output
-        y_8 = model.get_layer("stage2_block2").output
-        y_16 = model.get_layer("stage3_block2").output
-        y_32 = model.get_layer("stage4_block3").output
+        y_4 = model.get_layer("stage1.block2").output
+        y_8 = model.get_layer("stage2.block2").output
+        y_16 = model.get_layer("stage3.block2").output
+        y_32 = model.get_layer("stage4.block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
 
         
@@ -865,6 +899,13 @@ def DarkNetC3_xlarge_backbone(c3_block=C3,
                               norm_layer='batch-norm',
                               custom_layers=None) -> Model:
 
+    """
+        - Used in YOLOv5 version xlarge
+        - In YOLOv5, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/ultralytics/yolov5/blob/master/models/yolov5x.yaml
+    """
+
     model = DarkNetC3_xlarge(c3_block=c3_block,
                              spp_block=spp_block,
                              include_top=include_top, 
@@ -880,8 +921,8 @@ def DarkNetC3_xlarge_backbone(c3_block=C3,
         return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
     else:
         y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1_block2").output
-        y_8 = model.get_layer("stage2_block2").output
-        y_16 = model.get_layer("stage3_block2").output
-        y_32 = model.get_layer("stage4_block3").output
+        y_4 = model.get_layer("stage1.block2").output
+        y_8 = model.get_layer("stage2.block2").output
+        y_16 = model.get_layer("stage3.block2").output
+        y_32 = model.get_layer("stage4.block3").output
         return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
