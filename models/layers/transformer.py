@@ -236,7 +236,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         if self.return_weight:
             return output, weights
         else:
-            return output
+            return output, None
 
     def get_config(self):
         config = super().get_config()
@@ -386,17 +386,19 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
 class TransformerBlock(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
 
-    def __init__(self, num_heads, mlp_dim, activation='gelu', normalizer=None, norm_eps=1e-6, drop_rate=0.1, *args, **kwargs):
+    def __init__(self, num_heads, mlp_dim, return_weight=False, activation='gelu', normalizer=None, norm_eps=1e-6, drop_rate=0.1, *args, **kwargs):
         super(TransformerBlock, self).__init__(*args, **kwargs)
-        self.num_heads  = num_heads
-        self.mlp_dim    = mlp_dim
-        self.activation = activation
-        self.normalizer = normalizer
-        self.norm_eps   = norm_eps
-        self.drop_rate  = drop_rate
+        self.num_heads     = num_heads
+        self.mlp_dim       = mlp_dim
+        self.return_weight = return_weight
+        self.activation    = activation
+        self.normalizer    = normalizer
+        self.norm_eps      = norm_eps
+        self.drop_rate     = drop_rate
     
     def build(self, input_shape):
         self.attention = MultiHeadSelfAttention(num_heads=self.num_heads,
+                                                return_weight=self.return_weight,
                                                 name="MultiHeadDotProductAttention_1")
         self.mlpblock = MLPBlock(self.mlp_dim,
                                  activation=self.activation,
@@ -408,11 +410,11 @@ class TransformerBlock(tf.keras.layers.Layer):
         self.dropout_layer = Dropout(self.drop_rate)
 
     def call(self, inputs, training=False):
-        x = self.layernorm1(inputs)
+        x = self.layernorm1(inputs, training=training)
         x, weights = self.attention(x, training=training)
         x = self.dropout_layer(x, training=training)
         x = x + inputs
-        y = self.layernorm2(x)
+        y = self.layernorm2(x, training=training)
         y = self.mlpblock(y, training=training)
         return x + y, weights
 
