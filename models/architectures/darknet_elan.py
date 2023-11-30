@@ -64,7 +64,7 @@ class ReOrg(tf.keras.layers.Layer):
     def call(self, inputs):
         x1 = inputs[:, ::2, ::2, :]
         x2 = inputs[:, 1::2, ::2, :]
-        x3 = inputs[:, 1::2, 1::2, :]
+        x3 = inputs[:, ::2, 1::2, :]
         x4 = inputs[:, 1::2, 1::2, :]
         x = concatenate([x1, x2, x3, x4], axis=self.axis)        
         return x
