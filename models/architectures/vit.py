@@ -97,6 +97,7 @@ def ViT(num_layers=12,
     for n in range(num_layers):
         x, _ = TransformerBlock(num_heads=num_heads,
                                 mlp_dim=mlp_dim,
+                                return_weight=False,
                                 norm_eps=norm_eps,
                                 drop_rate=drop_rate,
                                 name=f"Transformer/encoderblock_{n}")(x)
