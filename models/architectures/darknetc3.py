@@ -211,13 +211,13 @@ class C3(tf.keras.layers.Layer):
         self.middle = Sequential([
             Bottleneck(hidden_dim, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
         ])
-        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
         x = self.middle(x, training=training)
-        y = self.shortcut(inputs, training=training)
+        y = self.residual(inputs, training=training)
         
         merger = concatenate([x, y], axis=-1)
         merger = self.conv2(merger, training=training)
@@ -267,7 +267,7 @@ class C3x(C3):
         self.middle = Sequential([
             CrossConv2D(hidden_dim, kernel_size=3, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
         ])
-        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
 
@@ -330,7 +330,7 @@ class C3SPP(C3):
         self.middle = Sequential([
             SPP(hidden_dim, self.pool_pyramid) for i in range(self.iters)
         ])
-        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
         
 
@@ -391,7 +391,7 @@ class C3SPPF(C3):
         self.middle = Sequential([
             SPPF(hidden_dim, self.pool_size) for i in range(self.iters)
         ])
-        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
 
@@ -489,7 +489,7 @@ class C3Ghost(C3):
         self.middle = Sequential([
             GhostBottleneck(hidden_dim, dwkernel=3, stride=1, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
         ])
-        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
         
