@@ -37,7 +37,6 @@ from tensorflow.keras.layers import DepthwiseConv2D
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling1D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import concatenate
@@ -47,8 +46,89 @@ from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.initializers import VarianceScaling
 
 from .darknet53 import ConvolutionBlock
-from models.layers import get_activation_from_name, get_normalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name, TransformerBlock
 from utils.model_processing import _obtain_input_shape
+
+
+
+class Contract(tf.keras.layers.Layer):
+    
+    """
+        Contract width-height into channels.
+    """
+    
+    def __init__(self, gain=2, axis=-1, *args, **kwargs):
+        super(Contract, self).__init__(*args, **kwargs)
+        self.gain = gain
+        self.axis = axis
+
+    def call(self, inputs):
+        bs, h, w, c = inputs.shape
+        s = self.gain
+        x = tf.reshape(inputs, (-1, h // s, s, w // s, s, c))
+        x = tf.transpose(x, perm=[0, 1, 3, 2, 4, 5])
+        x = tf.reshape(inputs, (-1, h // s, w // s, c * s * s))
+        return x
+
+
+class Expand(tf.keras.layers.Layer):
+    
+    """ 
+        Expand channels into width-height.
+    """
+    
+    def __init__(self, gain=2, *args, **kwargs):
+        super(Expand, self).__init__(*args, **kwargs)
+        self.gain = gain
+
+    def call(self, inputs):
+        bs, h, w, c = inputs.shape
+        s = self.gain
+        x = tf.reshape(inputs, (-1, h, w, c // s ** 2, s, s))
+        x = tf.transpose(x, perm=[0, 1, 4, 2, 5, 3])
+        x = tf.reshape(inputs, (-1, h * s, w * s, c // s ** 2))
+        return x
+
+
+class Focus(tf.keras.layers.Layer):
+    
+    '''
+        Focus wh information into c-space.
+    '''
+    
+    def __init__(self,
+                 filters,
+                 kernel_size,
+                 downsample=False,
+                 groups=1,
+                 activation='relu', 
+                 norm_layer='batch-norm',
+                 *args, 
+                 **kwargs):
+        super(Focus, self).__init__(*args, **kwargs)
+        self.filters       = filters
+        self.kernel_size   = kernel_size if isinstance(kernel_size, (tuple, list)) else (kernel_size, kernel_size)
+        self.downsample    = downsample
+        self.groups        = groups
+        self.activation    = activation
+        self.norm_layer    = norm_layer
+
+    def build(self, input_shape):
+        self.conv = ConvolutionBlock(self.filters, 
+                                     self.kernel_size, 
+                                     downsample=self.downsample, 
+                                     groups=self.groups, 
+                                     activation=self.activation, 
+                                     norm_layer=self.norm_layer)
+
+    def call(self, inputs, training=False):
+        x1 = inputs[:, ::2, ::2, :]
+        x2 = inputs[:, 1::2, ::2, :]
+        x3 = inputs[:, ::2, 1::2, :]
+        x4 = inputs[:, 1::2, 1::2, :]
+        x = concatenate([x1, x2, x3, x4], axis=-1)  
+        x = self.conv(x, training=training)
+        return x
 
 
 class StemBlock(tf.keras.layers.Layer):
@@ -89,6 +169,11 @@ class StemBlock(tf.keras.layers.Layer):
 
         
 class Bottleneck(tf.keras.layers.Layer):
+
+    """
+        Standard bottleneck.
+    """
+    
     def __init__(self, 
                  filters, 
                  downsample = False,
@@ -123,7 +208,10 @@ class Bottleneck(tf.keras.layers.Layer):
 
         
 class BottleneckCSP(tf.keras.layers.Layer):
-    """ CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks """
+    
+    """ 
+        CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks 
+    """
     
     def __init__(self, 
                  filters, 
@@ -187,7 +275,10 @@ class BottleneckCSP(tf.keras.layers.Layer):
 
         
 class C3(tf.keras.layers.Layer):
-    """ CSP Bottleneck with 3 convolutions """
+    
+    """ 
+        CSP Bottleneck with 3 convolutions.
+    """
     
     def __init__(self, 
                  filters, 
@@ -223,9 +314,12 @@ class C3(tf.keras.layers.Layer):
         merger = self.conv2(merger, training=training)
         return merger
 
-        
+
 class CrossConv2D(tf.keras.layers.Layer):
-    """ Cross Convolution Downsample """
+    
+    """ 
+        Cross Convolution Downsample.
+    """
     
     def __init__(self, 
                  filters, 
@@ -259,20 +353,24 @@ class CrossConv2D(tf.keras.layers.Layer):
 
 
 class C3x(C3):
-    """ C3 module with cross-convolutions """
+    
+    """ 
+        C3 module with cross-convolutions.
+    """
 
     def build(self, input_shape):
+        super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.middle = Sequential([
             CrossConv2D(hidden_dim, kernel_size=3, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
         ])
-        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
 
 class SPP(tf.keras.layers.Layer):
-    """ Spatial Pyramid Pooling (SPP) layer https://arxiv.org/abs/1406.4729 """
+    
+    """ 
+        Spatial Pyramid Pooling (SPP) layer https://arxiv.org/abs/1406.4729 
+    """
     
     def __init__(self, 
                  filters, 
@@ -307,7 +405,10 @@ class SPP(tf.keras.layers.Layer):
 
 
 class C3SPP(C3):
-    """ C3 module with SPP """
+    
+    """ 
+    C3 module with SPP.
+    """
 
     def __init__(self, 
                  filters, 
@@ -325,17 +426,18 @@ class C3SPP(C3):
         self.pool_pyramid = pool_pyramid
                      
     def build(self, input_shape):
+        super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.middle = Sequential([
             SPP(hidden_dim, self.pool_pyramid) for i in range(self.iters)
         ])
-        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
         
 
 class SPPF(tf.keras.layers.Layer):
-    """ Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher """
+    
+    """ 
+        Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher.
+    """
     
     def __init__(self, 
                  filters, 
@@ -368,7 +470,10 @@ class SPPF(tf.keras.layers.Layer):
 
 
 class C3SPPF(C3):
-    """ C3 module with SPP """
+    
+    """ 
+        C3 module with SPP.
+    """
 
     def __init__(self, 
                  filters, 
@@ -386,17 +491,18 @@ class C3SPPF(C3):
         self.pool_size = pool_size
                      
     def build(self, input_shape):
+        super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.middle = Sequential([
             SPPF(hidden_dim, self.pool_size) for i in range(self.iters)
         ])
-        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
 
 class GhostConv(tf.keras.layers.Layer):
-    """ Ghost Convolution https://github.com/huawei-noah/ghostnet """
+    
+    """ 
+    Ghost Convolution https://github.com/huawei-noah/ghostnet.
+    """
     
     def __init__(self, 
                  filters, 
@@ -426,7 +532,10 @@ class GhostConv(tf.keras.layers.Layer):
 
 
 class GhostBottleneck(tf.keras.layers.Layer):
-    """ Ghost Convolution https://github.com/huawei-noah/ghostnet """
+    
+    """ 
+        Ghost Convolution https://github.com/huawei-noah/ghostnet 
+    """
     
     def __init__(self, 
                  filters, 
@@ -481,18 +590,70 @@ class GhostBottleneck(tf.keras.layers.Layer):
 
 
 class C3Ghost(C3):
-    """ C3 module with GhostBottleneck """
+    
+    """ 
+        C3 module with GhostBottleneck.
+    """
 
     def build(self, input_shape):
+        super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
         self.middle = Sequential([
             GhostBottleneck(hidden_dim, dwkernel=3, stride=1, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
         ])
-        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
-        
+
+class TransfomerProjection(tf.keras.layers.Layer):
+
+    """
+        Vision Transformer https://arxiv.org/abs/2010.11929
+    """
+    
+    def __init__(self, num_heads, mlp_dim, iters=1, activation='silu', norm_layer='batch-norm', norm_eps=1e-6, *args, **kwargs):
+        super(TransfomerProjection, self).__init__(*args, **kwargs)
+        self.num_heads  = num_heads
+        self.mlp_dim    = mlp_dim
+        self.iters      = iters
+        self.activation = activation
+        self.norm_layer = norm_layer
+        self.norm_eps   = norm_eps
+
+    def build(self, input_shape):
+        if self.mlp_dim != input_shape[-1]:
+            self.channel_project = ConvolutionBlock(self.mlp_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.position = Dense(units=self.mlp_dim)
+        self.transfomer_sequence = [TransformerBlock(self.num_heads, 
+                                                     self.mlp_dim, 
+                                                     return_weight=False, 
+                                                     activation=self.activation, 
+                                                     normalizer=self.norm_layer, 
+                                                     norm_eps=self.norm_eps,
+                                                     name=f"Transformer/encoderblock_{i}") for i in range(self.iters)]
+    
+    def call(self, inputs, training=False):
+        if hasattr(self, 'channel_project'):
+            inputs = self.channel_project(inputs, training=training)
+        bs, h, w, c = inputs.shape
+        x = tf.reshape(inputs, (-1, h * w, c))
+        x = self.position(x, training=training)
+        for transfomer in self.transfomer_sequence:
+            x, _ = transfomer(x, training=training)
+        x = tf.reshape(inputs, (-1, h, w, self.mlp_dim))
+        return x
+
+
+class C3Trans(C3):
+    
+    """ 
+        C3 module with Vision Transfomer blocks
+    """
+
+    def build(self, input_shape):
+        super().build(input_shape)
+        hidden_dim = int(self.filters * self.expansion)
+        self.middle = TransfomerProjection(4, hidden_dim, iters=self.iters, activation=self.activation, norm_layer=self.norm_layer)
+
+
 def DarkNetC3(c3_block,
               spp_block,
               layers,
