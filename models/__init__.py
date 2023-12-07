@@ -45,4 +45,5 @@ from .architectures import (MLPMixer, MLPMixer_S16, MLPMixer_S32, MLPMixer_B16, 
                             EVA02, EVA02_Tiny14, EVA02_Small14, EVA02_Base14, EVA02_Large14,
                             Swin, SwinT, SwinS, SwinB, SwinL,
                             Swin_v2, SwinT_v2, SwinS_v2, SwinB_v2, SwinL_v2,
+                            ViTImageEncoder,
 )
