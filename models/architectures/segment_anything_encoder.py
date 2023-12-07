@@ -3,11 +3,15 @@
     - The following table comparing the params of the ViTImageEncoder (Segment Anything Model) in Tensorflow on 
     size 1024 x 1024 x 3:
 
-       -------------------------------------------
-      |        Model Name       |    Params       |
-      |-------------------------------------------|
-      |     ViTImageEncoder     |   86,689,512    |
-       -------------------------------------------
+       -------------------------------------------------
+      |        Model Name            |     Params       |
+      |-------------------------------------------------|
+      |     ViTImageEncoder base     |    86,689,512    |
+      |-------------------------------------------------|
+      |     ViTImageEncoder large    |   304,206,824    |
+      |-------------------------------------------------|
+      |     ViTImageEncoder huge     |   631,837,928    |
+       -------------------------------------------------
 
   # Reference:
     - [Segment Anything](https://ai.meta.com/research/publications/segment-anything/)
@@ -328,13 +332,13 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
 
 
 def BasicLayer(
-    x, dim, depth, num_heads, window_size, mlp_ratio=4., qkv_bias=True, activation='gelu', normalizer='layer-norm', use_rel_pos=False, proj_drop=0., name=""
+    x, dim, depth, num_heads, window_size, mlp_ratio=4., qkv_bias=True, activation='gelu', normalizer='layer-norm', use_rel_pos=False, global_attn_indexes=(), proj_drop=0., name=""
 ):
     for i in range(depth):
         x = SwinTransformerBlock(
                     dim                 = dim,
                     num_heads           = num_heads,
-                    window_size         = window_size,
+                    window_size         = window_size if i not in global_attn_indexes else 0,
                     mlp_ratio           = mlp_ratio,
                     qkv_bias            = qkv_bias,
                     activation          = activation,
@@ -355,6 +359,7 @@ def ViTImageEncoder(filters=256,
                     qkv_bias=True,
                     use_abs_pos=True,
                     use_rel_pos=False,
+                    global_attn_indexes=(),
                     include_top=True,
                     weights='imagenet',
                     input_tensor=None,
@@ -405,16 +410,17 @@ def ViTImageEncoder(filters=256,
         x = add([x, pos_embed], name="add_positional_embedding")
         
     x = BasicLayer(x,
-                   dim              = embed_dim,
-                   depth            = depth,
-                   num_heads        = num_heads,
-                   window_size      = window_size,
-                   mlp_ratio        = mlp_ratio,
-                   qkv_bias         = qkv_bias,
-                   activation       = 'gelu',
-                   normalizer       = 'layer-norm',
-                   use_rel_pos      = use_rel_pos,
-                   proj_drop        = drop_rate)
+                   dim                 = embed_dim,
+                   depth               = depth,
+                   num_heads           = num_heads,
+                   window_size         = window_size,
+                   mlp_ratio           = mlp_ratio,
+                   qkv_bias            = qkv_bias,
+                   activation          = 'gelu',
+                   normalizer          = 'layer-norm',
+                   use_rel_pos         = use_rel_pos,
+                   global_attn_indexes = global_attn_indexes,
+                   proj_drop           = drop_rate)
                         
     x = Sequential([
         Conv2D(filters=filters,
@@ -460,4 +466,97 @@ def ViTImageEncoder(filters=256,
                       '`image_data_format="channels_last"` in '
                       'your Keras config '
                       'at ~/.keras/keras.json.')
+    return model
+
+
+def ViTImageEncoder_base(include_top=True, 
+                         weights='imagenet',
+                         input_tensor=None, 
+                         input_shape=None,
+                         pooling=None,
+                         final_activation="softmax",
+                         classes=1000,
+                         drop_rate=0.0):
+
+    model = ViTImageEncoder(filters=256,
+                            embed_dim=768,
+                            patch_size=(16, 16),
+                            num_heads=12,
+                            depth=12,
+                            window_size=14,
+                            mlp_ratio=4,
+                            qkv_bias=True,
+                            use_abs_pos=True,
+                            use_rel_pos=False,
+                            global_attn_indexes=[2, 5, 8, 11],
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor, 
+                            input_shape=input_shape, 
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            drop_rate=drop_rate)
+    return model
+
+
+def ViTImageEncoder_large(include_top=True, 
+                          weights='imagenet',
+                          input_tensor=None, 
+                          input_shape=None,
+                          pooling=None,
+                          final_activation="softmax",
+                          classes=1000,
+                          drop_rate=0.0):
+
+    model = ViTImageEncoder(filters=256,
+                            embed_dim=1024,
+                            patch_size=(16, 16),
+                            num_heads=16,
+                            depth=24,
+                            window_size=14,
+                            mlp_ratio=4,
+                            qkv_bias=True,
+                            use_abs_pos=True,
+                            use_rel_pos=False,
+                            global_attn_indexes=[5, 11, 17, 23],
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor, 
+                            input_shape=input_shape, 
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            drop_rate=drop_rate)
+    return model
+
+
+def ViTImageEncoder_huge(include_top=True, 
+                         weights='imagenet',
+                         input_tensor=None, 
+                         input_shape=None,
+                         pooling=None,
+                         final_activation="softmax",
+                         classes=1000,
+                         drop_rate=0.0):
+
+    model = ViTImageEncoder(filters=256,
+                            embed_dim=1280,
+                            patch_size=(16, 16),
+                            num_heads=16,
+                            depth=32,
+                            window_size=14,
+                            mlp_ratio=4,
+                            qkv_bias=True,
+                            use_abs_pos=True,
+                            use_rel_pos=False,
+                            global_attn_indexes=[7, 15, 23, 31],
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor, 
+                            input_shape=input_shape, 
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            drop_rate=drop_rate)
     return model

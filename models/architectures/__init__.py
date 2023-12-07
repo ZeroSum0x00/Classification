@@ -39,4 +39,4 @@ from .eva import EVA, EVA_Large14, EVA_Gaint14
 from .eva02 import EVA02, EVA02_Tiny14, EVA02_Small14, EVA02_Base14, EVA02_Large14
 from .swin import Swin, SwinT, SwinS, SwinB, SwinL
 from .swin_v2 import Swin_v2, SwinT_v2, SwinS_v2, SwinB_v2, SwinL_v2
-from .segment_anything_encoder import ViTImageEncoder
+from .segment_anything_encoder import ViTImageEncoder, ViTImageEncoder_base, ViTImageEncoder_large, ViTImageEncoder_huge
