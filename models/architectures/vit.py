@@ -75,7 +75,7 @@ def ViT(num_layers=12,
                                       default_size=224,
                                       min_size=32,
                                       data_format=K.image_data_format(),
-                                      require_flatten=True,
+                                      require_flatten=include_top,
                                       weights=weights)
 
     if input_tensor is None:
