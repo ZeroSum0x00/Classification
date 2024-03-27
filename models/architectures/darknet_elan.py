@@ -49,7 +49,7 @@ from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.initializers import VarianceScaling
 
 from .darknet53 import ConvolutionBlock
-from .darknetc3 import Bottleneck, GhostConv, GhostBottleneck
+from .darknet_c3 import Bottleneck, GhostConv, GhostBottleneck
 from .efficient_rep import CSPSPPF, RepVGGBlock
 
 from models.layers import get_activation_from_name, get_normalizer_from_name

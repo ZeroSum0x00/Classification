@@ -60,7 +60,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import concatenate
 
 from .darknet53 import ConvolutionBlock
-from .darknetc3 import SPPF
+from .darknet_c3 import SPPF
 from models.layers import get_activation_from_name, get_normalizer_from_name, ChannelShuffle, RepVGGBlock
 from utils.model_processing import _obtain_input_shape
 

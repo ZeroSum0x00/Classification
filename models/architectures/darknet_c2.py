@@ -40,7 +40,7 @@ from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 
 from .darknet53 import ConvolutionBlock
-from .darknetc3 import Bottleneck, C3, SPP, SPPF
+from .darknet_c3 import Bottleneck, C3, SPP, SPPF
 from models.layers import get_activation_from_name, get_normalizer_from_name, RepVGGBlock
 from utils.model_processing import _obtain_input_shape
 
