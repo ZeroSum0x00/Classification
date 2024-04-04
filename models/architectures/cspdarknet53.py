@@ -1,14 +1,18 @@
-import numpy as np
+from __future__ import print_function
+from __future__ import absolute_import
+
+import warnings
+
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling1D
+from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import concatenate
+from tensorflow.keras.utils import get_source_inputs, get_file
 
 from .darknet53 import ConvolutionBlock, ResidualBlock
 from models.layers import get_activation_from_name
@@ -39,7 +43,7 @@ class CSPDarkNetBlock(tf.keras.layers.Layer):
         
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
-        x = self.middle(x, training=traTuNITining)
+        x = self.middle(x, training=training)
         x = self.conv2(x, training=training)
         y = self.shortcut(inputs, training=training)
 
@@ -82,11 +86,6 @@ def CSPDarkNet53(include_top=True,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1  
 
     x = ConvolutionBlock(32, 3, activation=activation, norm_layer=norm_layer, name="stem")(img_input)
 

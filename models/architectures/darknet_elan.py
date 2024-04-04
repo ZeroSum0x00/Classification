@@ -28,31 +28,27 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import DepthwiseConv2D
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Conv2DTranspose
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling1D
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import ZeroPadding2D
+from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.initializers import RandomNormal
-from tensorflow.keras.initializers import VarianceScaling
+from tensorflow.keras.utils import get_source_inputs, get_file
 
 from .darknet53 import ConvolutionBlock
 from .darknet_c3 import Bottleneck, GhostConv, GhostBottleneck
 from .efficient_rep import CSPSPPF, RepVGGBlock
 
-from models.layers import get_activation_from_name, get_normalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name, ScaleWeight
 from utils.model_processing import _obtain_input_shape
 
 
@@ -352,7 +348,7 @@ class DownC(tf.keras.layers.Layer):
                  **kwargs):
         super(DownC, self).__init__(**kwargs)
         self.filters           = filters
-        self.pool_size         = pool_size if isinstance(pool_size, (list, tuple)) else (pool_size, strides)         
+        self.pool_size         = pool_size if isinstance(pool_size, (list, tuple)) else (pool_size, pool_size)         
         self.activation        = activation
         self.norm_layer        = norm_layer
         self.regularizer_decay = regularizer_decay
@@ -1124,11 +1120,6 @@ def DarkNetELAN_A(filters=[32, 64],
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
-        
     f0, f1 = filters
 
     x = ConvolutionBlock(f0, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stem.block1')(img_input)
@@ -1224,11 +1215,6 @@ def DarkNetELAN_B(filters=[32, 64],
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
-        
     f0, f1 = filters
     
     x = ConvolutionBlock(f0, 3, activation=activation, norm_layer=norm_layer, name='stem.block1')(img_input)
@@ -1323,11 +1309,6 @@ def DarkNetELAN_C(filters=[64, 64],
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
-        
     scale_f0 = [filters[0] * i for i in [2, 4, 8, 12, 16]]
     scale_f1 = [filters[1] * i for i in [1, 2, 4, 6, 8]]
 
@@ -1412,11 +1393,6 @@ def DarkNetELAN_D(filters=[80, 64],
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
-        
     scale_f0 = [filters[0] * i for i in [2, 4, 8, 12, 16]]
     scale_f1 = [filters[1] * i for i in [1, 2, 4, 6, 8]]
 
@@ -1503,11 +1479,6 @@ def DarkNetELAN_E(filters=[80, 64],
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
-        
     scale_f0 = [filters[0] * i for i in [2, 4, 8, 12, 16]]
     scale_f1 = [filters[1] * i for i in [1, 2, 4, 6, 8]]
 

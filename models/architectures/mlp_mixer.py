@@ -48,6 +48,7 @@ from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import GlobalMaxPooling1D
 from tensorflow.keras.utils import get_source_inputs, get_file
+
 from models.layers import (ExtractPatches, MLPBlock, SAMModel, 
                            get_normalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
@@ -147,11 +148,6 @@ def MLPMixer(patch_size,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1 
 
     x = ExtractPatches(patch_size, hidden_dim)(img_input)
 

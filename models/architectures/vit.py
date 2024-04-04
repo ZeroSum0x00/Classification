@@ -39,6 +39,7 @@ from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
+
 from models.layers import (ExtractPatches, ClassificationToken, 
                            PositionalEmbedding, TransformerBlock, SAMModel,
                            get_activation_from_name, get_normalizer_from_name)

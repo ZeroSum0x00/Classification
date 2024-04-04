@@ -26,18 +26,17 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import get_activation_from_name, get_normalizer_from_name
@@ -140,11 +139,6 @@ def DenseNet(blocks,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
 
     x = ZeroPadding2D(padding=((3, 3), (3, 3)), name='padding_0')(img_input)
     x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), use_bias=False, name='conv1/conv')(x)

@@ -35,16 +35,12 @@ import warnings
 
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import LayerNormalization
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from tensorflow.keras import backend as K
 from utils.model_processing import _obtain_input_shape
@@ -177,11 +173,6 @@ def ConvNext(depths=[3, 3, 9, 3],
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-    
     cur = 0
     dp_rates = [x.numpy() for x in tf.linspace(0.0, drop_path_rate, sum(depths))]
 
@@ -247,10 +238,10 @@ def ConvNext(depths=[3, 3, 9, 3],
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)
-            x = LayerNormalization(epsilon=norm_eps, name='final_norm')(x)
+            x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
         elif pooling == 'max':
             x = GlobalMaxPooling2D(name='global_maxpool')(x)
-            x = LayerNormalization(epsilon=norm_eps, name='final_norm')(x)
+            x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.

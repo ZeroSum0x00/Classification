@@ -32,18 +32,19 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import DepthwiseConv2D
 from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.initializers import VarianceScaling
+from tensorflow.keras.utils import get_source_inputs, get_file
 
 from .darknet53 import ConvolutionBlock
 from models.layers import get_activation_from_name, get_normalizer_from_name, TransformerBlock
@@ -559,8 +560,8 @@ class GhostBottleneck(tf.keras.layers.Layer):
         self.conv2 = GhostConv(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
         
         if self.stride == 2:
-            self.dw1 = _depthwise_block(dwkernel, stride, self.activation, self.norm_layer)
-            self.dw2 = _depthwise_block(dwkernel, stride, self.activation, self.norm_layer)
+            self.dw1 = self._depthwise_block(self.dwkernel, self.stride, self.activation, self.norm_layer)
+            self.dw2 = self._depthwise_block(self.dwkernel, self.stride, self.activation, self.norm_layer)
             self.shortcut = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
 
     def _depthwise_block(self, dwkernel, stride, activation, norm_layer):
@@ -693,11 +694,6 @@ def DarkNetC3(c3_block,
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
-        
     l0, l1, l2, l3 = layers
             
     x = StemBlock(filters, 6, 2, activation=activation, norm_layer=norm_layer, name='stem')(img_input)

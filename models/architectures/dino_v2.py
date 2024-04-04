@@ -31,11 +31,11 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 from .beit import BEiT
-from models.layers import get_activation_from_name
+from models.layers import get_activation_from_name, SAMModel
 from utils.model_processing import _obtain_input_shape, drop_connect_rates_split
 
 
@@ -80,11 +80,6 @@ def DINOv2(num_layers,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
 
     backbone = BEiT(vocab_size=0,
                     num_layers=num_layers,

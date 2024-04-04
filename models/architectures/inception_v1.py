@@ -22,24 +22,23 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import concatenate
-from models.layers import get_activation_from_name, get_normalizer_from_name
 from tensorflow.keras.utils import get_source_inputs, get_file
+
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -149,11 +148,6 @@ def GoogleNet(block,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
 
     x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), padding='same')(img_input)
     x = get_activation_from_name('relu')(x)

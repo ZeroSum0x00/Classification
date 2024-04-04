@@ -24,24 +24,23 @@ from __future__ import absolute_import
 
 import warnings
 import numpy as np
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import add
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
+
 
 
 def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26, scale=4, activation="relu", normalizer='batch-norm'):
@@ -128,11 +127,6 @@ def Res2Net(num_blocks,
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-    
     # Block conv1
     x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', use_bias=False)(img_input)
     x = get_normalizer_from_name('batch-norm')(x)

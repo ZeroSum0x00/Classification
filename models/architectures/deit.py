@@ -25,7 +25,6 @@ import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
-from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Lambda
@@ -79,11 +78,6 @@ def DeiT(num_layers,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
 
     x = ExtractPatches(patch_size, hidden_dim, name="Extract_Patches")(img_input)
     x = DistillationToken(name="Distillation_Token")(x)

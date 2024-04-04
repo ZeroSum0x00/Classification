@@ -29,19 +29,21 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import GlobalAveragePooling1D
-from tensorflow.keras.layers import GlobalMaxPooling1D
-from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import Softmax
-from tensorflow.keras.layers import Permute
-from tensorflow.keras.layers import add, multiply, concatenate
-from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import GlobalMaxPooling1D
+from tensorflow.keras.layers import GlobalAveragePooling1D
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import add
+from tensorflow.keras.layers import multiply
+from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import DropPath, MLPBlock, SAMModel, get_activation_from_name, get_normalizer_from_name
+
+from models.layers import get_activation_from_name, get_normalizer_from_name, DropPath, MLPBlock, SAMModel
 from utils.model_processing import _obtain_input_shape
 
 

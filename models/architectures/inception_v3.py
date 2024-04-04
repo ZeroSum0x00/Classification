@@ -24,15 +24,14 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
+
 from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
@@ -89,11 +88,6 @@ def Inception_v3(include_top=True,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
 
     # stem
     x = convolution_block(img_input, 32, (3, 3), (2, 2), padding='valid', use_bias=False, name='stem1')

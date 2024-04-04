@@ -29,28 +29,19 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import DepthwiseConv2D
 from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import DepthwiseConv2D
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import concatenate
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import ReLU6
+
 from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape, correct_pad
 from utils.auxiliary_processing import make_divisible

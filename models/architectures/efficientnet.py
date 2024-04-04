@@ -35,25 +35,18 @@ from __future__ import absolute_import
 
 import math
 import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
-from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import ZeroPadding2D
 from tensorflow.keras.layers import DepthwiseConv2D
 from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import multiply
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
@@ -164,6 +157,7 @@ def EfficientBlock(inputs,
                    residual_connection=True, 
                    drop_rate=0., 
                    name='efficien_block'):
+    bn_axis = 3 if K.image_data_format() == 'channels_last' else 1
     filters = filters_in * expand_ratio
     
     if expand_ratio != 1:
@@ -240,6 +234,7 @@ def EfficientBlock(inputs,
 def EfficientNet(width_coefficient,
                  depth_coefficient,
                  blocks_args=DEFAULT_BLOCKS_ARGS,
+                 activation='swish',
                  include_top=True,
                  weights='imagenet',
                  input_tensor=None,
@@ -275,12 +270,7 @@ def EfficientNet(width_coefficient,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1 
-
+            
     x = ZeroPadding2D(padding=correct_pad(img_input, 3), name='stem_conv_pad')(img_input)
     x = Conv2D(filters=round_filters(32, width_coefficient, depth_divisor),
                kernel_size=(3, 3),
@@ -290,7 +280,7 @@ def EfficientNet(width_coefficient,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name='stem_conv')(x)
     x = get_normalizer_from_name('batch-norm', name='stem_bn')(x)
-    x = get_activation_from_name('swish', name='stem_activation')(x)
+    x = get_activation_from_name(activation, name='stem_activation')(x)
 
     b = 0
     blocks = float(sum(args['repeats'] for args in blocks_args))
@@ -323,7 +313,7 @@ def EfficientNet(width_coefficient,
                kernel_initializer=CONV_KERNEL_INITIALIZER,
                name='top_conv')(x)
     x = get_normalizer_from_name('batch-norm', name='top_bn')(x)
-    x = get_activation_from_name('swish', name='top_activation')(x)
+    x = get_activation_from_name(activation, name='top_activation')(x)
 
     if include_top:
         x = GlobalAveragePooling2D(name='global_avgpool')(x)
@@ -513,7 +503,7 @@ def EfficientNetB0(include_top=True,
     model = EfficientNet(width_coefficient=1.0,
                          depth_coefficient=1.0,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -521,9 +511,9 @@ def EfficientNetB0(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.2,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -541,7 +531,7 @@ def EfficientNetB1(include_top=True,
     model = EfficientNet(width_coefficient=1.0,
                          depth_coefficient=1.1,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -549,9 +539,9 @@ def EfficientNetB1(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.2,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -569,7 +559,7 @@ def EfficientNetB2(include_top=True,
     model = EfficientNet(width_coefficient=1.1,
                          depth_coefficient=1.2,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -577,9 +567,9 @@ def EfficientNetB2(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.3,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -597,7 +587,7 @@ def EfficientNetB3(include_top=True,
     model = EfficientNet(width_coefficient=1.2,
                          depth_coefficient=1.4,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -605,9 +595,9 @@ def EfficientNetB3(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.3,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -625,7 +615,7 @@ def EfficientNetB4(include_top=True,
     model = EfficientNet(width_coefficient=1.4,
                          depth_coefficient=1.8,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -633,9 +623,9 @@ def EfficientNetB4(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.4,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -653,7 +643,7 @@ def EfficientNetB5(include_top=True,
     model = EfficientNet(width_coefficient=1.6,
                          depth_coefficient=2.2,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -661,9 +651,9 @@ def EfficientNetB5(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.4,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -681,7 +671,7 @@ def EfficientNetB6(include_top=True,
     model = EfficientNet(width_coefficient=1.8,
                          depth_coefficient=2.6,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -689,9 +679,9 @@ def EfficientNetB6(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.5,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -709,7 +699,7 @@ def EfficientNetB7(include_top=True,
     model = EfficientNet(width_coefficient=2.0,
                          depth_coefficient=3.1,
                          blocks_args=DEFAULT_BLOCKS_ARGS,
-                         activation=swish,
+                         activation='swish',
                          include_top=include_top,
                          weights=weights,
                          input_tensor=input_tensor,
@@ -717,7 +707,7 @@ def EfficientNetB7(include_top=True,
                          pooling=pooling,
                          final_activation=final_activation,
                          classes=classes,
-                         depth_divisor=8,
-                         drop_rate=0.5,
-                         drop_connect_rate=0.2)
+                         depth_divisor=depth_divisor,
+                         drop_rate=drop_rate,
+                         drop_connect_rate=drop_connect_rate)
     return model

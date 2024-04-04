@@ -38,16 +38,15 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras import Model
+from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import ReLU
-from tensorflow.keras.layers import MaxPool2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import MaxPool2D
+from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
 from models.layers import get_activation_from_name, get_normalizer_from_name
@@ -160,11 +159,6 @@ def ResnetV2(layers,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
 
     filters = tuple(16 * filter_downsample_factor * 2**b for b in range(len(layers)))
     

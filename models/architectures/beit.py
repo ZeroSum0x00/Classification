@@ -33,13 +33,15 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import Embedding
 from tensorflow.keras.layers import Reshape
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.initializers import RandomUniform, TruncatedNormal
 from tensorflow.keras.utils import get_source_inputs, get_file
+
 from models.layers import (get_activation_from_name, get_normalizer_from_name, 
                            ClassToken, PositionalIndex, SAMModel,
                            PatchConv2DWithResampleWeights, PositionalEmbedding,
@@ -113,11 +115,6 @@ def BEiT(vocab_size=0,  # [Text model] Set value > 0 for building text model
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-        
     if vocab_size > 0:
         """Text inputs"""
         tok_emb = Embedding(vocab_size, embed_dim, name="embed_tokens")(img_input)

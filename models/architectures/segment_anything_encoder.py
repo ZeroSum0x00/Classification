@@ -22,7 +22,6 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-import math
 import warnings
 import numpy as np
 import tensorflow as tf
@@ -31,11 +30,9 @@ from tensorflow.keras.models import Model
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import add
 from tensorflow.keras.utils import get_source_inputs, get_file
 
@@ -393,11 +390,6 @@ def ViTImageEncoder(filters=256,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
 
     x = PatchEmbed(patch_size, embed_dim, name="patched_embedding")(img_input)
 

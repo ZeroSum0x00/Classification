@@ -30,17 +30,14 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import Sequential
-from tensorflow.keras import layers
 from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling1D
-from tensorflow.keras.layers import Reshape
 from tensorflow.keras.utils import get_source_inputs, get_file
+
 from .swin import window_partition, window_reverse, PatchEmbed, PatchMerging
 from models.layers import MLPBlock, DropPath, get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape

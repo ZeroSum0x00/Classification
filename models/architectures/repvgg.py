@@ -42,23 +42,18 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-
-import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
-from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import RepVGGBlock, get_activation_from_name, get_normalizer_from_name
+
+from models.layers import RepVGGBlock, get_activation_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -110,11 +105,6 @@ def RepVGG(num_blocks,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
 
     cur_layer_idx = 0
                

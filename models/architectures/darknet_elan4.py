@@ -29,19 +29,21 @@ from tensorflow.keras.models import Model
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
+from tensorflow.keras.utils import get_source_inputs, get_file
 
 from .darknet53 import ConvolutionBlock
 from .darknet_c2 import Bottleneck2
 from .darknet_c3 import Bottleneck, BottleneckCSP
 from .darknet_elan import BottleneckCSPA
 
-from models.layers import get_activation_from_name, get_normalizer_from_name
+from models.layers import get_activation_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -524,10 +526,7 @@ def DarkNetELAN4_A(down_block,
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1  
+  
         
     f0, f1, f2, f3 = filters
     n0, n1, n2, n3 = num_blocks
@@ -672,11 +671,6 @@ def DarkNetELAN4_B(down_block,
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1  
-        
     f0, f1, f2, f3, f4 = filters
 
     y0 = ConvolutionBlock(f0, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(img_input)

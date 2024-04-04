@@ -26,24 +26,18 @@
 from __future__ import print_function
 
 import warnings
-import numpy as np
 
 import tensorflow as tf
-from tensorflow.keras import layers
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import UpSampling2D
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import UpSampling2D
+from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import add
-from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
 from utils.model_processing import _obtain_input_shape, correct_pad
 from models.layers import get_activation_from_name, get_normalizer_from_name
@@ -578,6 +572,7 @@ def DDRNet39(include_top=True,
                       '`image_data_format="channels_last"` in '
                       'your Keras config '
                       'at ~/.keras/keras.json.')
+    return model
 
 
 if __name__ == '__main__':

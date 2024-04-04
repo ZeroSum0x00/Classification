@@ -29,14 +29,14 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import GlobalMaxPooling1D
+from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import add, multiply
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import SAMModel, get_activation_from_name, get_normalizer_from_name
+from models.layers import get_activation_from_name, get_normalizer_from_name, SAMModel
 from utils.model_processing import _obtain_input_shape
 
 
@@ -75,7 +75,8 @@ def gMLP(stem_width,
          final_activation="softmax",
          classes=1000,
          sam_rho=0.0,
-         drop_rate=0):
+         drop_rate=0.,
+         drop_connect_rate=0.):
         
     if weights not in {'imagenet', None}:
         raise ValueError('The `weights` argument should be either '
@@ -101,11 +102,6 @@ def gMLP(stem_width,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1 
 
     x = Conv2D(filters=stem_width, 
                kernel_size=patch_size, 
@@ -178,7 +174,8 @@ def gMLP_T16(include_top=True,
              final_activation="softmax",
              classes=1000,
              sam_rho=0.0,
-             drop_rate=0.1) -> Model:
+             drop_rate=0.1,
+             drop_connect_rate=0.1) -> Model:
     
     model = gMLP(stem_width=128,
                  patch_size=16,
@@ -192,7 +189,8 @@ def gMLP_T16(include_top=True,
                  final_activation=final_activation,
                  classes=classes,
                  sam_rho=sam_rho,
-                 drop_rate=drop_rate)
+                 drop_rate=drop_rate,
+                 drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -204,8 +202,9 @@ def gMLP_S16(include_top=True,
              final_activation="softmax",
              classes=1000,
              sam_rho=0.0,
-             drop_rate=0.1) -> Model:
-    
+             drop_rate=0.1,
+             drop_connect_rate=0.1) -> Model:
+        
     model = gMLP(stem_width=256,
                  patch_size=16,
                  num_blocks=30,
@@ -218,7 +217,8 @@ def gMLP_S16(include_top=True,
                  final_activation=final_activation,
                  classes=classes,
                  sam_rho=sam_rho,
-                 drop_rate=drop_rate)
+                 drop_rate=drop_rate,
+                 drop_connect_rate=drop_connect_rate)
     return model
 
 
@@ -230,7 +230,8 @@ def gMLP_B16(include_top=True,
              final_activation="softmax",
              classes=1000,
              sam_rho=0.0,
-             drop_rate=0.1) -> Model:
+             drop_rate=0.1,
+             drop_connect_rate=0.1) -> Model:
     
     model = gMLP(stem_width=512,
                  patch_size=16,
@@ -244,5 +245,6 @@ def gMLP_B16(include_top=True,
                  final_activation=final_activation,
                  classes=classes,
                  sam_rho=sam_rho,
-                 drop_rate=drop_rate)
+                 drop_rate=drop_rate,
+                 drop_connect_rate=drop_connect_rate)
     return model

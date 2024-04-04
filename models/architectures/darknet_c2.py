@@ -26,18 +26,20 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import Conv2DTranspose
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import add
+from tensorflow.keras.utils import get_source_inputs, get_file
 
 from .darknet53 import ConvolutionBlock
 from .darknet_c3 import Bottleneck, C3, SPP, SPPF
@@ -610,11 +612,6 @@ def DarkNetC2(c2_block,
         else:
             img_input = input_tensor
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1  
-        
     l0, l1, l2, l3 = layers
             
     x = ConvolutionBlock(filters, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stem')(img_input)
