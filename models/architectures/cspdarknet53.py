@@ -1,3 +1,19 @@
+"""
+  # Description:
+    - The following table comparing the params of the CSP-DarkNet 53 (YOLOv4 backbone) in Tensorflow on 
+    image size 416 x 416 x 3:
+
+       ------------------------------------------
+      |       Model Name      |     Params       |
+      |------------------------------------------|
+      |     CSP-DarkNet53     |    26,652,512    |
+       ------------------------------------------
+
+  # Reference:
+    - Source: https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3
+
+"""
+
 from __future__ import print_function
 from __future__ import absolute_import
 
@@ -24,22 +40,22 @@ class CSPDarkNetBlock(tf.keras.layers.Layer):
                  num_filters, 
                  iters,
                  activation        = 'leaky', 
-                 norm_layer        = 'batch-norm', 
+                 normalizer        = 'batch-norm', 
                  **kwargs):
         super(CSPDarkNetBlock, self).__init__(**kwargs)
         self.num_filters = num_filters
         self.iters       = iters
         self.activation  = activation
-        self.norm_layer  = norm_layer
+        self.normalizer  = normalizer
                      
     def build(self, input_shape):
-        self.shortcut = ConvolutionBlock(self.num_filters[1], 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv1 = ConvolutionBlock(self.num_filters[1], 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.shortcut = ConvolutionBlock(self.num_filters[1], 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv1 = ConvolutionBlock(self.num_filters[1], 1, activation=self.activation, normalizer=self.normalizer)
         self.middle = Sequential([
-            ResidualBlock([self.num_filters[0], self.num_filters[1]], activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            ResidualBlock([self.num_filters[0], self.num_filters[1]], activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
-        self.conv2 = ConvolutionBlock(self.num_filters[1], 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(self.num_filters[0] * 2, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(self.num_filters[1], 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(self.num_filters[0] * 2, 1, activation=self.activation, normalizer=self.normalizer)
         
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -58,7 +74,7 @@ def CSPDarkNet53(include_top=True,
                  input_shape=None,
                  pooling=None,
                  activation='mish',
-                 norm_layer='batch-norm',
+                 normalizer='batch-norm',
                  final_activation="softmax",
                  classes=1000):
 
@@ -87,37 +103,37 @@ def CSPDarkNet53(include_top=True,
         else:
             img_input = input_tensor
 
-    x = ConvolutionBlock(32, 3, activation=activation, norm_layer=norm_layer, name="stem")(img_input)
+    x = ConvolutionBlock(32, 3, activation=activation, normalizer=normalizer, name="stem")(img_input)
 
     # Downsample 1
-    x = ConvolutionBlock(64, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage1_block1")(x)
+    x = ConvolutionBlock(64, 3, downsample=True, activation=activation, normalizer=normalizer, name="stage1_block1")(x)
     
     # CSPResBlock 1
-    x = CSPDarkNetBlock([32, 64], 1, activation=activation, norm_layer=norm_layer, name="stage1_block2")(x)
+    x = CSPDarkNetBlock([32, 64], 1, activation=activation, normalizer=normalizer, name="stage1_block2")(x)
 
     # Downsample 2
-    x = ConvolutionBlock(128, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage2_block1")(x)
+    x = ConvolutionBlock(128, 3, downsample=True, activation=activation, normalizer=normalizer, name="stage2_block1")(x)
 
     # CSPResBlock 2
-    x = CSPDarkNetBlock([64, 64], 2, activation=activation, norm_layer=norm_layer, name="stage2_block2")(x)
+    x = CSPDarkNetBlock([64, 64], 2, activation=activation, normalizer=normalizer, name="stage2_block2")(x)
 
     # Downsample 3
-    x = ConvolutionBlock(256, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage3_block1")(x)
+    x = ConvolutionBlock(256, 3, downsample=True, activation=activation, normalizer=normalizer, name="stage3_block1")(x)
 
     # CSPResBlock 3
-    x = CSPDarkNetBlock([128, 128], 8, activation=activation, norm_layer=norm_layer, name="stage3_block2")(x)
+    x = CSPDarkNetBlock([128, 128], 8, activation=activation, normalizer=normalizer, name="stage3_block2")(x)
 
     # Downsample 4
-    x = ConvolutionBlock(512, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage4_block1")(x)
+    x = ConvolutionBlock(512, 3, downsample=True, activation=activation, normalizer=normalizer, name="stage4_block1")(x)
 
     # CSPResBlock 4
-    x = CSPDarkNetBlock([256, 256], 8, activation=activation, norm_layer=norm_layer, name="stage4_block2")(x)
+    x = CSPDarkNetBlock([256, 256], 8, activation=activation, normalizer=normalizer, name="stage4_block2")(x)
 
     # Downsample 5
-    x = ConvolutionBlock(1024, 3, downsample=True, activation=activation, norm_layer=norm_layer, name="stage5_block1")(x)
+    x = ConvolutionBlock(1024, 3, downsample=True, activation=activation, normalizer=normalizer, name="stage5_block1")(x)
 
     # CSPResBlock 5
-    x = CSPDarkNetBlock([512, 512], 4, activation=activation, norm_layer=norm_layer, name="stage5_block2")(x)
+    x = CSPDarkNetBlock([512, 512], 4, activation=activation, normalizer=normalizer, name="stage5_block2")(x)
 
     if include_top:
         # Classification block
@@ -155,13 +171,13 @@ def CSPDarkNet53_backbone(input_shape=(416, 416, 3),
                           include_top=False, 
                           weights='imagenet', 
                           activation='mish',
-                          norm_layer='batch-norm',
+                          normalizer='batch-norm',
                           custom_layers=None) -> Model:
 
     model = CSPDarkNet53(include_top=include_top, 
                          weights=weights,
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          input_shape=input_shape)
 
     if custom_layers is not None:
