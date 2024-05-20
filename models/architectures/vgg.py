@@ -57,7 +57,7 @@ def VGGBlock(x, num_layers, filters, activation='relu', name='vgg_block'):
                    strides=(1, 1),
                    padding='same',
                    name=name + "_conv" + str(i))(x)
-        x = get_activation_from_name(activation)(x)
+        x = get_activation_from_name(activation, name=name + "_activ" + str(i))(x)
     x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name=name + "_pool")(x)
     return x
 
@@ -219,6 +219,41 @@ def VGG11(include_top=True,
     return model
 
 
+def VGG11_backbone(input_shape=(224, 224, 3), 
+                   include_top=False, 
+                   weights='imagenet', 
+                   input_tensor=None, 
+                   pooling=None, 
+                   final_activation="softmax",
+                   classes=1000,
+                   custom_layers=None) -> Model:
+    
+    model = VGG11(include_top=include_top, 
+                  weights=weights,
+                  input_tensor=input_tensor, 
+                  input_shape=input_shape,
+                  pooling=pooling, 
+                  final_activation=final_activation, 
+                  classes=classes)
+
+    for l in model.layers:
+        l.trainable = True
+
+    if custom_layers is not None:
+        y_i = []
+        for layer in custom_layers:
+            y_i.append(model.get_layer(layer).output)
+        return Model(inputs=model.inputs, outputs=[y_i], name='VGG11_backbone')
+
+    else:
+        y_2 = model.get_layer("vgg_block1_activ0").output
+        y_4 = model.get_layer("vgg_block2_activ1").output
+        y_8 = model.get_layer("vgg_block3_activ1").output
+        y_16 = model.get_layer("vgg_block4_activ1").output
+        y_final = model.get_layer(model.layers[-1].name).output
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_final], name='VGG11_backbone')
+
+
 def VGG13(include_top=True,
           weights='imagenet',
           input_tensor=None,
@@ -237,6 +272,41 @@ def VGG13(include_top=True,
                 final_activation=final_activation,
                 classes=classes)
     return model
+
+
+def VGG13_backbone(input_shape=(224, 224, 3), 
+                   include_top=False, 
+                   weights='imagenet', 
+                   input_tensor=None, 
+                   pooling=None, 
+                   final_activation="softmax",
+                   classes=1000,
+                   custom_layers=None) -> Model:
+    
+    model = VGG13(include_top=include_top, 
+                  weights=weights,
+                  input_tensor=input_tensor, 
+                  input_shape=input_shape,
+                  pooling=pooling, 
+                  final_activation=final_activation, 
+                  classes=classes)
+
+    for l in model.layers:
+        l.trainable = True
+
+    if custom_layers is not None:
+        y_i = []
+        for layer in custom_layers:
+            y_i.append(model.get_layer(layer).output)
+        return Model(inputs=model.inputs, outputs=[y_i], name='VGG13_backbone')
+
+    else:
+        y_2 = model.get_layer("vgg_block1_activ1").output
+        y_4 = model.get_layer("vgg_block2_activ1").output
+        y_8 = model.get_layer("vgg_block3_activ1").output
+        y_16 = model.get_layer("vgg_block4_activ1").output
+        y_final = model.get_layer(model.layers[-1].name).output
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_final], name='VGG13_backbone')
 
 
 def VGG16(include_top=True,
@@ -259,6 +329,41 @@ def VGG16(include_top=True,
     return model
 
 
+def VGG16_backbone(input_shape=(224, 224, 3), 
+                   include_top=False, 
+                   weights='imagenet', 
+                   input_tensor=None, 
+                   pooling=None, 
+                   final_activation="softmax",
+                   classes=1000,
+                   custom_layers=None) -> Model:
+    
+    model = VGG16(include_top=include_top, 
+                  weights=weights,
+                  input_tensor=input_tensor, 
+                  input_shape=input_shape,
+                  pooling=pooling, 
+                  final_activation=final_activation, 
+                  classes=classes)
+
+    for l in model.layers:
+        l.trainable = True
+
+    if custom_layers is not None:
+        y_i = []
+        for layer in custom_layers:
+            y_i.append(model.get_layer(layer).output)
+        return Model(inputs=model.inputs, outputs=[y_i], name='VGG16_backbone')
+
+    else:
+        y_2 = model.get_layer("vgg_block1_activ1").output
+        y_4 = model.get_layer("vgg_block2_activ2").output
+        y_8 = model.get_layer("vgg_block3_activ2").output
+        y_16 = model.get_layer("vgg_block4_activ2").output
+        y_final = model.get_layer(model.layers[-1].name).output
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_final], name='VGG16_backbone')
+
+
 def VGG19(include_top=True,
           weights='imagenet',
           input_tensor=None,
@@ -277,3 +382,38 @@ def VGG19(include_top=True,
                 final_activation=final_activation,
                 classes=classes)
     return model
+
+
+def VGG19_backbone(input_shape=(224, 224, 3), 
+                   include_top=False, 
+                   weights='imagenet', 
+                   input_tensor=None, 
+                   pooling=None, 
+                   final_activation="softmax",
+                   classes=1000,
+                   custom_layers=None) -> Model:
+    
+    model = VGG19(include_top=include_top, 
+                  weights=weights,
+                  input_tensor=input_tensor, 
+                  input_shape=input_shape,
+                  pooling=pooling, 
+                  final_activation=final_activation, 
+                  classes=classes)
+
+    for l in model.layers:
+        l.trainable = True
+
+    if custom_layers is not None:
+        y_i = []
+        for layer in custom_layers:
+            y_i.append(model.get_layer(layer).output)
+        return Model(inputs=model.inputs, outputs=[y_i], name='VGG19_backbone')
+
+    else:
+        y_2 = model.get_layer("vgg_block1_activ1").output
+        y_4 = model.get_layer("vgg_block2_activ3").output
+        y_8 = model.get_layer("vgg_block3_activ3").output
+        y_16 = model.get_layer("vgg_block4_activ3").output
+        y_final = model.get_layer(model.layers[-1].name).output
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_final], name='VGG19_backbone')
