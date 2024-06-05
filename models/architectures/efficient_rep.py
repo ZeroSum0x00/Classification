@@ -74,7 +74,7 @@ class CustomLayer(tf.keras.layers.Layer):
                  scale_weight = False,
                  iters        = 1,
                  activation   = 'relu', 
-                 norm_layer   = 'batch-norm', 
+                 normalizer   = 'batch-norm', 
                  training     = False,
                  *args, 
                  **kwargs):
@@ -85,7 +85,7 @@ class CustomLayer(tf.keras.layers.Layer):
         self.scale_weight = scale_weight
         self.iters        = iters
         self.activation   = activation
-        self.norm_layer   = norm_layer
+        self.normalizer   = normalizer
         self.training     = training
 
 
@@ -100,7 +100,7 @@ class CSPSPPF(CustomLayer):
                  pool_size  = (5, 5),
                  expansion  = 0.5,
                  activation = 'relu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super(CSPSPPF, self).__init__(*args, **kwargs)
@@ -108,19 +108,19 @@ class CSPSPPF(CustomLayer):
         self.pool_size  = pool_size
         self.expansion  = expansion
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
                      
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
         self.pool  = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
-        self.conv4 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv5 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv6 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv4 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv5 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, normalizer=self.normalizer)
+        self.conv6 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
 
-        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -147,7 +147,7 @@ class CSPSPPF(CustomLayer):
             "pool_size": self.pool_size,
             "expansion": self.expansion,
             "activation": self.activation,
-            "norm_layer": self.norm_layer
+            "normalizer": self.normalizer
         })
         return config
 
@@ -228,7 +228,7 @@ class LinearAddBlock(CustomLayer):
             "is_csla": self.is_csla,
             "conv_scale_init": self.conv_scale_init,
             "activation": self.activation,
-            "norm_layer": self.norm_layer
+            "normalizer": self.normalizer
         })
         return config
 
@@ -393,7 +393,7 @@ class BepC3(CustomLayer):
                  expansion=0.5, 
                  iters=1, 
                  activation = 'relu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  training=False, 
                  *args, 
                  **kwargs):
@@ -404,14 +404,14 @@ class BepC3(CustomLayer):
         self.expansion  = expansion
         self.iters      = iters
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
         self.training   = training
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
         if self.sub_block:
             self.block = RepBlock(hidden_dim, rep_block=self.rep_block, sub_block=self.sub_block, iters=self.iters, training=self.training)
         else:
@@ -433,7 +433,7 @@ class BepC3(CustomLayer):
             "expansion": self.expansion,
             "iters": self.iters,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
             "training": self.training,
         })
         return config
@@ -448,7 +448,7 @@ class MBLABlock(CustomLayer):
                  expansion=0.5, 
                  iters=1, 
                  activation = 'relu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  training=False, 
                  *args, 
                  **kwargs):
@@ -458,7 +458,7 @@ class MBLABlock(CustomLayer):
         self.sub_block  = sub_block if sub_block else RepVGGBlock
         self.expansion  = expansion
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
         self.training   = training
 
         iters = iters // 2
@@ -478,8 +478,8 @@ class MBLABlock(CustomLayer):
             n_list = [0, extra_branch_steps, self.iters]
         self.branch_num = len(n_list)
 
-        self.conv1 = ConvolutionBlock(self.branch_num * hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(self.branch_num * hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
         self.block = []
         for n_list_i in n_list[1:]:
             self.block.append(
@@ -507,7 +507,7 @@ class MBLABlock(CustomLayer):
             "expansion": self.expansion,
             "iters": self.iters,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
             "training": self.training,
         })
         return config
@@ -518,23 +518,23 @@ class BiFusion(CustomLayer):
     def __init__(self, 
                  filters, 
                  activation = 'relu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super(BiFusion, self).__init__(*args, **kwargs)
         self.filters    = filters
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
         
     def build(self, input_shape):
-        self.conv1 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
         self.upsample = Conv2DTranspose(self.filters, 
                                         kernel_size=(1, 1),
                                         strides=(1, 1),
                                         padding='valid')
-        self.downsample = ConvolutionBlock(self.filters, 3, downsample=True, activation=self.activation, norm_layer=self.norm_layer)
+        self.downsample = ConvolutionBlock(self.filters, 3, downsample=True, activation=self.activation, normalizer=self.normalizer)
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -551,7 +551,7 @@ class BiFusion(CustomLayer):
         config.update({
             "filters": self.filters,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
         })
         return config
 
@@ -561,20 +561,20 @@ class SEBlock(CustomLayer):
     def __init__(self, 
                  expansion  = 0.5,
                  activation = 'relu', 
-                 norm_layer = None, 
+                 normalizer = None, 
                  *args, 
                  **kwargs):
         super(SEBlock, self).__init__(*args, **kwargs)
         self.expansion = expansion
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
         
     def build(self, input_shape):
         bs = input_shape[-1]
         hidden_dim = int(bs * self.expansion)
         self.avg_pool = GlobalAveragePooling2D(keepdims=True)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(bs, 1, activation='hard-sigmoid', norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(bs, 1, activation='hard-sigmoid', normalizer=self.normalizer)
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -588,7 +588,7 @@ class SEBlock(CustomLayer):
         config.update({
             "expansion": self.expansion,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
         })
         return config
 
@@ -600,7 +600,7 @@ class Lite_EffiBlockS1(CustomLayer):
                  strides=(1, 1),
                  expansion = 1,
                  activation = 'hard-swish', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super(Lite_EffiBlockS1, self).__init__(*args, **kwargs)
@@ -608,18 +608,18 @@ class Lite_EffiBlockS1(CustomLayer):
         self.strides    = strides if isinstance(strides, (list, tuple)) else (strides, strides)
         self.expansion  = expansion
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv_pw = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv_dw = self.convolution_block(hidden_dim, 3, self.strides, norm_layer=self.norm_layer)
+        self.conv_pw = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv_dw = self.convolution_block(hidden_dim, 3, self.strides, normalizer=self.normalizer)
         self.se_block  = SEBlock(expansion=0.25)
-        self.conv = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, normalizer=self.normalizer)
         self.shuffle = ChannelShuffle(2)
         super().build(input_shape)
 
-    def convolution_block(self, filters, kernel_size, strides, norm_layer):
+    def convolution_block(self, filters, kernel_size, strides, normalizer):
         return  Sequential([
                 Conv2D(filters=filters,
                        kernel_size=kernel_size,
@@ -627,7 +627,7 @@ class Lite_EffiBlockS1(CustomLayer):
                        padding='same',
                        groups=filters,
                        use_bias=False),
-                get_normalizer_from_name(norm_layer),
+                get_normalizer_from_name(normalizer),
         ])
 
         
@@ -647,7 +647,7 @@ class Lite_EffiBlockS1(CustomLayer):
             "strides": self.strides,
             "expansion": self.expansion,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
         })
         return config
 
@@ -659,7 +659,7 @@ class Lite_EffiBlockS2(CustomLayer):
                  strides=(1, 1),
                  expansion = 1,
                  activation = 'hard-swish', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super(Lite_EffiBlockS2, self).__init__(*args, **kwargs)
@@ -667,22 +667,22 @@ class Lite_EffiBlockS2(CustomLayer):
         self.strides    = strides if isinstance(strides, (list, tuple)) else (strides, strides)
         self.expansion  = expansion
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
         
     def build(self, input_shape):
         channel_dim = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.conv_dw_1 = self.convolution_block(channel_dim, 3, self.strides, norm_layer=self.norm_layer)
-        self.conv_1 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv_pw_2 = ConvolutionBlock(hidden_dim // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv_dw_2 = self.convolution_block(hidden_dim // 2, 3, self.strides, norm_layer=self.norm_layer)
+        self.conv_dw_1 = self.convolution_block(channel_dim, 3, self.strides, normalizer=self.normalizer)
+        self.conv_1 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv_pw_2 = ConvolutionBlock(hidden_dim // 2, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv_dw_2 = self.convolution_block(hidden_dim // 2, 3, self.strides, normalizer=self.normalizer)
         self.se_block  = SEBlock(expansion=0.25)
-        self.conv_2 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv_pw_3 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv_dw_3 = ConvolutionBlock(self.filters, 3, groups=self.filters, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv_2 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv_pw_3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv_dw_3 = ConvolutionBlock(self.filters, 3, groups=self.filters, activation=self.activation, normalizer=self.normalizer)
         super().build(input_shape)
 
-    def convolution_block(self, filters, kernel_size, strides, norm_layer):
+    def convolution_block(self, filters, kernel_size, strides, normalizer):
         return  Sequential([
                 Conv2D(filters=filters,
                        kernel_size=kernel_size,
@@ -690,7 +690,7 @@ class Lite_EffiBlockS2(CustomLayer):
                        padding='same',
                        groups=filters,
                        use_bias=False),
-                get_normalizer_from_name(norm_layer),
+                get_normalizer_from_name(normalizer),
         ])
 
     def call(self, inputs, training=False):
@@ -713,7 +713,7 @@ class Lite_EffiBlockS2(CustomLayer):
             "strides": self.strides,
             "expansion": self.expansion,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
         })
         return config
 
@@ -726,7 +726,7 @@ class DPBlock(CustomLayer):
                  strides     = (1, 1),
                  padding     = "same",
                  activation  = 'hard-swish', 
-                 norm_layer  = 'batch-norm', 
+                 normalizer  = 'batch-norm', 
                  fuse        = False,
                  *args, 
                  **kwargs):
@@ -736,7 +736,7 @@ class DPBlock(CustomLayer):
         self.strides     = strides if isinstance(strides, (list, tuple)) else (strides, strides)
         self.padding     = padding
         self.activation  = activation
-        self.norm_layer  = norm_layer
+        self.normalizer  = normalizer
         self.fuse        = fuse
         
     def build(self, input_shape):
@@ -746,13 +746,13 @@ class DPBlock(CustomLayer):
                                 strides=self.strides,
                                 padding=self.padding,
                                 groups=group)
-        self.norm_1    = get_normalizer_from_name(self.norm_layer)
+        self.norm_1    = get_normalizer_from_name(self.normalizer)
         self.activ_1   = get_activation_from_name(self.activation)
         self.conv_pw_1 = Conv2D(filters=self.filters,
                                 kernel_size=1,
                                 strides=1,
                                 padding="valid")
-        self.norm_2    = get_normalizer_from_name(self.norm_layer)
+        self.norm_2    = get_normalizer_from_name(self.normalizer)
         self.activ_2   = get_activation_from_name(self.activation)
         super().build(input_shape)
 
@@ -775,7 +775,7 @@ class DPBlock(CustomLayer):
             "strides": self.strides,
             "padding": self.padding,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
             "fuse": self.fuse
         })
         return config
@@ -788,7 +788,7 @@ class DarknetBlock(CustomLayer):
                  kernel_size = (3, 3),
                  expansion   = 0.5,
                  activation  = 'hard-swish', 
-                 norm_layer  = 'batch-norm', 
+                 normalizer  = 'batch-norm', 
                  fuse        = False,
                  *args, 
                  **kwargs):
@@ -797,13 +797,13 @@ class DarknetBlock(CustomLayer):
         self.kernel_size = kernel_size if isinstance(kernel_size, (list, tuple)) else (kernel_size, kernel_size)
         self.expansion   = expansion
         self.activation  = activation
-        self.norm_layer  = norm_layer
+        self.normalizer  = normalizer
         self.fuse        = fuse
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = DPBlock(self.filters, self.kernel_size, 1, "same", activation=self.activation, norm_layer=self.norm_layer, fuse=self.fuse)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = DPBlock(self.filters, self.kernel_size, 1, "same", activation=self.activation, normalizer=self.normalizer, fuse=self.fuse)
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -818,7 +818,7 @@ class DarknetBlock(CustomLayer):
             "kernel_size": self.kernel_size,
             "expansion": self.expansion,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
             "fuse": self.fuse
         })
         return config
@@ -831,7 +831,7 @@ class CSPBlock(CustomLayer):
                  kernel_size = (3, 3),
                  expansion   = 0.5,
                  activation  = 'hard-swish', 
-                 norm_layer  = 'batch-norm', 
+                 normalizer  = 'batch-norm', 
                  fuse        = False,
                  *args, 
                  **kwargs):
@@ -840,15 +840,15 @@ class CSPBlock(CustomLayer):
         self.kernel_size = kernel_size if isinstance(kernel_size, (list, tuple)) else (kernel_size, kernel_size)
         self.expansion   = expansion
         self.activation  = activation
-        self.norm_layer  = norm_layer
+        self.normalizer  = normalizer
         self.fuse        = fuse
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.block = DarknetBlock(hidden_dim, self.kernel_size, expansion=1.0, activation=self.activation, norm_layer=self.norm_layer, fuse=self.fuse)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
+        self.block = DarknetBlock(hidden_dim, self.kernel_size, expansion=1.0, activation=self.activation, normalizer=self.normalizer, fuse=self.fuse)
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -867,7 +867,7 @@ class CSPBlock(CustomLayer):
             "kernel_size": self.kernel_size,
             "expansion": self.expansion,
             "activation": self.activation,
-            "norm_layer": self.norm_layer,
+            "normalizer": self.normalizer,
             "fuse": self.fuse
         })
         return config
@@ -884,7 +884,7 @@ def EfficientRep(blocks=[RepVGGBlock, RepBlock],
                  input_shape=None,
                  pooling=None,
                  activation='silu',
-                 norm_layer='batch-norm',
+                 normalizer='batch-norm',
                  final_activation="softmax",
                  classes=1000,
                  training=False):
@@ -932,13 +932,13 @@ def EfficientRep(blocks=[RepVGGBlock, RepBlock],
         block2 = RepBlock
 
     if block1 == ConvolutionBlock:
-        x = block1(filters=filters[0], kernel_size=3, downsample=True, activation=activation, norm_layer=norm_layer, name='stem')(img_input)
+        x = block1(filters=filters[0], kernel_size=3, downsample=True, activation=activation, normalizer=normalizer, name='stem')(img_input)
     else:
         x = block1(filters=filters[0], kernel_size=3, strides=2, training=training, name='stem')(img_input)
 
     for i in range(len(layers)):
         if block1 == ConvolutionBlock:
-            x = block1(filters=filters[i + 1], kernel_size=3, downsample=True, activation=activation, norm_layer=norm_layer, name=f'stage{i + 1}.block1')(x)
+            x = block1(filters=filters[i + 1], kernel_size=3, downsample=True, activation=activation, normalizer=normalizer, name=f'stage{i + 1}.block1')(x)
         else:
             x = block1(filters=filters[i + 1], kernel_size=3, strides=2, training=training, name=f'stage{i + 1}.block1')(x)
         
@@ -948,7 +948,7 @@ def EfficientRep(blocks=[RepVGGBlock, RepBlock],
                             pool_size=(5, 5),
                             expansion=0.5,
                             activation=activation, 
-                            norm_layer=norm_layer,
+                            normalizer=normalizer,
                             name=f'stage{i + 1}.block3')(x)
 
     if include_top:
@@ -1010,7 +1010,7 @@ def EfficientRep_nano(blocks=[RepVGGBlock, RepBlock],
                       input_shape=None,
                       pooling=None,
                       activation='silu',
-                      norm_layer='batch-norm',
+                      normalizer='batch-norm',
                       final_activation="softmax",
                       classes=1000,
                       training=False) -> Model:
@@ -1026,7 +1026,7 @@ def EfficientRep_nano(blocks=[RepVGGBlock, RepBlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1037,7 +1037,7 @@ def EfficientRep_nano_backbone(input_shape=(640, 640, 3),
                                include_top=False, 
                                weights='imagenet', 
                                activation='silu',
-                               norm_layer='batch-norm',
+                               normalizer='batch-norm',
                                training=False,
                                custom_layers=None) -> Model:
     
@@ -1052,7 +1052,7 @@ def EfficientRep_nano_backbone(input_shape=(640, 640, 3),
     model = EfficientRep_nano(include_top=include_top, 
                               weights=weights,
                               activation=activation,
-                              norm_layer=norm_layer,
+                              normalizer=normalizer,
                               input_shape=input_shape,
                               training=training)
 
@@ -1078,7 +1078,7 @@ def EfficientRep6_nano(blocks=[RepVGGBlock, RepBlock],
                        input_shape=None,
                        pooling=None,
                        activation='silu',
-                       norm_layer='batch-norm',
+                       normalizer='batch-norm',
                        final_activation="softmax",
                        classes=1000,
                        training=False) -> Model:
@@ -1094,7 +1094,7 @@ def EfficientRep6_nano(blocks=[RepVGGBlock, RepBlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1105,7 +1105,7 @@ def EfficientRep6_nano_backbone(input_shape=(1280, 1280, 3),
                                 include_top=False, 
                                 weights='imagenet', 
                                 activation='silu',
-                                norm_layer='batch-norm',
+                                normalizer='batch-norm',
                                 training=False,
                                 custom_layers=None) -> Model:
     
@@ -1120,7 +1120,7 @@ def EfficientRep6_nano_backbone(input_shape=(1280, 1280, 3),
     model = EfficientRep6_nano(include_top=include_top, 
                                weights=weights,
                                activation=activation,
-                               norm_layer=norm_layer,
+                               normalizer=normalizer,
                                input_shape=input_shape,
                                training=training)
 
@@ -1147,7 +1147,7 @@ def EfficientRep_small(blocks=[RepVGGBlock, RepBlock],
                        input_shape=None,
                        pooling=None,
                        activation='silu',
-                       norm_layer='batch-norm',
+                       normalizer='batch-norm',
                        final_activation="softmax",
                        classes=1000,
                        training=False) -> Model:
@@ -1163,7 +1163,7 @@ def EfficientRep_small(blocks=[RepVGGBlock, RepBlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1174,7 +1174,7 @@ def EfficientRep_small_backbone(input_shape=(640, 640, 3),
                                 include_top=False, 
                                 weights='imagenet', 
                                 activation='silu',
-                                norm_layer='batch-norm',
+                                normalizer='batch-norm',
                                 training=False,
                                 custom_layers=None) -> Model:
     
@@ -1189,7 +1189,7 @@ def EfficientRep_small_backbone(input_shape=(640, 640, 3),
     model = EfficientRep_small(include_top=include_top, 
                                weights=weights,
                                activation=activation,
-                               norm_layer=norm_layer,
+                               normalizer=normalizer,
                                input_shape=input_shape,
                                training=training)
 
@@ -1215,7 +1215,7 @@ def EfficientRep6_small(blocks=[RepVGGBlock, RepBlock],
                         input_shape=None,
                         pooling=None,
                         activation='silu',
-                        norm_layer='batch-norm',
+                        normalizer='batch-norm',
                         final_activation="softmax",
                         classes=1000,
                         training=False) -> Model:
@@ -1231,7 +1231,7 @@ def EfficientRep6_small(blocks=[RepVGGBlock, RepBlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1242,7 +1242,7 @@ def EfficientRep6_small_backbone(input_shape=(1280, 1280, 3),
                                  include_top=False, 
                                  weights='imagenet', 
                                  activation='silu',
-                                 norm_layer='batch-norm',
+                                 normalizer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
     
@@ -1257,7 +1257,7 @@ def EfficientRep6_small_backbone(input_shape=(1280, 1280, 3),
     model = EfficientRep6_small(include_top=include_top, 
                                 weights=weights,
                                 activation=activation,
-                                norm_layer=norm_layer,
+                                normalizer=normalizer,
                                 input_shape=input_shape,
                                 training=training)
 
@@ -1285,7 +1285,7 @@ def EfficientRep_medium(blocks=[RepVGGBlock, BepC3],
                         input_shape=None,
                         pooling=None,
                         activation='silu',
-                        norm_layer='batch-norm',
+                        normalizer='batch-norm',
                         final_activation="softmax",
                         classes=1000,
                         training=False) -> Model:
@@ -1301,7 +1301,7 @@ def EfficientRep_medium(blocks=[RepVGGBlock, BepC3],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1312,7 +1312,7 @@ def EfficientRep_medium_backbone(input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
                                  activation='silu',
-                                 norm_layer='batch-norm',
+                                 normalizer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
     
@@ -1327,7 +1327,7 @@ def EfficientRep_medium_backbone(input_shape=(640, 640, 3),
     model = EfficientRep_medium(include_top=include_top, 
                                 weights=weights,
                                 activation=activation,
-                                norm_layer=norm_layer,
+                                normalizer=normalizer,
                                 input_shape=input_shape,
                                 training=training)
 
@@ -1354,7 +1354,7 @@ def EfficientRep6_medium(blocks=[RepVGGBlock, BepC3],
                          input_shape=None,
                          pooling=None,
                          activation='silu',
-                         norm_layer='batch-norm',
+                         normalizer='batch-norm',
                          final_activation="softmax",
                          classes=1000,
                          training=False) -> Model:
@@ -1370,7 +1370,7 @@ def EfficientRep6_medium(blocks=[RepVGGBlock, BepC3],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1381,7 +1381,7 @@ def EfficientRep6_medium_backbone(input_shape=(1280, 1280, 3),
                                   include_top=False, 
                                   weights='imagenet', 
                                   activation='silu',
-                                  norm_layer='batch-norm',
+                                  normalizer='batch-norm',
                                   training=False,
                                   custom_layers=None) -> Model:
     
@@ -1396,7 +1396,7 @@ def EfficientRep6_medium_backbone(input_shape=(1280, 1280, 3),
     model = EfficientRep6_medium(include_top=include_top, 
                                  weights=weights,
                                  activation=activation,
-                                 norm_layer=norm_layer,
+                                 normalizer=normalizer,
                                  input_shape=input_shape,
                                  training=training)
 
@@ -1424,7 +1424,7 @@ def EfficientRep_large(blocks=[ConvolutionBlock, BepC3],
                        input_shape=None,
                        pooling=None,
                        activation='silu',
-                       norm_layer='batch-norm',
+                       normalizer='batch-norm',
                        final_activation="softmax",
                        classes=1000,
                        training=False) -> Model:
@@ -1440,7 +1440,7 @@ def EfficientRep_large(blocks=[ConvolutionBlock, BepC3],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1451,7 +1451,7 @@ def EfficientRep_large_backbone(input_shape=(640, 640, 3),
                                 include_top=False, 
                                 weights='imagenet', 
                                 activation='silu',
-                                norm_layer='batch-norm',
+                                normalizer='batch-norm',
                                 training=False,
                                 custom_layers=None) -> Model:
 
@@ -1466,7 +1466,7 @@ def EfficientRep_large_backbone(input_shape=(640, 640, 3),
     model = EfficientRep_large(include_top=include_top, 
                                weights=weights,
                                activation=activation,
-                               norm_layer=norm_layer,
+                               normalizer=normalizer,
                                input_shape=input_shape,
                                training=training)
 
@@ -1493,7 +1493,7 @@ def EfficientRep6_large(blocks=[ConvolutionBlock, BepC3],
                        input_shape=None,
                        pooling=None,
                        activation='silu',
-                       norm_layer='batch-norm',
+                       normalizer='batch-norm',
                        final_activation="softmax",
                        classes=1000,
                        training=False) -> Model:
@@ -1509,7 +1509,7 @@ def EfficientRep6_large(blocks=[ConvolutionBlock, BepC3],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1520,7 +1520,7 @@ def EfficientRep6_large_backbone(input_shape=(1280, 1280, 3),
                                  include_top=False, 
                                  weights='imagenet', 
                                  activation='silu',
-                                 norm_layer='batch-norm',
+                                 normalizer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
     
@@ -1535,7 +1535,7 @@ def EfficientRep6_large_backbone(input_shape=(1280, 1280, 3),
     model = EfficientRep6_large(include_top=include_top, 
                                 weights=weights,
                                 activation=activation,
-                                norm_layer=norm_layer,
+                                normalizer=normalizer,
                                 input_shape=input_shape,
                                 training=training)
 
@@ -1563,7 +1563,7 @@ def EfficientMBLA_small(blocks=[ConvolutionBlock, MBLABlock],
                         input_shape=None,
                         pooling=None,
                         activation='silu',
-                        norm_layer='batch-norm',
+                        normalizer='batch-norm',
                         final_activation="softmax",
                         classes=1000,
                         training=False) -> Model:
@@ -1579,7 +1579,7 @@ def EfficientMBLA_small(blocks=[ConvolutionBlock, MBLABlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1590,7 +1590,7 @@ def EfficientMBLA_small_backbone(input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
                                  activation='silu',
-                                 norm_layer='batch-norm',
+                                 normalizer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
     
@@ -1605,7 +1605,7 @@ def EfficientMBLA_small_backbone(input_shape=(640, 640, 3),
     model = EfficientMBLA_small(include_top=include_top, 
                                 weights=weights,
                                 activation=activation,
-                                norm_layer=norm_layer,
+                                normalizer=normalizer,
                                 input_shape=input_shape,
                                 training=training)
 
@@ -1632,7 +1632,7 @@ def EfficientMBLA_medium(blocks=[ConvolutionBlock, MBLABlock],
                          input_shape=None,
                          pooling=None,
                          activation='silu',
-                         norm_layer='batch-norm',
+                         normalizer='batch-norm',
                          final_activation="softmax",
                          classes=1000,
                          training=False) -> Model:
@@ -1648,7 +1648,7 @@ def EfficientMBLA_medium(blocks=[ConvolutionBlock, MBLABlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1659,7 +1659,7 @@ def EfficientMBLA_medium_backbone(input_shape=(640, 640, 3),
                                   include_top=False, 
                                   weights='imagenet', 
                                   activation='silu',
-                                  norm_layer='batch-norm',
+                                  normalizer='batch-norm',
                                   training=False,
                                   custom_layers=None) -> Model:
     
@@ -1674,7 +1674,7 @@ def EfficientMBLA_medium_backbone(input_shape=(640, 640, 3),
     model = EfficientMBLA_medium(include_top=include_top, 
                                  weights=weights,
                                  activation=activation,
-                                 norm_layer=norm_layer,
+                                 normalizer=normalizer,
                                  input_shape=input_shape,
                                  training=training)
 
@@ -1701,7 +1701,7 @@ def EfficientMBLA_large(blocks=[ConvolutionBlock, MBLABlock],
                         input_shape=None,
                         pooling=None,
                         activation='silu',
-                        norm_layer='batch-norm',
+                        normalizer='batch-norm',
                         final_activation="softmax",
                         classes=1000,
                         training=False) -> Model:
@@ -1717,7 +1717,7 @@ def EfficientMBLA_large(blocks=[ConvolutionBlock, MBLABlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1728,7 +1728,7 @@ def EfficientMBLA_large_backbone(input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
                                  activation='silu',
-                                 norm_layer='batch-norm',
+                                 normalizer='batch-norm',
                                  training=False,
                                  custom_layers=None) -> Model:
     
@@ -1743,7 +1743,7 @@ def EfficientMBLA_large_backbone(input_shape=(640, 640, 3),
     model = EfficientMBLA_large(include_top=include_top, 
                                 weights=weights,
                                 activation=activation,
-                                norm_layer=norm_layer,
+                                normalizer=normalizer,
                                 input_shape=input_shape,
                                 training=training)
 
@@ -1770,7 +1770,7 @@ def EfficientMBLA_xlarge(blocks=[ConvolutionBlock, MBLABlock],
                          input_shape=None,
                          pooling=None,
                          activation='silu',
-                         norm_layer='batch-norm',
+                         normalizer='batch-norm',
                          final_activation="softmax",
                          classes=1000,
                          training=False) -> Model:
@@ -1786,7 +1786,7 @@ def EfficientMBLA_xlarge(blocks=[ConvolutionBlock, MBLABlock],
                          input_shape=input_shape, 
                          pooling=pooling, 
                          activation=activation,
-                         norm_layer=norm_layer,
+                         normalizer=normalizer,
                          final_activation=final_activation,
                          classes=classes,
                          training=training)
@@ -1797,7 +1797,7 @@ def EfficientMBLA_xlarge_backbone(input_shape=(640, 640, 3),
                                   include_top=False, 
                                   weights='imagenet', 
                                   activation='silu',
-                                  norm_layer='batch-norm',
+                                  normalizer='batch-norm',
                                   training=False,
                                   custom_layers=None) -> Model:
     
@@ -1812,7 +1812,7 @@ def EfficientMBLA_xlarge_backbone(input_shape=(640, 640, 3),
     model = EfficientMBLA_xlarge(include_top=include_top, 
                                  weights=weights,
                                  activation=activation,
-                                 norm_layer=norm_layer,
+                                 normalizer=normalizer,
                                  input_shape=input_shape,
                                  training=training)
 
@@ -1840,7 +1840,7 @@ def EfficientLite(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                   input_shape=None,
                   pooling=None,
                   activation='hard-swish',
-                  norm_layer='batch-norm',
+                  normalizer='batch-norm',
                   final_activation="softmax",
                   classes=1000,
                   training=False):
@@ -1875,7 +1875,7 @@ def EfficientLite(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
     else:
         bn_axis = 1    
 
-    x = ConvolutionBlock(filters[0], 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stem')(img_input)
+    x = ConvolutionBlock(filters[0], 3, downsample=True, activation=activation, normalizer=normalizer, name='stem')(img_input)
 
     for layer_idx, layer in enumerate(layers):
         for idx in range(layer):
@@ -1930,7 +1930,7 @@ def EfficientLite_small(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                         input_shape=None,
                         pooling=None,
                         activation='hard-swish',
-                        norm_layer='batch-norm',
+                        normalizer='batch-norm',
                         final_activation="softmax",
                         classes=1000) -> Model:
     
@@ -1944,7 +1944,7 @@ def EfficientLite_small(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                           input_shape=input_shape, 
                           pooling=pooling, 
                           activation=activation,
-                          norm_layer=norm_layer,
+                          normalizer=normalizer,
                           final_activation=final_activation,
                           classes=classes)
     return model
@@ -1954,7 +1954,7 @@ def EfficientLite_small_backbone(input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
                                  activation='hard-swish',
-                                 norm_layer='batch-norm',
+                                 normalizer='batch-norm',
                                  custom_layers=None) -> Model:
 
     """
@@ -1968,7 +1968,7 @@ def EfficientLite_small_backbone(input_shape=(640, 640, 3),
     model = EfficientLite_small(include_top=include_top, 
                                 weights=weights,
                                 activation=activation,
-                                norm_layer=norm_layer,
+                                normalizer=normalizer,
                                 input_shape=input_shape)
 
     if custom_layers is not None:
@@ -1992,7 +1992,7 @@ def EfficientLite_medium(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                          input_shape=None,
                          pooling=None,
                          activation='hard-swish',
-                         norm_layer='batch-norm',
+                         normalizer='batch-norm',
                          final_activation="softmax",
                          classes=1000) -> Model:
     
@@ -2006,7 +2006,7 @@ def EfficientLite_medium(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                           input_shape=input_shape, 
                           pooling=pooling, 
                           activation=activation,
-                          norm_layer=norm_layer,
+                          normalizer=normalizer,
                           final_activation=final_activation,
                           classes=classes)
     return model
@@ -2016,7 +2016,7 @@ def EfficientLite_medium_backbone(input_shape=(640, 640, 3),
                                   include_top=False, 
                                   weights='imagenet', 
                                   activation='hard-swish',
-                                  norm_layer='batch-norm',
+                                  normalizer='batch-norm',
                                   custom_layers=None) -> Model:
 
     """
@@ -2030,7 +2030,7 @@ def EfficientLite_medium_backbone(input_shape=(640, 640, 3),
     model = EfficientLite_medium(include_top=include_top, 
                                  weights=weights,
                                  activation=activation,
-                                 norm_layer=norm_layer,
+                                 normalizer=normalizer,
                                  input_shape=input_shape)
 
     if custom_layers is not None:
@@ -2054,7 +2054,7 @@ def EfficientLite_large(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                         input_shape=None,
                         pooling=None,
                         activation='hard-swish',
-                        norm_layer='batch-norm',
+                        normalizer='batch-norm',
                         final_activation="softmax",
                         classes=1000) -> Model:
     
@@ -2068,7 +2068,7 @@ def EfficientLite_large(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
                           input_shape=input_shape, 
                           pooling=pooling, 
                           activation=activation,
-                          norm_layer=norm_layer,
+                          normalizer=normalizer,
                           final_activation=final_activation,
                           classes=classes)
     return model
@@ -2078,7 +2078,7 @@ def EfficientLite_large_backbone(input_shape=(640, 640, 3),
                                  include_top=False, 
                                  weights='imagenet', 
                                  activation='hard-swish',
-                                 norm_layer='batch-norm',
+                                 normalizer='batch-norm',
                                  custom_layers=None) -> Model:
 
     """
@@ -2092,7 +2092,7 @@ def EfficientLite_large_backbone(input_shape=(640, 640, 3),
     model = EfficientLite_large(include_top=include_top, 
                                 weights=weights,
                                 activation=activation,
-                                norm_layer=norm_layer,
+                                normalizer=normalizer,
                                 input_shape=input_shape)
 
     if custom_layers is not None:

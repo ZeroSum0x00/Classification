@@ -53,21 +53,21 @@ class AverageConvolutionBlock(tf.keras.layers.Layer):
                  filters, 
                  kernel_size       = 3, 
                  activation        = 'leaky', 
-                 norm_layer        = 'batch-norm', 
+                 normalizer        = 'batch-norm', 
                  *args, 
                  **kwargs):
         super(AverageConvolutionBlock, self).__init__(*args, **kwargs)
         self.filters       = filters
         self.kernel_size   = kernel_size
         self.activation    = activation
-        self.norm_layer    = norm_layer
+        self.normalizer    = normalizer
 
     def build(self, input_shape):
         self.conv = ConvolutionBlock(filters=self.filters,
                                      kernel_size=self.kernel_size,
                                      downsample=True, 
                                      activation=self.activation,
-                                     norm_layer=self.norm_layer)
+                                     normalizer=self.normalizer)
         self.avg_pool = AveragePooling2D(pool_size=(2, 2), strides=(1, 1), padding="SAME")
         
     def call(self, inputs, training=False):
@@ -82,14 +82,14 @@ class AverageConvolutionDown(tf.keras.layers.Layer):
                  filters, 
                  kernel_size       = 3, 
                  activation        = 'leaky', 
-                 norm_layer        = 'batch-norm', 
+                 normalizer        = 'batch-norm', 
                  *args, 
                  **kwargs):
         super(AverageConvolutionDown, self).__init__(*args, **kwargs)
         self.filters       = filters
         self.kernel_size   = kernel_size
         self.activation    = activation
-        self.norm_layer    = norm_layer
+        self.normalizer    = normalizer
 
     def build(self, input_shape):
         hidden_dim = self.filters // 2
@@ -97,11 +97,11 @@ class AverageConvolutionDown(tf.keras.layers.Layer):
                                      kernel_size=self.kernel_size,
                                      downsample=True, 
                                      activation=self.activation,
-                                     norm_layer=self.norm_layer)
+                                     normalizer=self.normalizer)
         self.conv2 = ConvolutionBlock(filters=hidden_dim,
                                       kernel_size=(1, 1),
                                       activation=self.activation,
-                                      norm_layer=self.norm_layer)
+                                      normalizer=self.normalizer)
         self.avg_pool = AveragePooling2D(pool_size=(2, 2), strides=(1, 1), padding="SAME")
         self.max_pool = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="SAME")
         
@@ -124,7 +124,7 @@ class RepSimpleBlock(tf.keras.layers.Layer):
                  dilation_rate=1,
                  groups=1,
                  activation='silu', 
-                 norm_layer='batch-norm',
+                 normalizer='batch-norm',
                  *args, 
                  **kwargs):
         super(RepSimpleBlock, self).__init__(*args, **kwargs)
@@ -134,7 +134,7 @@ class RepSimpleBlock(tf.keras.layers.Layer):
         self.dilation_rate = dilation_rate
         self.groups        = groups
         self.activation    = activation
-        self.norm_layer    = norm_layer
+        self.normalizer    = normalizer
 
     def build(self, input_shape):
         self.conv1 = ConvolutionBlock(filters=self.filters,
@@ -143,13 +143,13 @@ class RepSimpleBlock(tf.keras.layers.Layer):
                                       dilation_rate=self.dilation_rate,
                                       groups=self.groups,
                                       activation=None,
-                                      norm_layer=self.norm_layer)
+                                      normalizer=self.normalizer)
         self.conv2 = ConvolutionBlock(filters=self.filters,
                                       kernel_size=(1, 1),
                                       downsample=self.downsample, 
                                       groups=self.groups,
                                       activation=None,
-                                      norm_layer=self.norm_layer)
+                                      normalizer=self.normalizer)
         self.activ = get_activation_from_name(self.activation)
         
     def call(self, inputs, training=False):
@@ -170,7 +170,7 @@ class RepBottleneck(Bottleneck):
                  expansion  = 1,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super().__init__(filters, 
@@ -179,7 +179,7 @@ class RepBottleneck(Bottleneck):
                          expansion,
                          shortcut,
                          activation,
-                         norm_layer,
+                         normalizer,
                          *args,
                          **kwargs)
         self.kernels = kernels
@@ -187,8 +187,8 @@ class RepBottleneck(Bottleneck):
     def build(self, input_shape):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = RepSimpleBlock(hidden_dim, self.kernels[0], activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, self.kernels[1], downsample=self.downsample, groups=self.groups, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = RepSimpleBlock(hidden_dim, self.kernels[0], activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(self.filters, self.kernels[1], downsample=self.downsample, groups=self.groups, activation=self.activation, normalizer=self.normalizer)
 
 
 class ResNBlock(tf.keras.layers.Layer):
@@ -200,7 +200,7 @@ class ResNBlock(tf.keras.layers.Layer):
                  expansion  = 1,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super(ResNBlock, self).__init__(*args, **kwargs)
@@ -210,14 +210,14 @@ class ResNBlock(tf.keras.layers.Layer):
         self.expansion  = expansion
         self.shortcut   = shortcut
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
 
     def build(self, input_shape):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, (1, 1), activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(hidden_dim, (3, 3), activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(self.filters, (1, 1), downsample=self.downsample, groups=self.groups, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, (1, 1), activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(hidden_dim, (3, 3), activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(self.filters, (1, 1), downsample=self.downsample, groups=self.groups, activation=self.activation, normalizer=self.normalizer)
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -238,7 +238,7 @@ class RepResNBlock(ResNBlock):
                  expansion  = 1,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super().__init__(filters, 
@@ -247,16 +247,16 @@ class RepResNBlock(ResNBlock):
                          expansion,
                          shortcut,
                          activation,
-                         norm_layer,
+                         normalizer,
                          *args,
                          **kwargs)
         
     def build(self, input_shape):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, (1, 1), activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = RepSimpleBlock(hidden_dim, (3, 3), activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(self.filters, (1, 1), downsample=self.downsample, groups=self.groups, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, (1, 1), activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = RepSimpleBlock(hidden_dim, (3, 3), activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(self.filters, (1, 1), downsample=self.downsample, groups=self.groups, activation=self.activation, normalizer=self.normalizer)
 
 
 class BottleneckCSPA2(BottleneckCSPA):
@@ -265,7 +265,7 @@ class BottleneckCSPA2(BottleneckCSPA):
         super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
         self.block = Sequential([
-            Bottleneck2(hidden_dim, groups=self.groups, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            Bottleneck2(hidden_dim, groups=self.groups, shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
 
 
@@ -275,7 +275,7 @@ class BottleneckCSP2(BottleneckCSP):
         super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
         self.middle = Sequential([
-            Bottleneck2(hidden_dim, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            Bottleneck2(hidden_dim, shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
 
 
@@ -285,7 +285,7 @@ class RepNCSP(BottleneckCSPA):
         super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
         self.block = Sequential([
-            RepBottleneck(hidden_dim, kernels=(3, 3), groups=self.groups, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            RepBottleneck(hidden_dim, kernels=(3, 3), groups=self.groups, shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
 
 
@@ -295,7 +295,7 @@ class BaseBottleneckCSP(BottleneckCSPA):
         super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
         self.block = Sequential([
-            Bottleneck(hidden_dim, groups=self.groups, shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            Bottleneck(hidden_dim, groups=self.groups, shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
 
 
@@ -339,23 +339,23 @@ class SPPELAN(tf.keras.layers.Layer):
     def __init__(self, 
                  filters, 
                  activation='relu',
-                 norm_layer='batch-norm',
+                 normalizer='batch-norm',
                  **kwargs):
         super(SPPELAN, self).__init__(**kwargs)
         self.filters    = filters
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
                     
     def build(self, input_shape):
         if isinstance(self.filters, (tuple, list)):
             f0, f1 = self.filters
         else:
             f0 = f1 = self.filters
-        self.conv1 = ConvolutionBlock(f0, (1, 1), activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(f0, (1, 1), activation=self.activation, normalizer=self.normalizer)
         self.block = [MaxPooling2D(pool_size=(5, 5), strides=(1, 1), padding="SAME"),
                       MaxPooling2D(pool_size=(5, 5), strides=(1, 1), padding="SAME"),
                       MaxPooling2D(pool_size=(5, 5), strides=(1, 1), padding="SAME")]
-        self.conv2 = ConvolutionBlock(f1, (1, 1), activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(f1, (1, 1), activation=self.activation, normalizer=self.normalizer)
         
     def call(self, inputs, training=False):
         
@@ -378,7 +378,7 @@ class RepNCSPELAN4(tf.keras.layers.Layer):
                  expansion  = 0.5,
                  shortcut   = True,
                  activation = 'relu',
-                 norm_layer = 'batch-norm',
+                 normalizer = 'batch-norm',
                  **kwargs):
         super(RepNCSPELAN4, self).__init__(**kwargs)
         self.filters    = filters
@@ -387,14 +387,14 @@ class RepNCSPELAN4(tf.keras.layers.Layer):
         self.expansion  = expansion
         self.shortcut   = shortcut
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
                     
     def build(self, input_shape):
         if isinstance(self.filters, (tuple, list)):
             f0, f1, f2 = self.filters
         else:
             f0 = f1, f2 = self.filters
-        self.conv1 = ConvolutionBlock(f0, (1, 1), activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(f0, (1, 1), activation=self.activation, normalizer=self.normalizer)
         self.block = [
             Sequential([
                 RepNCSP(f1, 
@@ -403,8 +403,8 @@ class RepNCSPELAN4(tf.keras.layers.Layer):
                         expansion  = self.expansion,
                         shortcut   = self.shortcut,
                         activation = self.activation, 
-                        norm_layer = self.norm_layer),
-                ConvolutionBlock(f1, (3, 3), activation=self.activation, norm_layer=self.norm_layer)
+                        normalizer = self.normalizer),
+                ConvolutionBlock(f1, (3, 3), activation=self.activation, normalizer=self.normalizer)
             ]),
             Sequential([
                 RepNCSP(f1, 
@@ -413,11 +413,11 @@ class RepNCSPELAN4(tf.keras.layers.Layer):
                         expansion  = self.expansion,
                         shortcut   = self.shortcut,
                         activation = self.activation, 
-                        norm_layer = self.norm_layer),
-                ConvolutionBlock(f1, (3, 3), activation=self.activation, norm_layer=self.norm_layer)
+                        normalizer = self.normalizer),
+                ConvolutionBlock(f1, (3, 3), activation=self.activation, normalizer=self.normalizer)
             ])
         ]
-        self.conv2 = ConvolutionBlock(f2, (1, 1), activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(f2, (1, 1), activation=self.activation, normalizer=self.normalizer)
         
     def call(self, inputs, training=False):
         out = self.conv1(inputs, training=training)
@@ -440,7 +440,7 @@ class CBLinear(tf.keras.layers.Layer):
                  padding="SAME",
                  groups=1,
                  activation='relu',
-                 norm_layer='batch-norm',
+                 normalizer='batch-norm',
                  **kwargs):
         super(CBLinear, self).__init__(**kwargs)
         self.split_filters = split_filters
@@ -449,7 +449,7 @@ class CBLinear(tf.keras.layers.Layer):
         self.padding       = padding
         self.groups        = groups
         self.activation    = activation
-        self.norm_layer    = norm_layer
+        self.normalizer    = normalizer
                     
     def build(self, input_shape):
         self.conv1 = Conv2D(filters=sum(self.split_filters),
@@ -497,7 +497,7 @@ def DarkNetELAN4_A(down_block,
                    input_shape=None,
                    pooling=None,
                    activation='silu',
-                   norm_layer='batch-norm',
+                   normalizer='batch-norm',
                    final_activation="softmax",
                    classes=1000):
 
@@ -532,10 +532,10 @@ def DarkNetELAN4_A(down_block,
     n0, n1, n2, n3 = num_blocks
 
     # conv down
-    x = ConvolutionBlock(f0, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer, name='stem.block1')(img_input)
+    x = ConvolutionBlock(f0, (3, 3), downsample=True, activation=activation, normalizer=normalizer, name='stem.block1')(img_input)
                        
     # conv down
-    x = ConvolutionBlock(f1, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer, name='stage1.block1')(x)
+    x = ConvolutionBlock(f1, (3, 3), downsample=True, activation=activation, normalizer=normalizer, name='stage1.block1')(x)
                        
     # elan-1 block
     x = RepNCSPELAN4(filters    = [f1, f0, f2], 
@@ -544,14 +544,14 @@ def DarkNetELAN4_A(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer,
+                     normalizer = normalizer,
                      name       = 'stage1.block2')(x)
 
     # conv down
     if down_block == AverageConvolutionDown:
-        x = down_block(f2, (3, 3), activation=activation, norm_layer=norm_layer, name='stage2.block1')(x)
+        x = down_block(f2, (3, 3), activation=activation, normalizer=normalizer, name='stage2.block1')(x)
     elif down_block == ConvolutionBlock:
-        x = down_block(f2, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer, name='stage2.block1')(x)
+        x = down_block(f2, (3, 3), downsample=True, activation=activation, normalizer=normalizer, name='stage2.block1')(x)
 
     # elan-2 block
     x = RepNCSPELAN4(filters    = [f2, f1, f3], 
@@ -560,14 +560,14 @@ def DarkNetELAN4_A(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer,
+                     normalizer = normalizer,
                      name       = 'stage2.block2')(x)
 
     # conv down
     if down_block == AverageConvolutionDown:
-        x = down_block(f3, (3, 3), activation=activation, norm_layer=norm_layer, name='stage3.block1')(x)
+        x = down_block(f3, (3, 3), activation=activation, normalizer=normalizer, name='stage3.block1')(x)
     elif down_block == ConvolutionBlock:
-        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer, name='stage3.block1')(x)
+        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, normalizer=normalizer, name='stage3.block1')(x)
 
     # elan-3 block
     x = RepNCSPELAN4(filters    = [f3, f2, f3], 
@@ -576,14 +576,14 @@ def DarkNetELAN4_A(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer,
+                     normalizer = normalizer,
                      name       = 'stage3.block2')(x)
 
     # conv down
     if down_block == AverageConvolutionDown:
-        x = down_block(f3, (3, 3), activation=activation, norm_layer=norm_layer, name='stage4.block1')(x)
+        x = down_block(f3, (3, 3), activation=activation, normalizer=normalizer, name='stage4.block1')(x)
     elif down_block == ConvolutionBlock:
-        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer, name='stage4.block1')(x)
+        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, normalizer=normalizer, name='stage4.block1')(x)
 
     # elan-4 block
     x = RepNCSPELAN4(filters    = [f3, f2, f3], 
@@ -592,7 +592,7 @@ def DarkNetELAN4_A(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer,
+                     normalizer = normalizer,
                      name       = 'stage4.block2')(x)
 
     if include_top:
@@ -642,7 +642,7 @@ def DarkNetELAN4_B(down_block,
                    input_shape=None,
                    pooling=None,
                    activation='silu',
-                   norm_layer='batch-norm',
+                   normalizer='batch-norm',
                    final_activation="softmax",
                    classes=1000):
 
@@ -673,12 +673,12 @@ def DarkNetELAN4_B(down_block,
 
     f0, f1, f2, f3, f4 = filters
 
-    y0 = ConvolutionBlock(f0, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(img_input)
+    y0 = ConvolutionBlock(f0, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(img_input)
 
-    x = ConvolutionBlock(f0, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(img_input)
+    x = ConvolutionBlock(f0, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(img_input)
     y1 = CBLinear([f0])(x)
 
-    x = ConvolutionBlock(f1, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+    x = ConvolutionBlock(f1, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
                        
     x = RepNCSPELAN4(filters    = [f1, f0, f2], 
                      iters      = num_blocks[0],
@@ -686,13 +686,13 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
     y2 = CBLinear([f0, f1])(x)
         
     if down_block == AverageConvolutionDown:
-        x = down_block(f2, (3, 3), activation=activation, norm_layer=norm_layer)(x)
+        x = down_block(f2, (3, 3), activation=activation, normalizer=normalizer)(x)
     elif down_block == ConvolutionBlock:
-        x = down_block(f2, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+        x = down_block(f2, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
 
     x = RepNCSPELAN4(filters    = [f2, f1, f3], 
                      iters      = num_blocks[1],
@@ -700,13 +700,13 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
     y3 = CBLinear([f0, f1, f2])(x)
         
     if down_block == AverageConvolutionDown:
-        x = down_block(f3, (3, 3), activation=activation, norm_layer=norm_layer)(x)
+        x = down_block(f3, (3, 3), activation=activation, normalizer=normalizer)(x)
     elif down_block == ConvolutionBlock:
-        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
 
     x = RepNCSPELAN4(filters    = [f3, f2, f4], 
                      iters      = num_blocks[2],
@@ -714,13 +714,13 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
     y4 = CBLinear([f0, f1, f2, f3])(x)
 
     if down_block == AverageConvolutionDown:
-        x = down_block(f4, (3, 3), activation=activation, norm_layer=norm_layer)(x)
+        x = down_block(f4, (3, 3), activation=activation, normalizer=normalizer)(x)
     elif down_block == ConvolutionBlock:
-        x = ConvolutionBlock(f4, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+        x = ConvolutionBlock(f4, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
 
     x = RepNCSPELAN4(filters    = [f3, f2, f4], 
                      iters      = num_blocks[3],
@@ -728,12 +728,12 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
     y5 = CBLinear([f0, f1, f2, f3, f4])(x)
 
     x = CBFuse(fuse_index=[0, 0, 0, 0, 0])([y0, y1, y2, y3, y4, y5])
 
-    x = ConvolutionBlock(f1, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+    x = ConvolutionBlock(f1, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
     x = CBFuse(fuse_index=[1, 1, 1, 1, 1])([x, y2, y3, y4, y5])
 
     x = RepNCSPELAN4(filters    = [f1, f0, f2], 
@@ -742,12 +742,12 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
 
     if down_block == AverageConvolutionDown:
-        x = down_block(f2, (3, 3), activation=activation, norm_layer=norm_layer)(x)
+        x = down_block(f2, (3, 3), activation=activation, normalizer=normalizer)(x)
     elif down_block == ConvolutionBlock:
-        x = ConvolutionBlock(f2, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+        x = ConvolutionBlock(f2, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
 
     x = CBFuse(fuse_index=[2, 2, 2])([x, y3, y4, y5])
 
@@ -757,12 +757,12 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
 
     if down_block == AverageConvolutionDown:
-        x = down_block(f3, (3, 3), activation=activation, norm_layer=norm_layer)(x)
+        x = down_block(f3, (3, 3), activation=activation, normalizer=normalizer)(x)
     elif down_block == ConvolutionBlock:
-        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+        x = ConvolutionBlock(f3, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
 
     x = CBFuse(fuse_index=[3, 3])([x, y4, y5])
 
@@ -772,12 +772,12 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
 
     if down_block == AverageConvolutionDown:
-        x = down_block(f4, (3, 3), activation=activation, norm_layer=norm_layer)(x)
+        x = down_block(f4, (3, 3), activation=activation, normalizer=normalizer)(x)
     elif down_block == ConvolutionBlock:
-        x = ConvolutionBlock(f4, (3, 3), downsample=True, activation=activation, norm_layer=norm_layer)(x)
+        x = ConvolutionBlock(f4, (3, 3), downsample=True, activation=activation, normalizer=normalizer)(x)
 
     x = CBFuse(fuse_index=[4])([x, y5])
 
@@ -787,7 +787,7 @@ def DarkNetELAN4_B(down_block,
                      expansion  = 0.5,
                      shortcut   = True,
                      activation = activation,
-                     norm_layer = norm_layer)(x)
+                     normalizer = normalizer)(x)
 
     if include_top:
         # Classification block
@@ -831,7 +831,7 @@ def DarkNetELAN4_small(include_top=True,
                        input_shape=None,
                        pooling=None,
                        activation='silu',
-                       norm_layer='batch-norm',
+                       normalizer='batch-norm',
                        final_activation="softmax",
                        classes=1000) -> Model:
     
@@ -844,7 +844,7 @@ def DarkNetELAN4_small(include_top=True,
                            input_shape=input_shape, 
                            pooling=pooling, 
                            activation=activation,
-                           norm_layer=norm_layer,
+                           normalizer=normalizer,
                            final_activation=final_activation,
                            classes=classes)
     return model
@@ -854,7 +854,7 @@ def DarkNetELAN4_small_backbone(input_shape=(640, 640, 3),
                                 include_top=False, 
                                 weights='imagenet', 
                                 activation='leaky-relu',
-                                norm_layer='batch-norm',
+                                normalizer='batch-norm',
                                 custom_layers=None) -> Model:
 
     """
@@ -867,7 +867,7 @@ def DarkNetELAN4_small_backbone(input_shape=(640, 640, 3),
     model = DarkNetELAN4_small(include_top=include_top, 
                                weights=weights,
                                activation=activation,
-                               norm_layer=norm_layer,
+                               normalizer=normalizer,
                                input_shape=input_shape)
 
     if custom_layers is not None:
@@ -890,7 +890,7 @@ def DarkNetELAN4_base(include_top=True,
                       input_shape=None,
                       pooling=None,
                       activation='silu',
-                      norm_layer='batch-norm',
+                      normalizer='batch-norm',
                       final_activation="softmax",
                       classes=1000) -> Model:
     
@@ -903,7 +903,7 @@ def DarkNetELAN4_base(include_top=True,
                            input_shape=input_shape, 
                            pooling=pooling, 
                            activation=activation,
-                           norm_layer=norm_layer,
+                           normalizer=normalizer,
                            final_activation=final_activation,
                            classes=classes)
     return model
@@ -913,7 +913,7 @@ def DarkNetELAN4_base_backbone(input_shape=(640, 640, 3),
                                include_top=False, 
                                weights='imagenet', 
                                activation='leaky-relu',
-                               norm_layer='batch-norm',
+                               normalizer='batch-norm',
                                custom_layers=None) -> Model:
 
     """
@@ -926,7 +926,7 @@ def DarkNetELAN4_base_backbone(input_shape=(640, 640, 3),
     model = DarkNetELAN4_base(include_top=include_top, 
                               weights=weights,
                               activation=activation,
-                              norm_layer=norm_layer,
+                              normalizer=normalizer,
                               input_shape=input_shape)
 
     if custom_layers is not None:
@@ -949,7 +949,7 @@ def DarkNetELAN4_Large(include_top=True,
                        input_shape=None,
                        pooling=None,
                        activation='silu',
-                       norm_layer='batch-norm',
+                       normalizer='batch-norm',
                        final_activation="softmax",
                        classes=1000) -> Model:
     
@@ -962,7 +962,7 @@ def DarkNetELAN4_Large(include_top=True,
                            input_shape=input_shape, 
                            pooling=pooling, 
                            activation=activation,
-                           norm_layer=norm_layer,
+                           normalizer=normalizer,
                            final_activation=final_activation,
                            classes=classes)
     return model

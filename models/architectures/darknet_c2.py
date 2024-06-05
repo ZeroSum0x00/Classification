@@ -116,18 +116,18 @@ class LightConvolutionBlock(tf.keras.layers.Layer):
                  filters,
                  kernel_size,
                  activation='relu', 
-                 norm_layer='batch-norm',
+                 normalizer='batch-norm',
                  *args, 
                  **kwargs):
         super(LightConvolutionBlock, self).__init__(*args, **kwargs)
         self.filters       = filters
         self.kernel_size   = kernel_size if isinstance(kernel_size, (tuple, list)) else (kernel_size, kernel_size)
         self.activation    = activation
-        self.norm_layer    = norm_layer
+        self.normalizer    = normalizer
 
     def build(self, input_shape):
-        self.conv1 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, self.kernel_size, groups=self.filters, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(self.filters, self.kernel_size, groups=self.filters, activation=self.activation, normalizer=self.normalizer)
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -147,7 +147,7 @@ class ChannelAttention(tf.keras.layers.Layer):
         
     def build(self, input_shape):
         self.pool = GlobalAveragePooling2D(keepdims=True)
-        self.conv = ConvolutionBlock(input_shape[-1], 1, activation=self.activation, norm_layer=None)
+        self.conv = ConvolutionBlock(input_shape[-1], 1, activation=self.activation, normalizer=None)
 
     def call(self, inputs, training=False):
         x = self.pool(inputs)
@@ -167,7 +167,7 @@ class SpatialAttention(tf.keras.layers.Layer):
         self.activation  = activation
 
     def build(self, input_shape):
-        self.conv = ConvolutionBlock(1, self.kernel_size, activation=self.activation, norm_layer=None)
+        self.conv = ConvolutionBlock(1, self.kernel_size, activation=self.activation, normalizer=None)
         
     def call(self, inputs, training=False):
         mean = tf.reduce_mean(inputs, axis=-1, keepdims=True)
@@ -257,23 +257,23 @@ class Proto(tf.keras.layers.Layer):
         YOLOv8 mask Proto module for segmentation models.
     '''
     
-    def __init__(self, filters, expansion=8, activation='silu', norm_layer='batch-norm', *args, **kwargs):
+    def __init__(self, filters, expansion=8, activation='silu', normalizer='batch-norm', *args, **kwargs):
         super(Proto, self).__init__(*args, **kwargs)
         self.filters    = filters
         self.expansion  = expansion
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
 
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, normalizer=self.normalizer)
         self.upsample = Conv2DTranspose(filters=hidden_dim,
                                         kernel_size=(2, 2),
                                         strides=(2, 2),
                                         padding="same",
                                         use_bias=True)
-        self.conv2 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv2 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, normalizer=self.normalizer)
+        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
 
 
     def call(self, inputs, training=False):        
@@ -291,12 +291,12 @@ class HGStem(tf.keras.layers.Layer):
         https://github.com/PaddlePaddle/PaddleDetection/blob/develop/ppdet/modeling/backbones/hgnet_v2.py
     '''
     
-    def __init__(self, filters, expansion=8, activation='relu', norm_layer='batch-norm', *args, **kwargs):
+    def __init__(self, filters, expansion=8, activation='relu', normalizer='batch-norm', *args, **kwargs):
         super(HGStem, self).__init__(*args, **kwargs)
         self.filters    = filters
         self.expansion  = expansion
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
 
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
@@ -315,7 +315,7 @@ class HGStem(tf.keras.layers.Layer):
                        padding=padding,
                        groups=groups,
                        use_bias=False),
-                get_normalizer_from_name(self.norm_layer),
+                get_normalizer_from_name(self.normalizer),
                 get_activation_from_name(self.activation)
         ])
         
@@ -341,7 +341,7 @@ class HGBlock(tf.keras.layers.Layer):
         https://github.com/PaddlePaddle/PaddleDetection/blob/develop/ppdet/modeling/backbones/hgnet_v2.py
     '''
     
-    def __init__(self, filters, kernel_size=3, iters=6, expansion=2, shortcut=False, block=ConvolutionBlock, activation='relu', norm_layer='batch-norm', *args, **kwargs):
+    def __init__(self, filters, kernel_size=3, iters=6, expansion=2, shortcut=False, block=ConvolutionBlock, activation='relu', normalizer='batch-norm', *args, **kwargs):
         super(HGBlock, self).__init__(*args, **kwargs)
         self.filters     = filters
         self.kernel_size = kernel_size
@@ -350,14 +350,14 @@ class HGBlock(tf.keras.layers.Layer):
         self.shortcut    = shortcut
         self.block       = block
         self.activation  = activation
-        self.norm_layer  = norm_layer
+        self.normalizer  = normalizer
 
     def build(self, input_shape):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.module_list = [self.block(hidden_dim, self.kernel_size, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)]
-        self.sc = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.ec = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.module_list = [self.block(hidden_dim, self.kernel_size, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)]
+        self.sc = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, normalizer=self.normalizer)
+        self.ec = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
 
     def call(self, inputs, training=False):        
         x = [inputs]
@@ -385,7 +385,7 @@ class C1(tf.keras.layers.Layer):
                  expansion  = 1,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  **kwargs):
         super(C1, self).__init__(**kwargs)
         self.filters    = filters
@@ -393,14 +393,14 @@ class C1(tf.keras.layers.Layer):
         self.expansion  = expansion
         self.shortcut   = shortcut       
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
                      
     def build(self, input_shape):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
         self.middle = Sequential([
-            ConvolutionBlock(self.filters, 3, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            ConvolutionBlock(self.filters, 3, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
 
     def call(self, inputs, training=False):
@@ -421,7 +421,7 @@ class Bottleneck2(Bottleneck):
                  expansion  = 1,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  *args, 
                  **kwargs):
         super().__init__(filters, 
@@ -430,7 +430,7 @@ class Bottleneck2(Bottleneck):
                          expansion,
                          shortcut,
                          activation,
-                         norm_layer,
+                         normalizer,
                          *args,
                          **kwargs)
         self.kernels = kernels
@@ -438,8 +438,8 @@ class Bottleneck2(Bottleneck):
     def build(self, input_shape):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, self.kernels[0], activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, self.kernels[1], downsample=self.downsample, groups=self.groups, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, self.kernels[0], activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(self.filters, self.kernels[1], downsample=self.downsample, groups=self.groups, activation=self.activation, normalizer=self.normalizer)
 
 
 
@@ -455,7 +455,7 @@ class C2(tf.keras.layers.Layer):
                  expansion  = 0.5,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  **kwargs):
         super(C2, self).__init__(**kwargs)
         self.filters    = filters
@@ -463,15 +463,15 @@ class C2(tf.keras.layers.Layer):
         self.expansion  = expansion
         self.shortcut   = shortcut       
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
                      
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(2 * hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(2 * hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
         
         self.blocks = Sequential([
-            Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
 
     def call(self, inputs, training=False):
@@ -495,7 +495,7 @@ class C2f(tf.keras.layers.Layer):
                  expansion  = 0.5,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  **kwargs):
         super(C2f, self).__init__(**kwargs)
         self.filters    = filters
@@ -503,17 +503,17 @@ class C2f(tf.keras.layers.Layer):
         self.expansion  = expansion
         self.shortcut   = shortcut       
         self.activation = activation
-        self.norm_layer = norm_layer
+        self.normalizer = normalizer
                      
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(2 * hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(2 * hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
         
         self.blocks = Sequential([
-            Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)
+            Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
         ])
-        self.blocks = [Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, norm_layer=self.norm_layer) for i in range(self.iters)]
+        self.blocks = [Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)]
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -537,7 +537,7 @@ class C3Rep(C3):
                  expansion  = 1,
                  shortcut   = True,
                  activation = 'silu', 
-                 norm_layer = 'batch-norm', 
+                 normalizer = 'batch-norm', 
                  training   = False,
                  *args,
                  **kwargs):
@@ -546,20 +546,20 @@ class C3Rep(C3):
                          expansion,
                          shortcut,
                          activation,
-                         norm_layer,
+                         normalizer,
                          *args,
                          **kwargs)
         self.training = training
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
         self.middle = Sequential([
             RepVGGBlock(hidden_dim, kernel_size=3, training=self.training) for i in range(self.iters)
         ])
-        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, norm_layer=self.norm_layer)
+        self.residual = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
         if hidden_dim != self.filters:
-            self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, norm_layer=self.norm_layer)
+            self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -583,7 +583,7 @@ def DarkNetC2(c2_block,
               input_shape=None,
               pooling=None,
               activation='silu',
-              norm_layer='batch-norm',
+              normalizer='batch-norm',
               final_activation="softmax",
               classes=1000):
 
@@ -614,19 +614,19 @@ def DarkNetC2(c2_block,
 
     l0, l1, l2, l3 = layers
             
-    x = ConvolutionBlock(filters, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stem')(img_input)
+    x = ConvolutionBlock(filters, 3, downsample=True, activation=activation, normalizer=normalizer, name='stem')(img_input)
     
-    x = ConvolutionBlock(filters * 2, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage1.block1')(x)
-    x = c2_block(filters * 2, l0, activation=activation, norm_layer=norm_layer, name='stage1.block2')(x)
+    x = ConvolutionBlock(filters * 2, 3, downsample=True, activation=activation, normalizer=normalizer, name='stage1.block1')(x)
+    x = c2_block(filters * 2, l0, activation=activation, normalizer=normalizer, name='stage1.block2')(x)
 
-    x = ConvolutionBlock(filters * 4, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage2.block1')(x)
-    x = c2_block(filters * 4, l1, activation=activation, norm_layer=norm_layer, name='stage2.block2')(x)
+    x = ConvolutionBlock(filters * 4, 3, downsample=True, activation=activation, normalizer=normalizer, name='stage2.block1')(x)
+    x = c2_block(filters * 4, l1, activation=activation, normalizer=normalizer, name='stage2.block2')(x)
 
-    x = ConvolutionBlock(filters * 8, 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage3.block1')(x)
-    x = c2_block(filters * 8, l2, activation=activation, norm_layer=norm_layer, name='stage3.block2')(x)
+    x = ConvolutionBlock(filters * 8, 3, downsample=True, activation=activation, normalizer=normalizer, name='stage3.block1')(x)
+    x = c2_block(filters * 8, l2, activation=activation, normalizer=normalizer, name='stage3.block2')(x)
 
-    x = ConvolutionBlock(int(filters * 16 * scale_ratio), 3, downsample=True, activation=activation, norm_layer=norm_layer, name='stage4.block1')(x)
-    x = c2_block(int(filters * 16 * scale_ratio), l3, activation=activation, norm_layer=norm_layer, name='stage4.block2')(x)
+    x = ConvolutionBlock(int(filters * 16 * scale_ratio), 3, downsample=True, activation=activation, normalizer=normalizer, name='stage4.block1')(x)
+    x = c2_block(int(filters * 16 * scale_ratio), l3, activation=activation, normalizer=normalizer, name='stage4.block2')(x)
     x = spp_block(int(filters * 16 * scale_ratio), name='stage4.block3')(x)
 
     if include_top:
@@ -681,7 +681,7 @@ def DarkNetC2_nano(c2_block=C2f,
                    input_shape=None,
                    pooling=None,
                    activation='silu',
-                   norm_layer='batch-norm',
+                   normalizer='batch-norm',
                    final_activation="softmax",
                    classes=1000) -> Model:
     
@@ -696,7 +696,7 @@ def DarkNetC2_nano(c2_block=C2f,
                       input_shape=input_shape, 
                       pooling=pooling, 
                       activation=activation,
-                      norm_layer=norm_layer,
+                      normalizer=normalizer,
                       final_activation=final_activation,
                       classes=classes)
     return model
@@ -708,7 +708,7 @@ def DarkNetC2_nano_backbone(c2_block=C2f,
                             include_top=False, 
                             weights='imagenet', 
                             activation='silu',
-                            norm_layer='batch-norm',
+                            normalizer='batch-norm',
                             custom_layers=None) -> Model:
     
     """
@@ -723,7 +723,7 @@ def DarkNetC2_nano_backbone(c2_block=C2f,
                            include_top=include_top, 
                            weights=weights,
                            activation=activation,
-                           norm_layer=norm_layer,
+                           normalizer=normalizer,
                            input_shape=input_shape)
 
     if custom_layers is not None:
@@ -748,7 +748,7 @@ def DarkNetC2_small(c2_block=C2f,
                     input_shape=None,
                     pooling=None,
                     activation='silu',
-                    norm_layer='batch-norm',
+                    normalizer='batch-norm',
                     final_activation="softmax",
                     classes=1000) -> Model:
     
@@ -763,7 +763,7 @@ def DarkNetC2_small(c2_block=C2f,
                       input_shape=input_shape, 
                       pooling=pooling, 
                       activation=activation,
-                      norm_layer=norm_layer,
+                      normalizer=normalizer,
                       final_activation=final_activation,
                       classes=classes)
     return model
@@ -775,7 +775,7 @@ def DarkNetC2_small_backbone(c2_block=C2f,
                              include_top=False, 
                              weights='imagenet', 
                              activation='silu',
-                             norm_layer='batch-norm',
+                             normalizer='batch-norm',
                              custom_layers=None) -> Model:
     
     """
@@ -790,7 +790,7 @@ def DarkNetC2_small_backbone(c2_block=C2f,
                             include_top=include_top, 
                             weights=weights,
                             activation=activation,
-                            norm_layer=norm_layer,
+                            normalizer=normalizer,
                             input_shape=input_shape)
 
     if custom_layers is not None:
@@ -815,7 +815,7 @@ def DarkNetC2_medium(c2_block=C2f,
                      input_shape=None,
                      pooling=None,
                      activation='silu',
-                     norm_layer='batch-norm',
+                     normalizer='batch-norm',
                      final_activation="softmax",
                      classes=1000) -> Model:
     
@@ -830,7 +830,7 @@ def DarkNetC2_medium(c2_block=C2f,
                       input_shape=input_shape, 
                       pooling=pooling, 
                       activation=activation,
-                      norm_layer=norm_layer,
+                      normalizer=normalizer,
                       final_activation=final_activation,
                       classes=classes)
     return model
@@ -842,7 +842,7 @@ def DarkNetC2_medium_backbone(c2_block=C2f,
                               include_top=False, 
                               weights='imagenet', 
                               activation='silu',
-                              norm_layer='batch-norm',
+                              normalizer='batch-norm',
                               custom_layers=None) -> Model:
     
     """
@@ -857,7 +857,7 @@ def DarkNetC2_medium_backbone(c2_block=C2f,
                              include_top=include_top, 
                              weights=weights,
                              activation=activation,
-                             norm_layer=norm_layer,
+                             normalizer=normalizer,
                              input_shape=input_shape)
 
     if custom_layers is not None:
@@ -882,7 +882,7 @@ def DarkNetC2_large(c2_block=C2f,
                     input_shape=None,
                     pooling=None,
                     activation='silu',
-                    norm_layer='batch-norm',
+                    normalizer='batch-norm',
                     final_activation="softmax",
                     classes=1000) -> Model:
     
@@ -897,7 +897,7 @@ def DarkNetC2_large(c2_block=C2f,
                       input_shape=input_shape, 
                       pooling=pooling, 
                       activation=activation,
-                      norm_layer=norm_layer,
+                      normalizer=normalizer,
                       final_activation=final_activation,
                       classes=classes)
     return model
@@ -909,7 +909,7 @@ def DarkNetC2_large_backbone(c2_block=C2f,
                              include_top=False, 
                              weights='imagenet', 
                              activation='silu',
-                             norm_layer='batch-norm',
+                             normalizer='batch-norm',
                              custom_layers=None) -> Model:
     
     """
@@ -924,7 +924,7 @@ def DarkNetC2_large_backbone(c2_block=C2f,
                             include_top=include_top, 
                             weights=weights,
                             activation=activation,
-                            norm_layer=norm_layer,
+                            normalizer=normalizer,
                             input_shape=input_shape)
 
     if custom_layers is not None:
@@ -949,7 +949,7 @@ def DarkNetC2_xlarge(c2_block=C2f,
                      input_shape=None,
                      pooling=None,
                      activation='silu',
-                     norm_layer='batch-norm',
+                     normalizer='batch-norm',
                      final_activation="softmax",
                      classes=1000) -> Model:
     
@@ -964,7 +964,7 @@ def DarkNetC2_xlarge(c2_block=C2f,
                       input_shape=input_shape, 
                       pooling=pooling, 
                       activation=activation,
-                      norm_layer=norm_layer,
+                      normalizer=normalizer,
                       final_activation=final_activation,
                       classes=classes)
     return model
@@ -976,7 +976,7 @@ def DarkNetC2_xlarge_backbone(c2_block=C2f,
                               include_top=False, 
                               weights='imagenet', 
                               activation='silu',
-                              norm_layer='batch-norm',
+                              normalizer='batch-norm',
                               custom_layers=None) -> Model:
     
     """
@@ -991,7 +991,7 @@ def DarkNetC2_xlarge_backbone(c2_block=C2f,
                              include_top=include_top, 
                              weights=weights,
                              activation=activation,
-                             norm_layer=norm_layer,
+                             normalizer=normalizer,
                              input_shape=input_shape)
 
     if custom_layers is not None:

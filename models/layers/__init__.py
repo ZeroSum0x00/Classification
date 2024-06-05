@@ -25,3 +25,4 @@ from .transformer import (MLPBlock, ExtractPatches, ClassificationToken, CausalM
                           MultiHeadRelativePositionalEmbedding, AttentionMLPBlock, EnhanceSelfAttention)
 from .repblock import RepVGGBlock, QARepVGGBlockV1, QARepVGGBlockV2
 from .sam_model import SAMModel
+from .selective_scan_model import SSM
