@@ -235,14 +235,14 @@ def Res2Net50(include_top=True,
     return model
 
 
-def ResNet50_backbone(input_shape=(384, 384, 3),
-                      include_top=False, 
-                      weights='imagenet', 
-                      input_tensor=None, 
-                      pooling=None, 
-                      final_activation="softmax",
-                      classes=1000,
-                      custom_layers=None) -> Model:
+def Res2Net50_backbone(input_shape=(384, 384, 3),
+                       include_top=False, 
+                       weights='imagenet', 
+                       input_tensor=None, 
+                       pooling=None, 
+                       final_activation="softmax",
+                       classes=1000,
+                       custom_layers=None) -> Model:
 
     model = Res2Net50(include_top=include_top,
                      weights=weights,
@@ -268,7 +268,7 @@ def ResNet50_backbone(input_shape=(384, 384, 3),
         y_16 = model.get_layer("residual_block_c6_final").output
         y_32 = model.get_layer("residual_block_d3_final").output
         y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='ResNet50_backbone')
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='Res2Net50_backbone')
 
 
 def Res2Net101(include_top=True,
@@ -290,14 +290,14 @@ def Res2Net101(include_top=True,
     return model
 
 
-def ResNet101_backbone(input_shape=(384, 384, 3),
-                       include_top=False, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       custom_layers=None) -> Model:
+def Res2Net101_backbone(input_shape=(384, 384, 3),
+                        include_top=False, 
+                        weights='imagenet', 
+                        input_tensor=None, 
+                        pooling=None, 
+                        final_activation="softmax",
+                        classes=1000,
+                        custom_layers=None) -> Model:
 
     model = Res2Net101(include_top=include_top,
                       weights=weights,
@@ -345,14 +345,14 @@ def Res2Net152(include_top=True,
     return model
 
 
-def ResNet152_backbone(input_shape=(384, 384, 3),
-                       include_top=False, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       custom_layers=None) -> Model:
+def Res2Net152_backbone(input_shape=(384, 384, 3),
+                        include_top=False, 
+                        weights='imagenet', 
+                        input_tensor=None, 
+                        pooling=None, 
+                        final_activation="softmax",
+                        classes=1000,
+                        custom_layers=None) -> Model:
 
     model = Res2Net152(include_top=include_top,
                       weights=weights,
