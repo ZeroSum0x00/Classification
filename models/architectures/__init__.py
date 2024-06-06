@@ -11,7 +11,7 @@ from .mobilenet_v1 import MobileNet_v1
 from .mobilenet_v2 import MobileNet_v2
 from .densenet import DenseNet, DenseNet121, DenseNet121_backbone, DenseNet169, DenseNet169_backbone, DenseNet201, DenseNet201_backbone, DenseNet264, DenseNet264_backbone
 from .efficientnet import EfficientNet, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
-from .res2net import Res2Net, Res2Net50, ResNet50_backbone, Res2Net101, ResNet101_backbone, Res2Net152, ResNet152_backbone
+from .res2net import Res2Net, Res2Net50, Res2Net50_backbone, Res2Net101, Res2Net101_backbone, Res2Net152, Res2Net152_backbone
 from .xception import Xception
 from .ddrnet import DDRNet23_slim, DDRNet23, DDRNet39
 from .darknet53 import DarkNet53, DarkNet53_backbone
