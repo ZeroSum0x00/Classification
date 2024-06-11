@@ -47,5 +47,6 @@ from .architectures import (MLPMixer, MLPMixer_S16, MLPMixer_S32, MLPMixer_B16, 
                             Swin, SwinT, SwinS, SwinB, SwinL,
                             Swin_v2, SwinT_v2, SwinS_v2, SwinB_v2, SwinL_v2,
                             ViTImageEncoder, ViTImageEncoder_base, ViTImageEncoder_large, ViTImageEncoder_huge,
-                            Vim, Vim_B
+                            Vim, Vim_Base,
+                            CoaT, CoaT_ltiny, CoaT_lmini, CoaT_lsmall, CoaT_tiny, CoaT_mini
 )

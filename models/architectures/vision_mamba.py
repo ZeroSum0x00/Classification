@@ -28,7 +28,7 @@ from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import (ExtractPatches, SAMModel,
+from models.layers import (ExtractPatches, SSM, SAMModel,
                            get_activation_from_name, get_normalizer_from_name)
 from utils.model_processing import _obtain_input_shape
 
@@ -198,15 +198,15 @@ def Vim(dim=256,
     return model
 
 
-def Vim_B(include_top=True, 
-          weights='imagenet',
-          input_tensor=None, 
-          input_shape=None,
-          pooling=None,
-          final_activation="softmax",
-          classes=1000,
-          sam_rho=0.0,
-          drop_rate=0.1):
+def Vim_Base(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            drop_rate=0.1):
 
     model = Vim(dim=256,
                 dt_rank=32,

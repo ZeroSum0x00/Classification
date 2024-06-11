@@ -1,0 +1,513 @@
+"""
+  # Description:
+    - The following table comparing the params of the CoaT in Tensorflow on 
+    size 224 x 224 x 3:
+
+       ----------------------------------------
+      |       Model Name     |    Params       |
+      |----------------------|-----------------|
+      |     CoaT-lite-tiny   |   5,721,960     |
+      |----------------------|-----------------|
+      |     CoaT-lite-mini   |   11,011,560    |
+      |----------------------|-----------------|
+      |     CoaT-lite-small  |   19,838,504    |
+      |----------------------|-----------------|
+      |     CoaT-mini        |   9,959,436     |
+      |----------------------|-----------------|
+      |     CoaT-tiny        |   19,046,924    |
+       ----------------------------------------
+
+  # Reference:
+    - [Co-Scale Conv-Attentional Image Transformers](https://arxiv.org/pdf/2104.06399.pdf)
+    - Source: https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/coat/coat.py
+
+"""
+
+from __future__ import print_function
+from __future__ import absolute_import
+
+import warnings
+import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Conv1D
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import DepthwiseConv2D
+from tensorflow.keras.layers import Reshape
+from tensorflow.keras.layers import Permute
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import concatenate
+from tensorflow.keras.layers import add
+
+from tensorflow.keras.utils import get_source_inputs, get_file
+
+from models.layers import ClassToken, get_normalizer_from_name, get_activation_from_name
+from utils.model_processing import _obtain_input_shape
+
+
+class ConvPositionalEncoding(tf.keras.layers.Layer):
+    def __init__(self, 
+                 kernel_size=3, 
+                 input_height=-1, 
+                 *args,
+                 **kwargs):
+        super(ConvPositionalEncoding, self).__init__(*args, **kwargs)
+        self.kernel_size = kernel_size
+        self.input_height = input_height
+
+    def build(self, input_shape):
+        self.pad = [[0,                     0], 
+                    [self.kernel_size // 2, self.kernel_size // 2], 
+                    [self.kernel_size // 2, self.kernel_size // 2], 
+                    [0,                     0]]
+        self.height = self.input_height if self.input_height > 0 else int(float(input_shape[1] - 1) ** 0.5)
+        self.width = (input_shape[1] - 1) // self.height
+        self.channel = input_shape[-1]
+
+        self.dconv = DepthwiseConv2D(self.kernel_size, strides=1, padding="valid", name=self.name and self.name + "depth_conv")
+
+    def call(self, inputs, training=False):
+        cls_token, img_token = inputs[:, :1], inputs[:, 1:]
+        img_token = tf.reshape(img_token, [-1, self.height, self.width, self.channel])
+        x = tf.pad(img_token, self.pad)
+        x = self.dconv(x, training=training)
+        x = add([x, img_token])
+        x = tf.reshape(x, [-1, self.height * self.width, self.channel])
+        x = concatenate([cls_token, x], axis=1)
+        return x
+
+
+class ConvRelativePositionalEncoding(tf.keras.layers.Layer):
+    def __init__(self, 
+                 head_splits=[2, 3, 3], 
+                 head_kernel_size=[3, 5, 7], 
+                 input_height=-1, 
+                 *args,
+                 **kwargs):
+        super(ConvRelativePositionalEncoding, self).__init__(*args, **kwargs)
+        self.head_splits = head_splits
+        self.head_kernel_size = head_kernel_size
+        self.input_height = input_height
+
+    def build(self, input_shape):
+        query_shape = input_shape[0]
+        self.height = self.input_height if self.input_height > 0 else int(float(query_shape[2] - 1) ** 0.5)
+        self.width = (query_shape[2] - 1) // self.height
+        self.num_heads, self.query_dim = query_shape[1], query_shape[-1]
+        self.channel_splits = [ii * self.query_dim for ii in self.head_splits]
+
+        self.dconvs = []
+        self.pads = []
+        for head_split, kernel_size in zip(self.head_splits, self.head_kernel_size):
+            dconv = DepthwiseConv2D(kernel_size, strides=1, padding="valid")
+            pad = [[0, 0], [kernel_size // 2, kernel_size // 2], [kernel_size // 2, kernel_size // 2], [0, 0]]
+            self.dconvs.append(dconv)
+            self.pads.append(pad)
+
+    def call(self, inputs, training=False):
+        query, value = inputs
+        img_token_q, img_token_v = query[:, :, 1:, :], value[:, :, 1:, :]
+
+        img_token_v = tf.transpose(img_token_v, [0, 2, 1, 3])
+        img_token_v = tf.reshape(img_token_v, [-1, self.height, self.width, self.num_heads * self.query_dim])
+        split_values = tf.split(img_token_v, self.channel_splits, axis=-1)
+
+        nn = [dconv(tf.pad(split_value, pad)) for split_value, dconv, pad in zip(split_values, self.dconvs, self.pads)]
+        nn = concatenate(nn, axis=-1)
+        conv_v_img = tf.reshape(nn, [-1, self.height * self.width, self.num_heads, self.query_dim])
+        conv_v_img = tf.transpose(conv_v_img, [0, 2, 1, 3])
+
+        EV_hat_img = img_token_q * conv_v_img
+        padding = [[0, 0], 
+                   [0, 0], 
+                   [1, 0], 
+                   [0, 0]]
+        return tf.pad(EV_hat_img, padding)
+
+
+def factor_attention_conv_relative_positional_encoding(inputs, shared_crpe=None, num_heads=8, qkv_bias=True, name=""):
+    blocks, dim = inputs.shape[1], inputs.shape[-1]
+    key_dim = dim // num_heads
+    qk_scale = 1.0 / (float(key_dim) ** 0.5)
+
+    qkv = Dense(dim * 3, use_bias=qkv_bias, name=name + "qkv")(inputs)
+    qq, kk, vv = tf.split(qkv, 3, axis=-1)
+    qq = tf.transpose(tf.reshape(qq, [-1, blocks, num_heads, key_dim]), [0, 2, 1, 3])
+    kk = tf.transpose(tf.reshape(kk, [-1, blocks, num_heads, key_dim]), [0, 2, 3, 1])
+    vv = tf.transpose(tf.reshape(vv, [-1, blocks, num_heads, key_dim]), [0, 2, 1, 3])
+
+    # Factorized attention.
+    kk = get_activation_from_name('softmax')(kk)  # On `blocks` dimension
+    factor_att = qq @ (kk @ vv)
+
+    # Convolutional relative position encoding.
+    crpe_out = shared_crpe([qq, vv]) if shared_crpe is not None else ConvRelativePositionalEncoding(name=name + "crpe_")([qq, vv])
+
+    # Merge and reshape.
+    nn = add([factor_att * qk_scale, crpe_out])
+    nn = Permute([2, 1, 3])(nn)
+    nn = Reshape([blocks, dim])(nn)
+    nn = Dense(dim, name=name + "out")(nn)
+    return nn
+
+
+def cpe_norm_crpe(inputs, shared_cpe=None, shared_crpe=None, num_heads=8, normalizer="layer-norm", name=""):
+    cpe_out = shared_cpe(inputs) if shared_cpe is not None else ConvPositionalEncoding(name=name + "cpe_")(inputs)  # shared
+    nn = get_normalizer_from_name(normalizer)(cpe_out)
+    crpe_out = factor_attention_conv_relative_positional_encoding(nn, shared_crpe=shared_crpe, num_heads=num_heads, name=name + "factoratt_crpe_")
+    return cpe_out, crpe_out
+
+
+def res_mlp_block(cpe_out, crpe_out, mlp_ratio=4, drop_rate=0, activation="gelu", normalizer="layer-norm", name=""):
+    if drop_rate > 0:
+        crpe_out = Dropout(drop_rate, noise_shape=(None, 1, 1), name=name + "drop_1")(crpe_out)
+    cpe_crpe = add([cpe_out, crpe_out])
+
+    # MLP
+    pre_mlp = get_normalizer_from_name(normalizer)(cpe_crpe)
+    nn = Dense(pre_mlp.shape[-1] * mlp_ratio, name=name + "mlp_dense_0")(pre_mlp)
+    nn = get_activation_from_name(activation)(nn)
+    nn = Dense(pre_mlp.shape[-1], name=name + "mlp_dense_1")(nn)
+
+    if drop_rate > 0:
+        nn = Dropout(drop_rate, noise_shape=(None, 1, 1), name=name + "drop_2")(nn)
+    return add([cpe_crpe, nn])
+
+
+def serial_block(inputs, embed_dim, shared_cpe=None, shared_crpe=None, num_heads=8, mlp_ratio=4, drop_rate=0, activation="gelu", normalizer="layer-norm", name=""):
+    cpe_out, crpe_out = cpe_norm_crpe(inputs, shared_cpe, shared_crpe, num_heads, normalizer=normalizer, name=name)
+    out = res_mlp_block(cpe_out, crpe_out, mlp_ratio, drop_rate, activation=activation, normalizer=normalizer, name=name)
+    return out
+
+
+def resample(image, target_shape, class_token=None):
+    out_image = tf.image.resize(image, target_shape, method="bilinear")
+
+    if class_token is not None:
+        out_image = tf.reshape(out_image, [-1, out_image.shape[1] * out_image.shape[2], out_image.shape[-1]])
+        return concatenate([class_token, out_image], axis=1)
+    else:
+        return out_image
+
+
+def parallel_block(inputs, shared_cpes=None, shared_crpes=None, block_heights=[], num_heads=8, mlp_ratios=[], drop_rate=0, activation="gelu", normalizer="layer-norm", name=""):
+    # Conv-Attention.
+    cpe_outs, crpe_outs, crpe_images, resample_shapes = [], [], [], []
+    block_heights = block_heights[1:]
+    for id, (xx, shared_cpe, shared_crpe) in enumerate(zip(inputs[1:], shared_cpes[1:], shared_crpes[1:])):
+        cur_name = name + "{}_".format(id + 2)
+        cpe_out, crpe_out = cpe_norm_crpe(xx, shared_cpe, shared_crpe, num_heads, normalizer=normalizer, name=cur_name)
+        cpe_outs.append(cpe_out)
+        crpe_outs.append(crpe_out)
+        height = block_heights[id] if len(block_heights) > id else int(float(crpe_out.shape[1] - 1) ** 0.5)
+        width = (crpe_out.shape[1] - 1) // height
+        crpe_images.append(tf.reshape(crpe_out[:, 1:, :], [-1, height, width, crpe_out.shape[-1]]))
+        resample_shapes.append([height, width])
+    crpe_stack = [
+        crpe_outs[0] + resample(crpe_images[1], resample_shapes[0], crpe_outs[1][:, :1]) + resample(crpe_images[2], resample_shapes[0], crpe_outs[2][:, :1]),
+        crpe_outs[1] + resample(crpe_images[2], resample_shapes[1], crpe_outs[2][:, :1]) + resample(crpe_images[0], resample_shapes[1], crpe_outs[0][:, :1]),
+        crpe_outs[2] + resample(crpe_images[1], resample_shapes[2], crpe_outs[1][:, :1]) + resample(crpe_images[0], resample_shapes[2], crpe_outs[0][:, :1]),
+    ]
+
+    # MLP
+    outs = []
+    for id, (cpe_out, crpe_out, mlp_ratio) in enumerate(zip(cpe_outs, crpe_stack, mlp_ratios[1:])):
+        cur_name = name + "{}_".format(id + 2)
+        out = res_mlp_block(cpe_out, crpe_out, mlp_ratio, drop_rate, activation=activation, normalizer=normalizer, name=cur_name)
+        outs.append(out)
+    return inputs[:1] + outs 
+
+
+def patch_embed(inputs, embed_dim, patch_size=2, input_height=-1, normalizer="layer-norm"):
+    if len(inputs.shape) == 3:
+        input_height = input_height if input_height > 0 else int(float(inputs.shape[1]) ** 0.5)
+        input_width = inputs.shape[1] // input_height
+        inputs = Reshape([input_height, input_width, inputs.shape[-1]])(inputs)
+
+    nn = Conv2D(embed_dim,
+        patch_size,
+        strides=patch_size,
+        padding="valid",
+        use_bias=True,
+        groups=1)(inputs)
+
+    block_height = nn.shape[1]
+    nn = Reshape([nn.shape[1] * nn.shape[2], nn.shape[3]])(nn)  # flatten(2)
+    nn = get_normalizer_from_name(normalizer)(nn)
+    return nn, block_height
+
+
+def CoaT(serial_depths=[2, 2, 2, 2],
+         embed_dims=[64, 128, 256, 320],
+         mlp_ratios=[8, 8, 4, 4],
+         parallel_depth=0,
+         patch_size=4,
+         num_heads=8,
+         head_splits=[2, 3, 3],
+         head_kernel_size=[3, 5, 7],
+         use_shared_cpe=True,  # For checking model architecture only, keep input_shape height == width if set False
+         use_shared_crpe=True,  # For checking model architecture only, keep input_shape height == width if set False
+         out_features=None,
+         include_top=True,
+         weights='imagenet',
+         input_tensor=None,
+         input_shape=None,
+         pooling=None,
+         activation='gelu',
+         normalizer='layer-norm',
+         final_activation="softmax",
+         classes=1000):
+
+    if weights not in {'imagenet', None}:
+        raise ValueError('The `weights` argument should be either '
+                         '`None` (random initialization) or `imagenet` '
+                         '(pre-training on ImageNet).')
+
+    if weights == 'imagenet' and include_top and classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_top`'
+                         ' as true, `classes` should be 1000')
+        
+    # Determine proper input shape
+    input_shape = _obtain_input_shape(input_shape,
+                                      default_size=224,
+                                      min_size=32,
+                                      data_format=K.image_data_format(),
+                                      require_flatten=include_top,
+                                      weights=weights)
+
+    if input_tensor is None:
+        img_input = Input(shape=input_shape)
+    else:
+        if not K.is_keras_tensor(input_tensor):
+            img_input = Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+    # serial blocks
+    x = img_input
+    classfier_outs = []
+    shared_cpes = []
+    shared_crpes = []
+    block_heights = []
+    for sid, (depth, embed_dim, mlp_ratio) in enumerate(zip(serial_depths, embed_dims, mlp_ratios)):
+        name = "serial{}_".format(sid + 1)
+        patch_size = patch_size if sid == 0 else 2
+        patch_input_height = -1 if sid == 0 else block_heights[-1]
+        x, block_height = patch_embed(x, embed_dim, patch_size=patch_size, input_height=patch_input_height, normalizer=normalizer)
+        block_heights.append(block_height)
+        x = ClassToken(name=name + "class_token")(x)
+        shared_cpe = ConvPositionalEncoding(kernel_size=3, input_height=block_height, name="cpe{}_".format(sid + 1)) if use_shared_cpe else None
+        shared_crpe = ConvRelativePositionalEncoding(head_splits, head_kernel_size, block_height, name="crpe{}_".format(sid + 1)) if use_shared_crpe else None
+        for bid in range(depth):
+            block_name = name + "block{}_".format(bid + 1)
+            x = serial_block(x, embed_dim, shared_cpe, shared_crpe, num_heads, mlp_ratio, activation=activation, normalizer=normalizer, name=block_name)
+        classfier_outs.append(x)
+        shared_cpes.append(shared_cpe)
+        shared_crpes.append(shared_crpe)
+        x = x[:, 1:, :]  # remove class token
+
+    # Parallel blocks.
+    for pid in range(parallel_depth):
+        name = "parallel{}_".format(pid + 1)
+        classfier_outs = parallel_block(classfier_outs, shared_cpes, shared_crpes, block_heights, num_heads, mlp_ratios, activation=activation, normalizer=normalizer, name=name)
+
+    if out_features is not None:
+        x = [classfier_outs[id][:, 1:, :] for id in out_features]
+    elif parallel_depth == 0:
+        x = get_normalizer_from_name(normalizer)(classfier_outs[-1])[:, 0]
+    else:
+        x = [get_normalizer_from_name(normalizer)(xx)[:, :1, :] for id, xx in enumerate(classfier_outs[1:])]
+        x = concatenate(x, axis=1)
+        x = Permute([2, 1])(x)
+        x = Conv1D(1, 1, name="aggregate")(x)
+        x = x[:, :, 0]
+
+    if include_top:
+        x = Dense(1 if classes == 2 else classes, name="predictions")(x)
+        x = get_activation_from_name(final_activation)(x)
+    else:
+        if pooling == 'avg':
+            x = GlobalAveragePooling2D(name='global_avgpool')(x)
+        elif pooling == 'max':
+            x = GlobalMaxPooling2D(name='global_maxpool')(x)
+
+    # Ensure that the model takes into account
+    # any potential predecessors of `input_tensor`.
+    if input_tensor is not None:
+        inputs = get_source_inputs(input_tensor)
+    else:
+        inputs = img_input
+
+    # Create model.
+    if embed_dims == [64, 128, 256, 320] and serial_depths == [2, 2, 2, 2]:
+        model = Model(inputs, x, name='CoaT-lite-tiny')
+    elif embed_dims == [64, 128, 320, 512] and serial_depths == [2, 2, 2, 2]:
+        model = Model(inputs, x, name='CoaT-lite-mini')
+    elif embed_dims == [64, 128, 320, 512] and serial_depths == [3, 4, 6, 3]:
+        model = Model(inputs, x, name='CoaT-lite-small')
+    elif embed_dims == [152, 152, 152, 152] and mlp_ratios == [4, 4, 4, 4] and parallel_depth == 6:
+        model = Model(inputs, x, name='CoaT-tiny')
+    elif embed_dims == [152, 216, 216, 216] and mlp_ratios == [4, 4, 4, 4] and parallel_depth == 6:
+        model = Model(inputs, x, name='CoaT-mini')
+    else:
+        model = Model(inputs, x, name='CoaT')
+
+    if K.image_data_format() == 'chaxels_first' and K.backend() == 'tensorflow':
+        warnings.warn('You are using the TensorFlow backend, yet you '
+                      'are using the Theano '
+                      'image data format convention '
+                      '(`image_data_format="chaxels_first"`). '
+                      'For best performance, set '
+                      '`image_data_format="chaxels_last"` in '
+                      'your Keras config '
+                      'at ~/.keras/keras.json.')
+    return model
+
+
+def CoaT_ltiny(include_top=True,
+               weights='imagenet',
+               input_tensor=None,
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000) -> Model:
+    
+    model = CoaT(serial_depths=[2, 2, 2, 2],
+                 embed_dims=[64, 128, 256, 320],
+                 mlp_ratios=[8, 8, 4, 4],
+                 parallel_depth=0,
+                 patch_size=4,
+                 num_heads=8,
+                 head_splits=[2, 3, 3],
+                 head_kernel_size=[3, 5, 7],
+                 use_shared_cpe=True,
+                 use_shared_crpe=True,
+                 out_features=None,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape, 
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes)
+    return model
+
+
+def CoaT_lmini(include_top=True,
+               weights='imagenet',
+               input_tensor=None,
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000) -> Model:
+    
+    model = CoaT(serial_depths=[2, 2, 2, 2],
+                 embed_dims=[64, 128, 320, 512],
+                 mlp_ratios=[8, 8, 4, 4],
+                 parallel_depth=0,
+                 patch_size=4,
+                 num_heads=8,
+                 head_splits=[2, 3, 3],
+                 head_kernel_size=[3, 5, 7],
+                 use_shared_cpe=True,
+                 use_shared_crpe=True,
+                 out_features=None,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape, 
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes)
+    return model
+
+
+def CoaT_lsmall(include_top=True,
+               weights='imagenet',
+               input_tensor=None,
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000) -> Model:
+    
+    model = CoaT(serial_depths=[3, 4, 6, 3],
+                 embed_dims=[64, 128, 320, 512],
+                 mlp_ratios=[8, 8, 4, 4],
+                 parallel_depth=0,
+                 patch_size=4,
+                 num_heads=8,
+                 head_splits=[2, 3, 3],
+                 head_kernel_size=[3, 5, 7],
+                 use_shared_cpe=True,
+                 use_shared_crpe=True,
+                 out_features=None,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape, 
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes)
+    return model
+
+
+def CoaT_tiny(include_top=True,
+              weights='imagenet',
+              input_tensor=None,
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000) -> Model:
+    
+    model = CoaT(serial_depths=[3, 4, 6, 3],
+                 embed_dims=[152, 152, 152, 152],
+                 mlp_ratios=[4, 4, 4, 4],
+                 parallel_depth=6,
+                 patch_size=4,
+                 num_heads=8,
+                 head_splits=[2, 3, 3],
+                 head_kernel_size=[3, 5, 7],
+                 use_shared_cpe=True,
+                 use_shared_crpe=True,
+                 out_features=None,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape, 
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes)
+    return model
+
+
+def CoaT_mini(include_top=True,
+              weights='imagenet',
+              input_tensor=None,
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000) -> Model:
+    
+    model = CoaT(serial_depths=[3, 4, 6, 3],
+                 embed_dims=[152, 216, 216, 216],
+                 mlp_ratios=[4, 4, 4, 4],
+                 parallel_depth=6,
+                 patch_size=4,
+                 num_heads=8,
+                 head_splits=[2, 3, 3],
+                 head_kernel_size=[3, 5, 7],
+                 use_shared_cpe=True,
+                 use_shared_crpe=True,
+                 out_features=None,
+                 include_top=include_top,
+                 weights=weights, 
+                 input_tensor=input_tensor, 
+                 input_shape=input_shape, 
+                 pooling=pooling, 
+                 final_activation=final_activation,
+                 classes=classes)
+    return model
