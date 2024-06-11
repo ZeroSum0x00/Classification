@@ -36,9 +36,9 @@ class CausalMask(tf.keras.layers.Layer):
 class ClassToken(tf.keras.layers.Layer):
     def __init__(self, *args, **kwargs):
         super(ClassToken, self).__init__(*args, **kwargs)
-        self.token_init = tf.keras.initializers.TruncatedNormal(stddev=0.2)
 
     def build(self, input_shape):
+        self.token_init = tf.keras.initializers.TruncatedNormal(stddev=0.2)
         self.class_tokens = self.add_weight(name="tokens", 
                                             shape=(1, 1, input_shape[-1]), 
                                             initializer=self.token_init, 
