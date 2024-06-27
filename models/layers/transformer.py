@@ -228,7 +228,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         else:
             self.qkv_projection = Dense(hidden_size * 3, use_bias=self.q_bias)
 
-        self.combine_heads = Dense(hidden_size, name="out")
+        self.combine_heads = Dense(hidden_size, use_bias=self.q_bias)
         self.final_dropout = Dropout(rate=self.drop_rate)
 
         if self.use_causal_mask:
