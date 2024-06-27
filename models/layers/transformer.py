@@ -220,7 +220,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         if isinstance(input_shape, (list, tuple)):
             if len(input_shape) == 2:
                 self.query_project = Dense(hidden_size, use_bias=self.q_bias)
-                self.keyvalue_project = Dense(hidden_size, use_bias=self.kv_bias)
+                self.keyvalue_project = Dense(hidden_size * 2, use_bias=self.kv_bias)
             else:
                 self.query_project = Dense(hidden_size, use_bias=self.q_bias)
                 self.key_project = Dense(hidden_size, use_bias=self.kv_bias)
