@@ -3,15 +3,15 @@
     - The following table comparing the params of the Data-efficient image Transformers (DeiT) in Tensorflow on 
     size 224 x 224 x 3:
 
-       ---------------------------------------
-      |     Model Name      |    Params       |
-      |---------------------------------------|
-      |      DeiT-Tiny      |   16,555,280    |
-      |---------------------|-----------------|
-      |     DeiT-Small      |   36,610,640    |
-      |---------------------|-----------------|
-      |      DeiT-Base      |   87,338,192    |
-       ---------------------------------------
+       --------------------------------------
+      |     Model Name     |    Params       |
+      |--------------------------------------|
+      |     DeiT-Tiny      |   16,619,792    |
+      |--------------------|-----------------|
+      |     DeiT-Small     |   36,665,936    |
+      |--------------------|-----------------|
+      |     DeiT-Base      |   87,375,056    |
+       --------------------------------------
        
   # Reference:
     - [Training data-efficient image transformers
@@ -21,6 +21,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
+import copy
 import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
@@ -31,22 +32,29 @@ from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import (ExtractPatches, ClassificationToken, PositionalEmbedding,
-                           TransformerBlock, DistillationToken, SAMModel, 
+from models.layers import (ExtractPatches, ClassificationToken,
+                           MultiHeadSelfAttention, MLPBlock,
+                           PositionalEmbedding, TransformerBlock,
+                           DistillationToken, SAMModel, 
                            get_normalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
-def DeiT(num_layers,
-         patch_size,
-         num_heads,
-         mlp_dim,
-         hidden_dim,
+
+def DeiT(attention_block=None,
+         mlp_block=None,
+         num_layers=12,
+         patch_size=16,
+         num_heads=6,
+         mlp_dim=3072,
+         hidden_dim=384,
          include_top=True, 
          weights='imagenet',
          input_tensor=None, 
          input_shape=None,
          pooling=None,
+         activation='gelu',
+         normalizer='layer-norm',
          final_activation="softmax",
          classes=1000,
          sam_rho=0.0,
@@ -83,12 +91,32 @@ def DeiT(num_layers,
     x = DistillationToken(name="Distillation_Token")(x)
     x = ClassificationToken(name="Classification_Token")(x)
     x = PositionalEmbedding(name="Positional_Embedding")(x)
+
     for n in range(num_layers):
-        x, _ = TransformerBlock(num_heads=num_heads,
-                                mlp_dim=mlp_dim,
+        if attention_block is None:
+            attn_clone = MultiHeadSelfAttention(num_heads=num_heads,
+                                                return_weight=False,
+                                                name=f"MultiHeadDotProductAttention_{n}")
+        else:
+            attn_clone = copy.deepcopy(attention_block)
+            
+        if mlp_block is None:
+            mlp_clone = MLPBlock(mlp_dim,
+                                 activation=activation,
+                                 normalizer=normalizer, 
+                                 drop_rate=drop_rate, 
+                                 name=f"MlpBlock_{n}")
+        else:
+            mlp_clone = copy.deepcopy(mlp_block)
+
+        x, _ = TransformerBlock(attn_clone,
+                                mlp_clone,
+                                activation=activation,
+                                norm_eps=norm_eps,
                                 drop_rate=drop_rate,
                                 name=f"Transformer/encoderblock_{n}")(x)
-    x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
+
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="Transformer/encoder_norm")(x)
     x_head = Lambda(lambda v: v[:, 0], name="Extract_Predict_Token")(x)
     x_dist = Lambda(lambda v: v[:, 1], name="Extract_Distillation_Token")(x)
 
@@ -157,7 +185,9 @@ def DeiT_Ti(include_top=True,
             norm_eps=1e-6,
             drop_rate=0.1):
 
-    model = DeiT(num_layers=12,
+    model = DeiT(attention_block=None,
+                 mlp_block=None,
+                 num_layers=12,
                  patch_size=16,
                  num_heads=3,
                  mlp_dim=3072,
@@ -185,7 +215,9 @@ def DeiT_S(include_top=True,
            norm_eps=1e-6,
            drop_rate=0.1):
 
-    model = DeiT(num_layers=12,
+    model = DeiT(attention_block=None,
+                 mlp_block=None,
+                 num_layers=12,
                  patch_size=16,
                  num_heads=6,
                  mlp_dim=3072,
@@ -214,7 +246,9 @@ def DeiT_B(include_top=True,
            norm_eps=1e-6,
            drop_rate=0.1):
 
-    model = DeiT(num_layers=12,
+    model = DeiT(attention_block=None,
+                 mlp_block=None,
+                 num_layers=12,
                  patch_size=16,
                  num_heads=12,
                  mlp_dim=3072,

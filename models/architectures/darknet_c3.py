@@ -27,6 +27,7 @@ from __future__ import absolute_import
 
 import warnings
 
+import copy
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
@@ -47,7 +48,7 @@ from tensorflow.keras.initializers import VarianceScaling
 from tensorflow.keras.utils import get_source_inputs, get_file
 
 from .darknet53 import ConvolutionBlock
-from models.layers import get_activation_from_name, get_normalizer_from_name, TransformerBlock
+from models.layers import get_activation_from_name, get_normalizer_from_name, MultiHeadSelfAttention, MLPBlock, TransformerBlock
 from utils.model_processing import _obtain_input_shape
 
 
@@ -610,22 +611,51 @@ class TransfomerProjection(tf.keras.layers.Layer):
         Vision Transformer https://arxiv.org/abs/2010.11929
     """
     
-    def __init__(self, num_heads, mlp_dim, iters=1, activation='silu', normalizer='batch-norm', norm_eps=1e-6, *args, **kwargs):
+    def __init__(self, 
+                 attention_block = None,
+                 mlp_block       = None, 
+                 num_heads       = 12, 
+                 mlp_dim         = 768, 
+                 iters           = 1, 
+                 activation      = 'silu', 
+                 normalizer      = 'batch-norm', 
+                 norm_eps        = 1e-6, 
+                 drop_rate       = 0.0,
+                 *args, **kwargs):
         super(TransfomerProjection, self).__init__(*args, **kwargs)
-        self.num_heads  = num_heads
-        self.mlp_dim    = mlp_dim
-        self.iters      = iters
-        self.activation = activation
-        self.normalizer = normalizer
-        self.norm_eps   = norm_eps
+        self.attention_block = attention_block
+        self.mlp_block       = mlp_block
+        self.num_heads       = num_heads
+        self.mlp_dim         = mlp_dim
+        self.iters           = iters
+        self.activation      = activation
+        self.normalizer      = normalizer
+        self.norm_eps        = norm_eps
+        self.drop_rate       = drop_rate
 
     def build(self, input_shape):
         if self.mlp_dim != input_shape[-1]:
             self.channel_project = ConvolutionBlock(self.mlp_dim, 1, activation=self.activation, normalizer=self.normalizer)
         self.position = Dense(units=self.mlp_dim)
-        self.transfomer_sequence = [TransformerBlock(self.num_heads, 
-                                                     self.mlp_dim, 
-                                                     return_weight=False, 
+
+        if self.attention_block is None:
+            attn_list = [MultiHeadSelfAttention(num_heads=self.num_heads,
+                                                return_weight=False,
+                                                name=f"MultiHeadDotProductAttention_{i}") for i in range(self.iters)]
+        else:
+            attn_list = [copy.deepcopy(self.attention_block) for i in range(self.iters)]
+            
+        if self.mlp_block is None:
+            mlp_list = [MLPBlock(self.mlp_dim,
+                                 activation=self.activation,
+                                 normalizer=self.normalizer, 
+                                 drop_rate=self.drop_rate, 
+                                 name=f"MlpBlock_{i}") for i in range(self.iters)]
+        else:
+            mlp_clone = [copy.deepcopy(self.mlp_block) for i in range(self.iters)]
+
+        self.transfomer_sequence = [TransformerBlock(attn_list[i],
+                                                     mlp_list[i], 
                                                      activation=self.activation, 
                                                      normalizer=self.normalizer, 
                                                      norm_eps=self.norm_eps,
@@ -652,7 +682,11 @@ class C3Trans(C3):
     def build(self, input_shape):
         super().build(input_shape)
         hidden_dim = int(self.filters * self.expansion)
-        self.middle = TransfomerProjection(4, hidden_dim, iters=self.iters, activation=self.activation, normalizer=self.normalizer)
+        self.middle = TransfomerProjection(num_heads=4, 
+                                           mlp_dim=hidden_dim, 
+                                           iters=self.iters, 
+                                           activation=self.activation, 
+                                           normalizer=self.normalizer)
 
 
 def DarkNetC3(c3_block,

@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
@@ -386,43 +387,41 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
 class TransformerBlock(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
 
-    def __init__(self, num_heads, mlp_dim, return_weight=False, activation='gelu', normalizer=None, norm_eps=1e-6, drop_rate=0.1, *args, **kwargs):
+    def __init__(self, 
+                 attention_block = None,
+                 mlp_block       = None,
+                 activation      = 'gelu', 
+                 normalizer      = None, 
+                 norm_eps        = 1e-6, 
+                 drop_rate       = 0.1, 
+                 *args, **kwargs):
         super(TransformerBlock, self).__init__(*args, **kwargs)
-        self.num_heads     = num_heads
-        self.mlp_dim       = mlp_dim
-        self.return_weight = return_weight
-        self.activation    = activation
-        self.normalizer    = normalizer
-        self.norm_eps      = norm_eps
-        self.drop_rate     = drop_rate
+        self.attention_block = attention_block
+        self.mlp_block       = mlp_block
+        self.activation      = activation
+        self.normalizer      = normalizer
+        self.norm_eps        = norm_eps
+        self.drop_rate       = drop_rate
     
     def build(self, input_shape):
-        self.attention = MultiHeadSelfAttention(num_heads=self.num_heads,
-                                                return_weight=self.return_weight,
-                                                name="MultiHeadDotProductAttention_1")
-        self.mlpblock = MLPBlock(self.mlp_dim,
-                                 activation=self.activation,
-                                 normalizer=self.normalizer, 
-                                 drop_rate=self.drop_rate, 
-                                 name="MlpBlock")
-        self.layernorm1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps, name="LayerNorm_0")
-        self.layernorm2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps, name="LayerNorm_2")
+        self.layernorm1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        self.layernorm2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.dropout_layer = Dropout(self.drop_rate)
 
     def call(self, inputs, training=False):
         x = self.layernorm1(inputs, training=training)
-        x, weights = self.attention(x, training=training)
+        x, weights = self.attention_block(x, training=training)
         x = self.dropout_layer(x, training=training)
         x = x + inputs
         y = self.layernorm2(x, training=training)
-        y = self.mlpblock(y, training=training)
+        y = self.mlp_block(y, training=training)
         return x + y, weights
 
     def get_config(self):
         config = super().get_config()
         config.update({
-                "num_heads": self.num_heads,
-                "mlp_dim": self.mlp_dim,
+                "attention_block": self.attention_block,
+                "mlp_block": self.mlp_block,
                 "normalizer": self.normalizer,
                 "norm_eps": self.norm_eps,
                 "drop_rate": self.drop_rate
@@ -612,7 +611,7 @@ class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
         else:
             source_tt = source_layer.get_weights()[0]
             
-        source_tt = np.array(ssource_tt).astype("float32")
+        source_tt = np.array(source_tt).astype("float32")
         hh = ww = int(float(source_tt.shape[1] - self.cls_token_pos_len) ** 0.5)
         num_heads = source_tt.shape[0]
         ss = source_tt[:, : hh * ww].reshape((num_heads, hh, ww))
@@ -751,7 +750,7 @@ class EnhanceSelfAttention(tf.keras.layers.Layer):
 
         if isinstance(self.rope_layer, PositionalEncodingFourierRot1D):
             query = self.rope_layer(tf.reshape(query, [-1, self.num_heads, self.key_dim // 2, 2]))
-            key = rope(tf.reshape(key, [-1, self.num_heads, self.key_dim // 2, 2]))
+            key = self.rope_layer(tf.reshape(key, [-1, self.num_heads, self.key_dim // 2, 2]))
         elif isinstance(self.rope_layer, PositionalEncodingFourierRot):
             query = self.rope_layer(query)
             key = self.rope_layer(key)

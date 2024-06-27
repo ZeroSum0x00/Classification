@@ -6,17 +6,17 @@
        ---------------------------------------
       |     Model Name      |    Params       |
       |---------------------------------------|
-      |     ViT-Base-16     |   86,567,656    |
+      |     ViT-Base-16     |   86,604,520    |
       |---------------------|-----------------|
-      |     ViT-Base-32     |   88,224,232    |
+      |     ViT-Base-32     |   88,261,096    |
       |---------------------|-----------------|
-      |     ViT-Large-16    |   304,326,632   |
+      |     ViT-Large-16    |   304,424,936   |
       |---------------------|-----------------|
-      |     ViT-Large-32    |   306,535,400   |
+      |     ViT-Large-32    |   306,633,704   |
       |---------------------|-----------------|
-      |     ViT-Huge-16     |   632,199,400   |
+      |     ViT-Huge-16     |   632,363,240   |
       |---------------------|-----------------|
-      |     ViT-Huge-32     |   634,960,360   |
+      |     ViT-Huge-32     |   635,124,200   |
        ---------------------------------------
 
   # Reference:
@@ -29,6 +29,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
+import copy
 import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
@@ -41,12 +42,15 @@ from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
 
 from models.layers import (ExtractPatches, ClassificationToken, 
+                           MultiHeadSelfAttention, MLPBlock,
                            PositionalEmbedding, TransformerBlock, SAMModel,
                            get_activation_from_name, get_normalizer_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
-def ViT(num_layers=12,
+def ViT(attention_block=None,
+        mlp_block=None,
+        num_layers=12,
         patch_size=16,
         num_heads=12,
         mlp_dim=3072,
@@ -56,6 +60,8 @@ def ViT(num_layers=12,
         input_tensor=None, 
         input_shape=None,
         pooling=None,
+        activation='gelu',
+        normalizer='layer-norm',
         final_activation="softmax",
         classes=1000,
         sam_rho=0.0,
@@ -95,14 +101,32 @@ def ViT(num_layers=12,
     x = ExtractPatches(patch_size, hidden_dim)(img_input)
     x = ClassificationToken(name="class_token")(x)
     x = PositionalEmbedding(name="Transformer/posembed_input")(x)
+
     for n in range(num_layers):
-        x, _ = TransformerBlock(num_heads=num_heads,
-                                mlp_dim=mlp_dim,
-                                return_weight=False,
+        if attention_block is None:
+            attn_clone = MultiHeadSelfAttention(num_heads=num_heads,
+                                                return_weight=False,
+                                                name=f"MultiHeadDotProductAttention_{n}")
+        else:
+            attn_clone = copy.deepcopy(attention_block)
+            
+        if mlp_block is None:
+            mlp_clone = MLPBlock(mlp_dim,
+                                 activation=activation,
+                                 normalizer=normalizer, 
+                                 drop_rate=drop_rate, 
+                                 name=f"MlpBlock_{n}")
+        else:
+            mlp_clone = copy.deepcopy(mlp_block)
+
+        x, _ = TransformerBlock(attn_clone,
+                                mlp_clone,
+                                activation=activation,
                                 norm_eps=norm_eps,
                                 drop_rate=drop_rate,
                                 name=f"Transformer/encoderblock_{n}")(x)
-    x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name="Transformer/encoder_norm")(x)
+
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="Transformer/encoder_norm")(x)
     x = Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
 
     if include_top:
@@ -160,7 +184,9 @@ def ViTBase16(include_top=True,
               norm_eps=1e-6,
               drop_rate=0.1):
 
-    model = ViT(num_layers=12,
+    model = ViT(attention_block=None,
+                mlp_block=None,
+                num_layers=12,
                 patch_size=16,
                 num_heads=12,
                 mlp_dim=3072,
@@ -189,7 +215,9 @@ def ViTBase32(include_top=True,
               norm_eps=1e-6,
               drop_rate=0.1):
 
-    model = ViT(num_layers=12,
+    model = ViT(attention_block=None,
+                mlp_block=None,
+                num_layers=12,
                 patch_size=32,
                 num_heads=12,
                 mlp_dim=3072,
@@ -218,7 +246,9 @@ def ViTLarge16(include_top=True,
                norm_eps=1e-6,
                drop_rate=0.1):
 
-    model = ViT(num_layers=24,
+    model = ViT(attention_block=None,
+                mlp_block=None,
+                num_layers=24,
                 patch_size=16,
                 num_heads=16,
                 mlp_dim=4096,
@@ -247,7 +277,9 @@ def ViTLarge32(include_top=True,
                norm_eps=1e-6,
                drop_rate=0.1):
 
-    model = ViT(num_layers=24,
+    model = ViT(attention_block=None,
+                mlp_block=None,
+                num_layers=24,
                 patch_size=32,
                 num_heads=16,
                 mlp_dim=4096,
@@ -276,7 +308,9 @@ def ViTHuge16(include_top=True,
               norm_eps=1e-6,
               drop_rate=0.1):
 
-    model = ViT(num_layers=32,
+    model = ViT(attention_block=None,
+                mlp_block=None,
+                num_layers=32,
                 patch_size=16,
                 num_heads=16,
                 mlp_dim=5120,
@@ -305,7 +339,9 @@ def ViTHuge32(include_top=True,
               norm_eps=1e-6,
               drop_rate=0.1):
 
-    model = ViT(num_layers=32,
+    model = ViT(attention_block=None,
+                mlp_block=None,
+                num_layers=32,
                 patch_size=32,
                 num_heads=16,
                 mlp_dim=5120,
