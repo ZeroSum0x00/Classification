@@ -190,20 +190,20 @@ class PositionalEmbedding(tf.keras.layers.Layer):
 class MultiHeadSelfAttention(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
     
-    def __init__(self, num_heads, return_weight=False, *args, **kwargs):
+    def __init__(self, num_heads, num_embeds=-1, return_weight=False, *args, **kwargs):
         super(MultiHeadSelfAttention, self).__init__(*args, **kwargs)
         self.num_heads     = num_heads
+        self.num_embeds    = num_embeds
         self.return_weight = return_weight
         
     def build(self, input_shape):
-        hidden_size = input_shape[-1]
-        num_heads = self.num_heads
-        if hidden_size % num_heads != 0:
+        hidden_size = self.num_embeds if self.num_embeds != -1 else input_shape[-1]
+        if hidden_size % self.num_heads != 0:
             raise ValueError(
-                f"embedding dimension = {hidden_size} should be divisible by number of heads = {num_heads}"
+                f"embedding dimension = {hidden_size} should be divisible by number of heads = {self.num_heads}"
             )
         self.hidden_size = hidden_size
-        self.projection_dim = hidden_size // num_heads
+        self.projection_dim = hidden_size // self.num_heads
         self.query_dense = Dense(hidden_size, name="query")
         self.key_dense = Dense(hidden_size, name="key")
         self.value_dense = Dense(hidden_size, name="value")
