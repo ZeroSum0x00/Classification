@@ -190,30 +190,71 @@ class PositionalEmbedding(tf.keras.layers.Layer):
 class MultiHeadSelfAttention(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
     
-    def __init__(self, num_heads, num_embeds=-1, return_weight=False, *args, **kwargs):
+    def __init__(self, 
+                 num_heads, 
+                 num_embeds      = -1,
+                 q_bias          = True, 
+                 kv_bias         = False,
+                 use_causal_mask = False, 
+                 return_weight   = False, 
+                 drop_rate       = 0., 
+                 *args, **kwargs):
         super(MultiHeadSelfAttention, self).__init__(*args, **kwargs)
-        self.num_heads     = num_heads
-        self.num_embeds    = num_embeds
-        self.return_weight = return_weight
+        self.num_heads       = num_heads
+        self.num_embeds      = num_embeds
+        self.q_bias          = q_bias
+        self.kv_bias         = kv_bias
+        self.use_causal_mask = use_causal_mask
+        self.return_weight   = return_weight
+        self.drop_rate       = drop_rate
         
     def build(self, input_shape):
-        hidden_size = self.num_embeds if self.num_embeds != -1 else input_shape[-1]
+        query_shape = input_shape[0] if isinstance(input_shape, (list, tuple)) else input_shape
+        hidden_size = self.num_embeds if self.num_embeds != -1 else query_shape[-1]
         if hidden_size % self.num_heads != 0:
             raise ValueError(
                 f"embedding dimension = {hidden_size} should be divisible by number of heads = {self.num_heads}"
             )
         self.hidden_size = hidden_size
         self.projection_dim = hidden_size // self.num_heads
-        self.query_dense = Dense(hidden_size, name="query")
-        self.key_dense = Dense(hidden_size, name="key")
-        self.value_dense = Dense(hidden_size, name="value")
-        self.combine_heads = Dense(hidden_size, name="out")
+        if isinstance(input_shape, (list, tuple)):
+            if len(input_shape) == 2:
+                self.query_project = Dense(hidden_size, use_bias=self.q_bias)
+                self.keyvalue_project = Dense(hidden_size, use_bias=self.kv_bias)
+            else:
+                self.query_project = Dense(hidden_size, use_bias=self.q_bias)
+                self.key_project = Dense(hidden_size, use_bias=self.kv_bias)
+                self.value_project = Dense(hidden_size, use_bias=self.kv_bias)
+        else:
+            self.qkv_projection = Dense(hidden_size * 3, use_bias=self.q_bias)
 
-    def scaled_dot_product_attention(self, query, key, value):
+        self.combine_heads = Dense(hidden_size, name="out")
+        self.final_dropout = Dropout(rate=self.drop_rate)
+
+        if self.use_causal_mask:
+            block_size = query_shape[-2]
+            causal_mask = np.tril(np.ones((block_size, block_size)))
+            causal_mask = np.reshape(causal_mask, [1, block_size, block_size, 1])
+            self.causal_mask = tf.convert_to_tensor(causal_mask, dtype=tf.float32)
+
+    def scaled_dot_product_attention(self, query, key, value, attn_mask=None):
         score = tf.matmul(query, key, transpose_b=True)
         dim_key = tf.cast(tf.shape(key)[-1], score.dtype)
-        scaled_score = score / tf.math.sqrt(dim_key)
-        weights = tf.nn.softmax(scaled_score, axis=-1)
+        attn = score / tf.math.sqrt(dim_key)
+
+        if self.use_causal_mask:
+            attn = tf.transpose(attn, [0, 2, 3, 1])
+            mask = tf.where(tf.equal(self.causal_mask, 0), tf.zeros_like(self.causal_mask), self.causal_mask)
+            attn = attn * mask
+            attn = tf.transpose(attn, [0, 3, 1, 2])
+
+        if attn_mask is not None:
+            if attn_mask.dtype == tf.bool:
+                attn = tf.where(attn_mask, -1e30, attn)
+            else:
+                attn += attn_mask
+                
+        weights = tf.nn.softmax(attn, axis=-1)
         output = tf.matmul(weights, value)
         return output, weights
 
@@ -221,19 +262,35 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.projection_dim))
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
-    def call(self, inputs, training=False):
-        batch_size = tf.shape(inputs)[0]
-        query = self.query_dense(inputs, training=training)
+    def call(self, inputs, attn_mask=None, training=False):
+        if hasattr(self, 'key_project') and hasattr(self, 'value_project'):
+            query, key, value = inputs
+            query = self.query_project(query, training=training)
+            key   = self.key_project(key, training=training)
+            value = self.value_project(value, training=training)
+        elif hasattr(self, 'keyvalue_project'):
+            query, key_value = inputs
+            query = self.query_project(query, training=training)
+            kv    = self.keyvalue_project(key_value, training=training)
+            key, value = tf.split(kv, 2, axis=-1)
+        else:
+            qkv = self.qkv_projection(inputs, training=training)
+            query, key, value = tf.split(qkv, 3, axis=-1)
+
+        batch_size = tf.shape(query)[0]
         query = self.separate_heads(query, batch_size)
-        key = self.key_dense(inputs, training=training)
         key = self.separate_heads(key, batch_size)
-        value = self.value_dense(inputs, training=training)
         value = self.separate_heads(value, batch_size)
 
-        attention, weights = self.scaled_dot_product_attention(query, key, value)
+        if attn_mask is not None:
+            if tf.rank(attn_mask) == 2:
+                attn_mask = tf.expand_dims(attn_mask, axis=0)
+
+        attention, weights = self.scaled_dot_product_attention(query, key, value, attn_mask=attn_mask)
         attention = tf.transpose(attention, perm=[0, 2, 1, 3])
         concat_attention = tf.reshape(attention, (batch_size, -1, self.hidden_size))
         output = self.combine_heads(concat_attention, training=training)
+        output = self.final_dropout(output, training=training)
         if self.return_weight:
             return output, weights
         else:
@@ -243,7 +300,10 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         config = super().get_config()
         config.update({
                 "num_heads": self.num_heads,
-                "return_weight": self.return_weight
+                "num_embeds": self.num_embeds,
+                "use_causal_mask": self.use_causal_mask,
+                "return_weight": self.return_weight,
+                "drop_rate": self.drop_rate,
         })
         return config
 
