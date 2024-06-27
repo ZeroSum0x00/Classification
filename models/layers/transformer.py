@@ -314,7 +314,16 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable()
 class MLPBlock(tf.keras.layers.Layer):
-    def __init__(self, mlp_dim, out_dim=-1, use_conv=False, use_bias=True, use_gated=False, activation='gelu', normalizer=None, drop_rate=0.1, *args, **kwargs):
+    def __init__(self, 
+                 mlp_dim, 
+                 out_dim    = -1, 
+                 use_conv   = False, 
+                 use_bias   = True, 
+                 use_gated  = False, 
+                 activation = 'gelu', 
+                 normalizer = None, 
+                 drop_rate=0.1, 
+                 *args, **kwargs):
         super(MLPBlock, self).__init__(*args, **kwargs)
         self.mlp_dim    = mlp_dim
         self.out_dim    = out_dim
