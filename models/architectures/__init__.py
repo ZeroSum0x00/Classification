@@ -1,5 +1,5 @@
 from .alexnet import AlexNet
-from .vgg import VGG, VGG11, VGG13, VGG16, VGG19
+from .vgg import VGG, VGG11, VGG11_backbone, VGG13, VGG13_backbone, VGG16, VGG16_backbone, VGG19, VGG19_backbone
 from .resnet import ResNetA, ResNetB, ResNet18, ResNet18_backbone, ResNet34, ResNet34_backbone, ResNet50, ResNet50_backbone,  ResNet101, ResNet101_backbone, ResNet152, ResNet152_backbone
 from .inception_v1 import GoogleNet, Inception_v1_naive, Inception_v1
 from .inception_v3 import Inception_v3
@@ -12,7 +12,7 @@ from .mobilenet_v2 import MobileNet_v2
 from .densenet import DenseNet, DenseNet121, DenseNet121_backbone, DenseNet169, DenseNet169_backbone, DenseNet201, DenseNet201_backbone, DenseNet264, DenseNet264_backbone
 from .efficientnet import EfficientNet, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, EfficientNetB5, EfficientNetB6, EfficientNetB7
 from .res2net import Res2Net, Res2Net50, Res2Net50_backbone, Res2Net101, Res2Net101_backbone, Res2Net152, Res2Net152_backbone
-from .xception import Xception
+from .xception import Xception, Xception_backbone
 from .ddrnet import DDRNet23_slim, DDRNet23, DDRNet39
 from .darknet53 import DarkNet53, DarkNet53_backbone
 from .cspdarknet53 import CSPDarkNet53, CSPDarkNet53_backbone
@@ -43,4 +43,3 @@ from .swin_v2 import Swin_v2, SwinT_v2, SwinS_v2, SwinB_v2, SwinL_v2
 from .segment_anything_encoder import ViTImageEncoder, ViTImageEncoder_base, ViTImageEncoder_large, ViTImageEncoder_huge
 from .vision_mamba import Vim, Vim_Base
 from .coat import CoaT, CoaT_ltiny, CoaT_lmini, CoaT_lsmall, CoaT_tiny, CoaT_mini
-
