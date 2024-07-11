@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 import tensorflow.keras.backend as K
 
@@ -34,13 +35,13 @@ class ChannelAffine(tf.keras.layers.Layer):
     def get_weights_channels_last(self):
         # channel_first -> channel_last
         weights = self.get_weights()
-        if backend.image_data_format() != "channels_last" and self.axis == 1:
+        if K.image_data_format() != "channels_last" and self.axis == 1:
             weights = [np.squeeze(ii) for ii in weights]
         return weights
 
     def set_weights_channels_last(self, weights):
         # channel_last -> channel_first
-        if backend.image_data_format() != "channels_last" and self.axis == 1:
+        if K.image_data_format() != "channels_last" and self.axis == 1:
             weights = [np.reshape(ii, self.ww.shape) for ii in weights]
         return self.set_weights(weights)
 
