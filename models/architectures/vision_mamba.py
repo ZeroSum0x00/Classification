@@ -6,7 +6,7 @@
        --------------------------------------
       |     Model Name     |    Params       |
       |--------------------------------------|
-      |      Vim-Base      |   8,543,720     |
+      |      ViM-Base      |   8,543,720     |
        ---------------------------------------
        
   # Reference:
@@ -101,7 +101,7 @@ class MambaEncoderBlock(tf.keras.layers.Layer):
         return x1 + x2 + skip
 
 
-def Vim(dim=256,
+def ViM(dim=256,
         dt_rank=32,
         dim_inner=256,
         d_state=256,
@@ -198,7 +198,7 @@ def Vim(dim=256,
     return model
 
 
-def Vim_Base(include_top=True, 
+def ViM_Base(include_top=True, 
             weights='imagenet',
             input_tensor=None, 
             input_shape=None,
@@ -208,7 +208,7 @@ def Vim_Base(include_top=True,
             sam_rho=0.0,
             drop_rate=0.1):
 
-    model = Vim(dim=256,
+    model = ViM(dim=256,
                 dt_rank=32,
                 dim_inner=256,
                 d_state=256,
