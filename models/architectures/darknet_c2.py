@@ -510,9 +510,9 @@ class C2f(tf.keras.layers.Layer):
         self.conv1 = ConvolutionBlock(2 * hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
         self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
         
-        self.blocks = Sequential([
-            Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
-        ])
+        # self.blocks = Sequential([
+        #     Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)
+        # ])
         self.blocks = [Bottleneck2(hidden_dim, (3, 3), shortcut=self.shortcut, activation=self.activation, normalizer=self.normalizer) for i in range(self.iters)]
 
     def call(self, inputs, training=False):
