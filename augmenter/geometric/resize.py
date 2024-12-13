@@ -1,76 +1,59 @@
 import cv2
 import random
 import numpy as np
-from utils.auxiliary_processing import random_range
+import collections.abc as collections
+
+from augmenter.base_transform import BaseTransform
+from utils.auxiliary_processing import is_numpy_image
 
 
-class ResizePadded:
-    def __init__(self, target_size=(224, 224, 3), jitter=.3, flexible=False, padding_color=None):
-        self.target_size = target_size
-        self.jitter      = jitter
-        self.flexible    = flexible
-        self.padding_color = padding_color
+INTER_MODE = {
+    'NEAREST': cv2.INTER_NEAREST, 
+    'BILINEAR': cv2.INTER_LINEAR, 
+    'BICUBIC': cv2.INTER_CUBIC
+}
 
-    def __call__(self, image):
-        h, w, _    = image.shape
-        ih, iw, _  = self.target_size
-        fill_color  = self.padding_color if self.padding_color else [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-        
-        if not self.flexible:
-            scale = min(iw/w, ih/h)
-            nw, nh  = int(scale * w), int(scale * h)
-            dw, dh = (iw - nw) // 2, (ih - nh) // 2
-            image_resized = cv2.resize(image, (nw, nh))
-            image_paded = np.full(shape=[ih, iw, 3], fill_value=fill_color, dtype=image.dtype)
-            image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
-            return image_paded
 
-        new_ar = w / h * random_range(1 - self.jitter, 1 + self.jitter) / random_range(1 - self.jitter, 1 + self.jitter)
-        scale = random_range(0.75, 1.5)
+def resize(image, size, interpolation='BILINEAR'):
+    if not is_numpy_image(image):
+        raise TypeError('Image input should be CV Image. Got {}'.format(type(image)))
+    if not (isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)):
+        raise TypeError('Got inappropriate size arg: {}'.format(size))
 
-        if new_ar < 1:
-            nh = int(scale * ih)
-            nw = int(nh * new_ar)
+    if isinstance(size, int):
+        h, w, c = image.shape
+        if (w <= h and w == size) or (h <= w and h == size):
+            return image
+        if w < h:
+            ow = size
+            oh = int(size * h / w)
+            return cv2.resize(image, dsize=(ow, oh), interpolation=INTER_MODE[interpolation])
         else:
-            nw = int(scale * iw)
-            nh = int(nw / new_ar)
-          
-        dw = int(random_range(0, iw - nw))
-        dh = int(random_range(0, ih - nh))
+            oh = size
+            ow = int(size * w / h)
+            return cv2.resize(image, dsize=(ow, oh), interpolation=INTER_MODE[interpolation])
+    else:
+        oh, ow = size
+        return cv2.resize(image, dsize=(int(ow), int(oh)), interpolation=INTER_MODE[interpolation])
 
-        image_resized = cv2.resize(image, (nw, nh))
 
-        height = max(ih, nh + abs(dh))
-        width = max(iw, nw + abs(dw))
-        image_paded = np.full(shape=[height, width, 3], fill_value=fill_color, dtype=image.dtype)
-        if dw < 0 and dh >= 0:
-            image_paded[dh:nh+dh, 0:nw, :] = image_resized
-            if width == iw:
-                image_paded = image_paded[:ih, :iw]
-            else:
-                image_paded = image_paded[:ih, abs(dw):abs(dw)+iw]
-        elif dh < 0 and dw >= 0:
-            image_paded[0:nh, dw:dw+nw, :] = image_resized
-            if height == ih:
-                image_paded = image_paded[:ih, :iw]
-            else:
-                image_paded = image_paded[abs(dh):abs(dh)+ih, :iw]
-        elif dh < 0 and dw < 0:
-            image_paded[0:nh, 0:nw, :] = image_resized
-            if width == iw or height == ih:
-                image_paded = image_paded[:ih, :iw]
-            else:
-                image_paded = image_paded[abs(dh):abs(dh)+ih, abs(dw):abs(dw)+iw]
-        else:
-            image_paded[dh:nh+dh, dw:dw+nw, :] = image_resized
-            image_paded = image_paded[:ih, :iw]
+class Resize(BaseTransform):
 
-        hpd, wpd, _ = image_paded.shape
-        if hpd < ih or wpd <iw:
-            image_temp = np.full(shape=[ih, iw, 3], fill_value=128.0)
-            image_temp[:hpd, :wpd] = image_paded
-            image_paded = image_temp
+    """Resize the input image to the given size.
 
-        image = image_paded
-        image_data      = np.array(image, np.uint8)
-        return image_data
+    Args:
+        size (sequence or int): Desired output size. If size is a sequence like
+            (h, w), output size will be matched to this. If size is an int,
+            smaller edge of the image will be matched to this number.
+            i.e, if height > width, then image will be rescaled to
+            (size * height / width, size)
+        interpolation (int, optional): Desired interpolation. Default is ``BILINEAR``
+    """
+
+    def __init__(self, size, interpolation='BILINEAR'):
+        assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
+        self.size          = size
+        self.interpolation = interpolation
+
+    def image_transform(self, image):
+        return resize(image, self.size, self.interpolation)

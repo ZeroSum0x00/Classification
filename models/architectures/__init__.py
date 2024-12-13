@@ -22,7 +22,7 @@ from .darknet_elan import DarkNetELAN_A, DarkNetELAN_B, DarkNetELAN_C, DarkNetEL
 from .darknet_c2 import DarkNetC2, DarkNetC2_nano, DarkNetC2_nano_backbone, DarkNetC2_small, DarkNetC2_small_backbone, DarkNetC2_medium, DarkNetC2_medium_backbone, DarkNetC2_large, DarkNetC2_large_backbone, DarkNetC2_xlarge, DarkNetC2_xlarge_backbone
 from .darknet_elan4 import DarkNetELAN4_A, DarkNetELAN4_B, DarkNetELAN4_small, DarkNetELAN4_small_backbone, DarkNetELAN4_base, DarkNetELAN4_base_backbone, DarkNetELAN4_Large
 from .bit import ResnetV2, BiT_S_R50x1, BiT_S_R50x3, BiT_M_R50x1, BiT_M_R50x3, BiT_S_R101x1, BiT_S_R101x3, BiT_M_R101x1, BiT_M_R101x3, BiT_S_R152x4, BiT_M_R152x4
-from .repvgg import RepVGG, RepVGG_A0, RepVGG_A1, RepVGG_A2, RepVGG_B0, RepVGG_B1, RepVGG_B1g2, RepVGG_B1g4, RepVGG_B2, RepVGG_B2g2, RepVGG_B2g4, RepVGG_B3, RepVGG_B3g2, RepVGG_B3g4, repvgg_reparameter
+# from .repvgg import RepVGG, RepVGG_A0, RepVGG_A1, RepVGG_A2, RepVGG_B0, RepVGG_B1, RepVGG_B1g2, RepVGG_B1g4, RepVGG_B2, RepVGG_B2g2, RepVGG_B2g4, RepVGG_B3, RepVGG_B3g2, RepVGG_B3g4, repvgg_reparameter
 from .convnext import ConvNext, ConvNextT, ConvNextT_backbone, ConvNextS, ConvNextS_backbone, ConvNextB, ConvNextB_backbone, ConvNextL, ConvNextL_backbone, ConvNextXL, ConvNextXL_backbone
 
 from .mlp_mixer import MLPMixer, MLPMixer_S16, MLPMixer_S32, MLPMixer_B16, MLPMixer_B32, MLPMixer_L16, MLPMixer_L32, MLPMixer_H14

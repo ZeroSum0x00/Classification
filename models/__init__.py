@@ -1,5 +1,9 @@
 # train-test processing model
-from .classification import CLS
+import copy
+import importlib
+from .train_model import TrainModel
+from .classifycation import CLS
+from utils.post_processing import get_labels
 
 
 # convolutional base architectures
@@ -25,7 +29,7 @@ from .architectures import (AlexNet,
                             DarkNetC2, DarkNetC2_nano, DarkNetC2_nano_backbone, DarkNetC2_small, DarkNetC2_small_backbone, DarkNetC2_medium, DarkNetC2_medium_backbone, DarkNetC2_large, DarkNetC2_large_backbone, DarkNetC2_xlarge, DarkNetC2_xlarge_backbone,
                             DarkNetELAN4_A, DarkNetELAN4_B, DarkNetELAN4_small, DarkNetELAN4_small_backbone, DarkNetELAN4_base, DarkNetELAN4_base_backbone, DarkNetELAN4_Large,
                             ResnetV2, BiT_S_R50x1, BiT_S_R50x3, BiT_M_R50x1, BiT_M_R50x3, BiT_S_R101x1, BiT_S_R101x3, BiT_M_R101x1, BiT_M_R101x3, BiT_S_R152x4, BiT_M_R152x4,
-                            RepVGG, RepVGG_A0, RepVGG_A1, RepVGG_A2, RepVGG_B0, RepVGG_B1, RepVGG_B1g2, RepVGG_B1g4, RepVGG_B2, RepVGG_B2g2, RepVGG_B2g4, RepVGG_B3, RepVGG_B3g2, RepVGG_B3g4, repvgg_reparameter,
+                            # RepVGG, RepVGG_A0, RepVGG_A1, RepVGG_A2, RepVGG_B0, RepVGG_B1, RepVGG_B1g2, RepVGG_B1g4, RepVGG_B2, RepVGG_B2g2, RepVGG_B2g4, RepVGG_B3, RepVGG_B3g2, RepVGG_B3g4, repvgg_reparameter,
                             ConvNext, ConvNextT, ConvNextT_backbone, ConvNextS, ConvNextS_backbone, ConvNextB, ConvNextB_backbone, ConvNextL, ConvNextL_backbone, ConvNextXL, ConvNextXL_backbone,
 )
 
@@ -50,3 +54,33 @@ from .architectures import (MLPMixer, MLPMixer_S16, MLPMixer_S32, MLPMixer_B16, 
                             ViM, ViM_Base,
                             CoaT, CoaT_ltiny, CoaT_lmini, CoaT_lsmall, CoaT_tiny, CoaT_mini
 )
+
+
+def build_models(config):
+    config = copy.deepcopy(config)
+    mod = importlib.import_module(__name__)
+    input_shape = config.pop("input_shape")
+    weight_path = config.pop("weight_path")
+    load_weight_type = config.pop("load_weight_type")
+    classes = config.pop('classes')
+
+    architecture_config = config['Architecture']
+    architecture_name = architecture_config.pop("name")
+
+    backbone_config = config['Backbone']
+    backbone_config['input_shape'] = input_shape
+    if classes:
+        if isinstance(classes, str):
+            classes, num_classes = get_labels(classes)
+        else:
+            num_classes = len(classes)
+        backbone_config['classes'] = num_classes
+
+    backbone_name = backbone_config.pop("name")
+    backbone = getattr(mod, backbone_name)(**backbone_config)
+
+    architecture_config['backbone'] = backbone
+    architecture = getattr(mod, architecture_name)(**architecture_config)
+
+    model = TrainModel(architecture, classes=classes, name=architecture_name)
+    return model

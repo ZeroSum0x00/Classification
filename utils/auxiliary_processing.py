@@ -6,6 +6,10 @@ def random_range(a=0, b=1):
     return np.random.rand() * (b - a) + a
 
 
+def is_numpy_image(img):
+    return isinstance(img, np.ndarray) and (img.ndim in {2, 3})
+
+    
 def make_divisible(v, divisor, min_value=None):
     if min_value is None:
         min_value = divisor

@@ -21,12 +21,12 @@ def verify_folder(folder):
     return folder
 
 
-def get_files(folder_path, extensions=['py', 'png', 'JPEG']):
+def get_files(folder_path, extensions=['py', 'png', 'JPEG'], prefix=''):
     if isinstance(extensions, str):
         extensions = [extensions]
     else:
         extensions = [ex.lower() for ex in extensions]
-    result = [x for x in os.listdir(folder_path) if x.split('.')[-1].lower() in extensions]
+    result = [os.path.join(prefix, x) for x in os.listdir(folder_path) if x.split('.')[-1].lower() in extensions]
     return result
 
 def valid_image(image_path):

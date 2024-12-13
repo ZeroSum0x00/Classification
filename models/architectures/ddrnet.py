@@ -42,11 +42,12 @@ from tensorflow.keras.utils import get_source_inputs, get_file
 from utils.model_processing import _obtain_input_shape, correct_pad
 from models.layers import get_activation_from_name, get_normalizer_from_name
 try:
-  from tensorflow.keras.layers.experimental import SyncBatchNormalization as BatchNorm
+    from tensorflow.keras.layers.experimental import SyncBatchNormalization as BatchNorm
 except ImportError:
-  print('Can\'t import SyncBatchNormalization, using BatchNormalization')
-  from tensorflow.keras.layers import BatchNormalization as BatchNorm
-  
+    print('Can\'t import SyncBatchNormalization, using BatchNormalization')
+    from tensorflow.keras.layers import BatchNormalization as BatchNorm
+
+    
 # TF_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels.h5'
 # TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
@@ -63,8 +64,8 @@ def BasicBlock(input_tensor, filters, kernel_size=3, strides=1, downsaple=False,
     x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
 
     if downsaple:
-      shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-      shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
+        shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
+        shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
 
     x = add([x, shortcut])
     x = get_activation_from_name(activation)(x)
@@ -87,8 +88,8 @@ def Bottleneck(input_tensor, filters, kernel_size, strides, downsaple=False, act
     x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
 
     if downsaple:
-      shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-      shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
+        shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
+        shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
 
     x = add([x, shortcut])
     x = get_activation_from_name(activation)(x)

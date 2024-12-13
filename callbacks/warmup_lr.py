@@ -1,19 +1,19 @@
 import os
 import numpy as np
 import tensorflow as tf
-from configs import general_config as cfg
 
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
+
 class WarmUpLearningRate(tf.keras.callbacks.Callback):
     def __init__(self, 
                  steps_per_epoch, 
-                 epochs        = cfg.TRAIN_EPOCH_END,
-                 lr_init       = cfg.TRAIN_LR_INIT, 
-                 lr_end        = cfg.TRAIN_LR_END,
-                 warmup_epochs = cfg.TRAIN_WARMUP_EPOCH_RATIO):
+                 epochs,
+                 lr_init, 
+                 lr_end,
+                 warmup_epochs):
         self.global_steps = tf.Variable(1, trainable=False, dtype=tf.int64)
         self.warmup_steps = warmup_epochs * steps_per_epoch
         self.total_steps = epochs * steps_per_epoch
@@ -32,23 +32,25 @@ class WarmUpLearningRate(tf.keras.callbacks.Callback):
 
 class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
     def __init__(self, 
-                 lr_init            = cfg.TRAIN_LR_INIT, 
-                 lr_end             = cfg.TRAIN_LR_END, 
-                 epochs             = cfg.TRAIN_EPOCH_END,
-                 warmup_epoch_ratio = cfg.TRAIN_WARMUP_EPOCH_RATIO, 
-                 warmup_lr_ratio    = cfg.TRAIN_WARMUP_LR_RATIO, 
-                 no_aug_epoch_ratio = cfg.WITHOUT_AUG_EPOCH_RATIO,
-                 result_path        = None):
+                 result_path        = None,
+                 lr_init            = 0.01,
+                 lr_end             = 0.001,
+                 epochs             = 100,
+                 warmup_epoch_ratio = 0., 
+                 warmup_lr_ratio    = 0.,
+                 no_aug_epoch_ratio = 0.):
+        self.result_path         = result_path
+        self.result_path         = os.path.join(result_path, 'summary')
         self.lr_init             = lr_init
         self.lr_end              = lr_end
         self.epochs              = epochs
         self.warmup_total_epochs = min(max(warmup_epoch_ratio * epochs, 1), 3)
         self.warmup_lr_start     = max(warmup_lr_ratio * lr_init, 1e-6)
         self.no_aug_epoch        = min(max(no_aug_epoch_ratio * epochs, 1), 15)
-        self.result_path         = result_path
         self.lr_list             = [0]
         self.epochs_list         = [0]
-        
+        os.makedirs(self.result_path, exist_ok=True)
+
     def on_epoch_begin(self, epoch, logs=None):
         lr = self.lr_init
         if epoch <= self.warmup_total_epochs:
@@ -60,13 +62,10 @@ class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
         self.model.optimizer.lr.assign(lr)
         
         if self.result_path:
-            #if not os.path.exists(self.result_path):
-            #    os.makedirs(self.result_path)
-                
             self.lr_list.append(lr)
             self.epochs_list.append(epoch + 1)
 
-            with open(os.path.join(self.result_path, "learning_rate.log"), 'a') as f:
+            with open(os.path.join(self.result_path, "learning_rate.txt"), 'a') as f:
                 try:
                     f.write(f"Learning rate in epoch {epoch + 1}: {str(lr.numpy())}")
                 except:
@@ -90,9 +89,9 @@ class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
 
 class BasicReduceLearningRate(tf.keras.callbacks.Callback):
     def __init__(self, 
-                 lr_init   = cfg.TRAIN_LR_INIT, 
-                 lr_end    = cfg.TRAIN_LR_END, 
-                 epochs    = cfg.TRAIN_EPOCH_END, 
+                 lr_init, 
+                 lr_end, 
+                 epochs, 
                  num_steps = 10):
         self.decay_rate  = (lr_end / lr_init) ** (1 / (num_steps - 1))
         step_size   = epochs / num_steps

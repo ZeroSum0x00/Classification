@@ -1,39 +1,137 @@
 import cv2
+import math
 import random
+import numbers
 import numpy as np
 
-from utils.auxiliary_processing import random_range
-from visualizer.visual_image import visual_image, visual_image_with_bboxes
+from .resize import INTER_MODE
+from .resized_crop import resized_crop
+from augmenter.base_transform import BaseTransform, BaseRandomTransform
+from utils.auxiliary_processing import is_numpy_image
 
 
-class Rotate:
-    def __init__(self, angle, padding_color=None):
-        self.angle = angle
-        self.padding_color = padding_color
-        
-    def __call__(self, image):
-        h, w, _ = image.shape
-        a,b = w/2, h/2
-        M = cv2.getRotationMatrix2D((a, b), self.angle, 1)
-        if self.padding_color:
-            if isinstance(self.padding_color, int):
-                fill_color = [self.padding_color, self.padding_color, self.padding_color]
+def rotate(image, angle, resample='BILINEAR', expand=False, center=None, fill=None):
+    rank_size = len(image.shape)
+    imgtype = image.dtype
+    if not is_numpy_image(image):
+        raise TypeError('Image should be CV Image. Got {}'.format(type(image)))
+    h, w, _ = image.shape
+    point = center or (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(point, angle=-angle, scale=1)
+
+    if fill:
+        if isinstance(fill, int):
+            if fill == -1:
+                fill_color = [random.randint(0, 255) for _ in range(rank_size)]
             else:
-                fill_color = self.padding_color
+                fill_color = [fill for _ in range(rank_size)]
         else:
-            fill_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-        image = cv2.warpAffine(np.array(image), M, (w, h), borderValue=fill_color)
-        return image
+            fill_color = fill
+    else:
+        fill_color = [0 for _ in range(rank_size)]
+
+    if expand:
+        if center is None:
+            cos = np.abs(M[0, 0])
+            sin = np.abs(M[0, 1])
+
+            # compute the new bounding dimensions of the image
+            nW = int((h * sin) + (w * cos))
+            nH = int((h * cos) + (w * sin))
+
+            # adjust the rotation matrix to take into account translation
+            M[0, 2] += (nW / 2) - point[0]
+            M[1, 2] += (nH / 2) - point[1]
+
+            # perform the actual rotation and return the image
+            dst = cv2.warpAffine(image, M, (nW, nH), borderValue=fill_color)
+        else:
+            xx = []
+            yy = []
+            for point in (np.array([0, 0, 1]), np.array([w-1, 0, 1]), np.array([w-1, h-1, 1]), np.array([0, h-1, 1])):
+                target = M@point
+                xx.append(target[0])
+                yy.append(target[1])
+            nh = int(math.ceil(max(yy)) - math.floor(min(yy)))
+            nw = int(math.ceil(max(xx)) - math.floor(min(xx)))
+            # adjust the rotation matrix to take into account translation
+            M[0, 2] += (nw - w)/2
+            M[1, 2] += (nh - h)/2
+            dst = cv2.warpAffine(image, M, (nw, nh), flags=INTER_MODE[resample], borderValue=fill_color)
+    else:
+        dst = cv2.warpAffine(image, M, (w, h), flags=INTER_MODE[resample], borderValue=fill_color)
+    return dst.astype(imgtype)
 
 
-class RandomRotate:
-    def __init__(self, angle_range=15, prob=0.5, padding_color=None):
-        self.prob       = prob
-        angle = np.random.randint(-angle_range, angle_range)
-        self.aug        = Rotate(angle, padding_color=padding_color)
-        
-    def __call__(self, image):
-        p = np.random.uniform(0,1)
-        if p >= (1.0-self.prob):
-            image = self.aug(image)
-        return image
+class Rotation(BaseTransform):
+
+    """Rotate the image by angle.
+
+    Args:
+        degrees (sequence or float or int): Range of degrees to select from.
+            If degrees is a number instead of sequence like (min, max), the range of degrees
+            will be (-degrees, +degrees) clockwise order.
+        resample ({CV.Image.NEAREST, CV.Image.BILINEAR, CV.Image.BICUBIC}, optional):
+            An optional resampling filter.
+        expand (bool, optional): Optional expansion flag.
+            If true, expands the output to make it large enough to hold the entire rotated image.
+            If false or omitted, make the output image the same size as the input image.
+            Note that the expand flag assumes rotation around the center and no translation.
+        center (2-tuple, optional): Optional center of rotation.
+            Origin is the upper left corner.
+            Default is the center of the image.
+    """
+
+    def __init__(self, degrees, resample='BILINEAR', expand=False, center=None, fill=None):
+        self.degrees  = degrees
+        self.resample = resample
+        self.expand   = expand
+        self.center   = center
+        self.fill     = fill
+
+    def image_transform(self, image):
+        return rotate(image, self.degrees, self.resample, self.expand, self.center)
+
+
+class RandomRotation(BaseRandomTransform):
+
+    """Rotate the image in range angle.
+
+    Args:
+        degrees (sequence or float or int): Range of degrees to select from.
+            If degrees is a number instead of sequence like (min, max), the range of degrees
+            will be (-degrees, +degrees) clockwise order.
+        resample ({CV.Image.NEAREST, CV.Image.BILINEAR, CV.Image.BICUBIC}, optional):
+            An optional resampling filter.
+        expand (bool, optional): Optional expansion flag.
+            If true, expands the output to make it large enough to hold the entire rotated image.
+            If false or omitted, make the output image the same size as the input image.
+            Note that the expand flag assumes rotation around the center and no translation.
+        center (2-tuple, optional): Optional center of rotation.
+            Origin is the upper left corner.
+            Default is the center of the image.
+    """
+
+    def __init__(self, degrees, resample='BILINEAR', expand=False, center=None, fill=None, prob=0.5):
+        if isinstance(degrees, numbers.Number):
+            if degrees < 0:
+                raise ValueError("If degrees is a single number, it must be positive.")
+            self.degrees = (-degrees, degrees)
+        else:
+            if len(degrees) != 2:
+                raise ValueError("If degrees is a sequence, it must be of len 2.")
+            self.degrees = degrees
+
+        self.resample = resample
+        self.expand   = expand
+        self.center   = center
+        self.fill     = fill
+        self.prob     = prob
+
+    @staticmethod
+    def get_params(degrees):
+        return random.uniform(degrees[0], degrees[1])
+
+    def image_transform(self, image):
+        angle = self.get_params(self.degrees)
+        return rotate(image, angle, self.resample, self.expand, self.center, self.fill)

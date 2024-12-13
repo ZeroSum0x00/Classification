@@ -1,5 +1,4 @@
 import tensorflow as tf
-import tensorflow_addons as tfa
 from tensorflow.keras import backend as K
 from .linear_layer import LinearLayer
 
@@ -25,9 +24,6 @@ def get_normalizer_from_name(norm_name, *args, **kwargs):
         elif norm_name in ['un', 'unitnorm', 'unit-norm', 'unit norm', 'unit-normalization', 'unit normalization']:
             from tensorflow.keras.layers import UnitNormalization
             return UnitNormalization(*args, **kwargs)
-        elif norm_name in ['frn', 'filterresponsenorm', 'filter-response-norm', 'filter response norm', 'filter-response-normalization', 'filter response normalization']:
-            from tfa.layers import FilterResponseNormalization
-            return FilterResponseNormalization(*args, **kwargs)
         elif norm_name in ['evn', 'evo', 'evonorm', 'evo-norm', 'evo-normalization', 'evo normalization']:
             from models.layers import EvoNormalization
             return EvoNormalization(*args, **kwargs)

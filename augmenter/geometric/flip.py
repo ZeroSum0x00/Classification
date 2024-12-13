@@ -1,33 +1,96 @@
 import cv2
-import random
 import numpy as np
 
-from utils.auxiliary_processing import random_range
-from visualizer.visual_image import visual_image, visual_image_with_bboxes
+from augmenter.base_transform import BaseTransform, BaseRandomTransform
+from utils.auxiliary_processing import is_numpy_image
 
 
-class Flip:
+def vflip(image):
+    if not is_numpy_image(image):
+        raise TypeError('Image input should be CV Image. Got {}'.format(type(image)))
+
+    return cv2.flip(image, 0)
+
+    
+def hflip(image):
+    if not is_numpy_image(image):
+        raise TypeError('Image input should be CV Image. Got {}'.format(type(image)))
+
+    return cv2.flip(image, 1)
+
+
+class Flip(BaseTransform):
+
+    """Flip transformation the given image.
+
+    Args:
+        mode ({horizontal, vertical, synthetic}): A flip mode.
+    """
+
     def __init__(self, mode='horizontal'):
-        self.mode       = mode
+        self.mode            = mode
+        self.horizontal_list = ['horizontal', 'h']
+        self.vertical_list   = ['vertical', 'v']
+        self.mix_list        = ['synthetic', 's']
 
-    def __call__(self, image):
-        h, w, _ = image.shape
-        horizontal_list = ['horizontal', 'h']
-        vertical_list   = ['vertical', 'v']
-        if self.mode.lower() in horizontal_list:
-            image = cv2.flip(image, 1)
-        elif self.mode.lower() in vertical_list:
-            image = cv2.flip(image, 0)
+    def image_transform(self, image):
+        if self.mode.lower() in self.horizontal_list or self.mode.lower() in self.mix_list:
+            rand_point = np.random.randint(0, 2) if self.mode.lower() in self.mix_list else 1
+            if rand_point:
+                if isinstance(image, (tuple, list)):
+                    image = [hflip(img) for img in image]
+                else:
+                    image = hflip(image)
+
+        if self.mode.lower() in self.vertical_list or self.mode.lower() in self.mix_list:
+            rand_point = np.random.randint(0, 2) if self.mode.lower() in self.mix_list else 1
+            if rand_point:
+                if isinstance(image, (tuple, list)):
+                    image = [vflip(img) for img in image]
+                else:
+                    image = vflip(image)
+
         return image
 
 
-class RandomFlip:
-    def __init__(self, prob=0.5, mode='horizontal'):
-        self.prob       = prob
-        self.aug        = Flip(mode=mode)
-        
-    def __call__(self, image):
-        p = np.random.uniform(0,1)
-        if p >= (1.0-self.prob):
-            image = self.aug(image)
+class RandomFlip(BaseRandomTransform):
+
+    """Random flip transformation the given image randomly with a given probability.
+
+    Args:
+        mode ({horizontal, vertical, synthetic}): A flip mode.
+        prob (float): probability of the image being flipped. Default value is 0.5
+    """
+
+    def __init__(self, mode='horizontal', prob=0.5):
+        self.mode = mode
+        self.prob = prob
+        self.aug  = Flip(mode=self.mode)
+
+    def image_transform(self, image):
+        image = self.aug(image)
         return image
+
+
+class RandomHorizontalFlip(BaseRandomTransform):
+
+    """Horizontally flip the given image randomly with a given probability.
+
+    Args:
+        prob (float): probability of the image being flipped. Default value is 0.5
+    """
+
+    def image_transform(self, image):
+        return hflip(image)
+
+
+class RandomVerticalFlip(BaseRandomTransform):
+
+    """Vertically flip the given image randomly with a given probability.
+
+    Args:
+        prob (float): probability of the image being flipped. Default value is 0.5
+    """
+
+    def image_transform(self, image):
+        return vflip(image)

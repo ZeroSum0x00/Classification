@@ -1,0 +1,11 @@
+Model:
+    input_shape: [224, 224, 3]
+    classes: "/content/sample_data/data"
+    weight_path: null
+    load_weight_type: null
+    Architecture:
+        name: CLS
+    Backbone:
+        name: VGG16
+        include_top: True
+        weights: null

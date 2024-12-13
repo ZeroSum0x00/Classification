@@ -383,9 +383,9 @@ def DarkNetCIB_B(cib_block,
                  classes=1000):
 
     if weights not in {'imagenet', None}:
-      raise ValueError('The `weights` argument should be either '
-                        '`None` (random initialization) or `imagenet` '
-                        '(pre-training on ImageNet).')
+        raise ValueError('The `weights` argument should be either '
+                         '`None` (random initialization) or `imagenet` '
+                         '(pre-training on ImageNet).')
 
     if weights == 'imagenet' and include_top and classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_top`'

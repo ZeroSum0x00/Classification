@@ -1,0 +1,86 @@
+Dataset:
+    data_dir: &data_dir "/media/vbpo-101386/DATA/Datasets/Classification/tiny_animals"
+    annotation_dir: null
+    data_info:
+        data_type: 'dirname'
+        color_space: 'RGB'
+        check_data: False
+        load_memory: False
+    data_normalizer:
+        norm_type: 'divide'
+        norm_mean: null
+        norm_std: null
+
+    data_augmentation:
+        train:
+            - ResizeKeepRatio:
+                size: 224
+                longest: 0.
+                interpolation: 'BILINEAR'
+                random_scale_prob: 0.5
+                random_scale_range: [0.08, 1.0]
+                random_scale_area: True
+                random_aspect_prob: 0.5
+                random_aspect_range: [0.75, 1.3333333333333333]
+            - RandomCrop:
+                size: 224
+            - RandomHorizontalFlip:
+            - ColorJitter:
+                brightness: [0.6, 1.4]
+                contrast: [0.6, 1.4]
+                saturation: [0.6, 1.4]
+            - RandomErasing:
+        valid:
+            - Resize:
+                size: 256
+            - CenterCrop:
+                size: 224
+        test:
+    data_loader_mode: 0
+
+Train:
+    mode: 'graph'
+    save_weight_path: &save_weight './saved_weights/'
+    save_weight_type: &save_type 'tf'
+    random_seed: 0
+    num_workers: 4
+    batch_size: 32
+    epoch:
+        start: 0
+        end: &end_epoch 300
+
+Losses:
+    - SparseCategoricalCrossentropy:
+        coeff: 1
+
+Optimizer:
+    name: Adam
+    learning_rate: &lr 1.25e-04
+    beta_1: 0.9
+    beta_2: 0.999
+    global_clipnorm: 5.0
+
+Metrics:
+    - SparseCategoricalAccuracy:
+    - SparseTopKCategoricalAccuracy:
+        k: 5
+
+Callbacks:
+    - LossHistory:
+        save_best: False
+        save_format: *save_type
+    - MetricHistory:
+        min_ratio: 0.2
+        save_best: True
+        save_format: *save_type
+    - TensorBoard:
+        extend_path: 'logs'
+        update_freq: 1
+    - CSVLogger:
+        extend_path: 'summary/train_history.csv'
+        separator: ","
+        append: True
+    - TrainLogger:
+        extend_path: 'logs/training_log.log'
+    - TrainSummary:
+        extend_path: 'summary/train_summary.txt'

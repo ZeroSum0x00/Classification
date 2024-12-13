@@ -54,23 +54,24 @@ from utils.model_processing import _obtain_input_shape
 
 
 class PaddingFromKernelSize(tf.keras.layers.Layer):
-  """Layer that adds padding to an image taking into a given kernel size."""
+    """Layer that adds padding to an image taking into a given kernel size."""
 
-  def __init__(self, kernel_size, **kwargs):
-    super(PaddingFromKernelSize, self).__init__(**kwargs)
-    if isinstance(kernel_size, int):
-        pad_total = kernel_size - 1
-    else:
-        pad_total = kernel_size[0] - 1
-    self._pad_beg = pad_total // 2
-    self._pad_end = pad_total - self._pad_beg
+    def __init__(self, kernel_size, **kwargs):
+        super(PaddingFromKernelSize, self).__init__(**kwargs)
+        if isinstance(kernel_size, int):
+            pad_total = kernel_size - 1
+        else:
+            pad_total = kernel_size[0] - 1
+            
+        self._pad_beg = pad_total // 2
+        self._pad_end = pad_total - self._pad_beg
 
-  def call(self, x):
-    padding = [[0,                         0],
-               [self._pad_beg, self._pad_end],
-               [self._pad_beg, self._pad_end],
-               [0,                         0]]
-    return tf.pad(x, padding)
+    def call(self, x):
+        padding = [[0,                         0],
+                   [self._pad_beg, self._pad_end],
+                   [self._pad_beg, self._pad_end],
+                   [0,                         0]]
+        return tf.pad(x, padding)
 
 
 def stem_block(inputs, filters, conv_size=(7, 7), conv_stride=(2, 2), pool_size=(3, 3), pool_stride=(2, 2)):
