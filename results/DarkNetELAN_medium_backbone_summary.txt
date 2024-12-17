@@ -1,0 +1,46 @@
+Model: "DarkNet-ELAN-medium_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_108 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem.block1 (ReOrg)         (None, 112, 112, 12)      0         
+                                                                 
+ stem.block2 (ConvolutionBl  (None, 112, 112, 64)      7168      
+ ock)                                                            
+                                                                 
+ stage1.block1 (Convolution  (None, 56, 56, 128)       74240     
+ Block)                                                          
+                                                                 
+ stage1.block2 (ScaleUpConc  (None, 56, 56, 128)       198656    
+ atBlock)                                                        
+                                                                 
+ stage2.block1 (Convolution  (None, 28, 28, 256)       295936    
+ Block)                                                          
+                                                                 
+ stage2.block2 (ScaleUpConc  (None, 28, 28, 256)       790528    
+ atBlock)                                                        
+                                                                 
+ stage3.block1 (Convolution  (None, 14, 14, 512)       1181696   
+ Block)                                                          
+                                                                 
+ stage3.block2 (ScaleUpConc  (None, 14, 14, 512)       3153920   
+ atBlock)                                                        
+                                                                 
+ stage4.block1 (Convolution  (None, 7, 7, 768)         3542016   
+ Block)                                                          
+                                                                 
+ stage4.block2 (ScaleUpConc  (None, 7, 7, 768)         7090176   
+ atBlock)                                                        
+                                                                 
+ stage5.block1 (Convolution  (None, 3, 3, 1024)        7081984   
+ Block)                                                          
+                                                                 
+ stage5.block2 (ScaleUpConc  (None, 3, 3, 1024)        12599296  
+ atBlock)                                                        
+                                                                 
+=================================================================
+Total params: 36015616 (137.39 MB)
+Trainable params: 35988608 (137.29 MB)
+Non-trainable params: 27008 (105.50 KB)
+_________________________________________________________________

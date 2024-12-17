@@ -1,0 +1,50 @@
+Model: "DarkNet-ELAN-tiny_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_114 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem.block1 (ConvolutionBl  (None, 112, 112, 32)      992       
+ ock)                                                            
+                                                                 
+ stage1.block1 (Convolution  (None, 56, 56, 64)        18688     
+ Block)                                                          
+                                                                 
+ stage2.block1 (Convolution  (None, 56, 56, 32)        2176      
+ Block)                                                          
+                                                                 
+ stage2.block2 (ScaleUpConc  (None, 56, 56, 64)        29440     
+ atBlock)                                                        
+                                                                 
+ stage3.block1 (MaxPooling2  (None, 28, 28, 64)        0         
+ D)                                                              
+                                                                 
+ stage3.block2 (Convolution  (None, 28, 28, 64)        4352      
+ Block)                                                          
+                                                                 
+ stage3.block3 (ScaleUpConc  (None, 28, 28, 128)       116224    
+ atBlock)                                                        
+                                                                 
+ stage4.block1 (MaxPooling2  (None, 14, 14, 128)       0         
+ D)                                                              
+                                                                 
+ stage4.block2 (Convolution  (None, 14, 14, 128)       16896     
+ Block)                                                          
+                                                                 
+ stage4.block3 (ScaleUpConc  (None, 14, 14, 256)       461824    
+ atBlock)                                                        
+                                                                 
+ stage5.block1 (MaxPooling2  (None, 7, 7, 256)         0         
+ D)                                                              
+                                                                 
+ stage5.block2 (Convolution  (None, 7, 7, 256)         66560     
+ Block)                                                          
+                                                                 
+ stage5.block3 (ScaleUpConc  (None, 7, 7, 512)         1841152   
+ atBlock)                                                        
+                                                                 
+=================================================================
+Total params: 2558304 (9.76 MB)
+Trainable params: 2551392 (9.73 MB)
+Non-trainable params: 6912 (27.00 KB)
+_________________________________________________________________

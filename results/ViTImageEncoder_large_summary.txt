@@ -1,0 +1,99 @@
+Model: "ViTImageEncoder"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_86 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ patched_embedding (PatchEm  (None, 14, 14, 1024)      787456    
+ bed)                                                            
+                                                                 
+ add_positional_embedding (  (None, 14, 14, 1024)      0         
+ Add)                                                            
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _0 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _1 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _2 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _3 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _4 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _5 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _6 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _7 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _8 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _9 (SwinTransformerBlock)                                       
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _10 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _11 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _12 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _13 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _14 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _15 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _16 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _17 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _18 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _19 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _20 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _21 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _22 (SwinTransformerBlock)                                      
+                                                                 
+ SwinTransformerBlock/block  (None, 14, 14, 1024)      12596224  
+ _23 (SwinTransformerBlock)                                      
+                                                                 
+ neck (Sequential)           (None, 14, 14, 256)       852992    
+                                                                 
+ global_average_pooling2d_3  (None, 256)               0         
+  (GlobalAveragePooling2D)                                       
+                                                                 
+ predictions (Dense)         (None, 1000)              257000    
+                                                                 
+ activation_140 (Activation  (None, 1000)              0         
+ )                                                               
+                                                                 
+=================================================================
+Total params: 304206824 (1.13 GB)
+Trainable params: 304206824 (1.13 GB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

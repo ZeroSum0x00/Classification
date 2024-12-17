@@ -1,0 +1,556 @@
+Model: "ResMLP-S12"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_44 (InputLayer)       [(None, 224, 224, 3)]        0         []                            
+                                                                                                  
+ stem (Conv2D)               (None, 14, 14, 384)          295296    ['input_44[0][0]']            
+                                                                                                  
+ reshape_4 (Reshape)         (None, 196, 384)             0         ['stem[0][0]']                
+                                                                                                  
+ res_block_1_norm_1 (Channe  (None, 196, 384)             768       ['reshape_4[0][0]']           
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_1_permute_1 (Per  (None, 384, 196)             0         ['res_block_1_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_1_token_mixing (  (None, 384, 196)             38612     ['res_block_1_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_1_permute_2 (Per  (None, 196, 384)             0         ['res_block_1_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_1_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_1_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_1_token_drop (Dr  (None, 196, 384)             0         ['res_block_1_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_256 (Add)               (None, 196, 384)             0         ['reshape_4[0][0]',           
+                                                                     'res_block_1_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_1_norm_2 (Channe  (None, 196, 384)             768       ['add_256[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_1_channel_mixing  (None, 196, 1536)            591360    ['res_block_1_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_1_gelu (Activati  (None, 196, 1536)            0         ['res_block_1_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_1_channel_mixing  (None, 196, 384)             590208    ['res_block_1_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_1_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_1_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_1_channel_drop (  (None, 196, 384)             0         ['res_block_1_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_257 (Add)               (None, 196, 384)             0         ['res_block_1_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_256[0][0]']             
+                                                                                                  
+ res_block_2_norm_1 (Channe  (None, 196, 384)             768       ['add_257[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_2_permute_1 (Per  (None, 384, 196)             0         ['res_block_2_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_2_token_mixing (  (None, 384, 196)             38612     ['res_block_2_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_2_permute_2 (Per  (None, 196, 384)             0         ['res_block_2_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_2_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_2_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_2_token_drop (Dr  (None, 196, 384)             0         ['res_block_2_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_258 (Add)               (None, 196, 384)             0         ['add_257[0][0]',             
+                                                                     'res_block_2_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_2_norm_2 (Channe  (None, 196, 384)             768       ['add_258[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_2_channel_mixing  (None, 196, 1536)            591360    ['res_block_2_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_2_gelu (Activati  (None, 196, 1536)            0         ['res_block_2_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_2_channel_mixing  (None, 196, 384)             590208    ['res_block_2_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_2_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_2_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_2_channel_drop (  (None, 196, 384)             0         ['res_block_2_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_259 (Add)               (None, 196, 384)             0         ['res_block_2_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_258[0][0]']             
+                                                                                                  
+ res_block_3_norm_1 (Channe  (None, 196, 384)             768       ['add_259[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_3_permute_1 (Per  (None, 384, 196)             0         ['res_block_3_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_3_token_mixing (  (None, 384, 196)             38612     ['res_block_3_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_3_permute_2 (Per  (None, 196, 384)             0         ['res_block_3_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_3_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_3_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_3_token_drop (Dr  (None, 196, 384)             0         ['res_block_3_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_260 (Add)               (None, 196, 384)             0         ['add_259[0][0]',             
+                                                                     'res_block_3_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_3_norm_2 (Channe  (None, 196, 384)             768       ['add_260[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_3_channel_mixing  (None, 196, 1536)            591360    ['res_block_3_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_3_gelu (Activati  (None, 196, 1536)            0         ['res_block_3_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_3_channel_mixing  (None, 196, 384)             590208    ['res_block_3_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_3_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_3_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_3_channel_drop (  (None, 196, 384)             0         ['res_block_3_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_261 (Add)               (None, 196, 384)             0         ['res_block_3_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_260[0][0]']             
+                                                                                                  
+ res_block_4_norm_1 (Channe  (None, 196, 384)             768       ['add_261[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_4_permute_1 (Per  (None, 384, 196)             0         ['res_block_4_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_4_token_mixing (  (None, 384, 196)             38612     ['res_block_4_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_4_permute_2 (Per  (None, 196, 384)             0         ['res_block_4_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_4_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_4_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_4_token_drop (Dr  (None, 196, 384)             0         ['res_block_4_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_262 (Add)               (None, 196, 384)             0         ['add_261[0][0]',             
+                                                                     'res_block_4_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_4_norm_2 (Channe  (None, 196, 384)             768       ['add_262[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_4_channel_mixing  (None, 196, 1536)            591360    ['res_block_4_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_4_gelu (Activati  (None, 196, 1536)            0         ['res_block_4_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_4_channel_mixing  (None, 196, 384)             590208    ['res_block_4_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_4_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_4_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_4_channel_drop (  (None, 196, 384)             0         ['res_block_4_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_263 (Add)               (None, 196, 384)             0         ['res_block_4_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_262[0][0]']             
+                                                                                                  
+ res_block_5_norm_1 (Channe  (None, 196, 384)             768       ['add_263[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_5_permute_1 (Per  (None, 384, 196)             0         ['res_block_5_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_5_token_mixing (  (None, 384, 196)             38612     ['res_block_5_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_5_permute_2 (Per  (None, 196, 384)             0         ['res_block_5_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_5_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_5_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_5_token_drop (Dr  (None, 196, 384)             0         ['res_block_5_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_264 (Add)               (None, 196, 384)             0         ['add_263[0][0]',             
+                                                                     'res_block_5_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_5_norm_2 (Channe  (None, 196, 384)             768       ['add_264[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_5_channel_mixing  (None, 196, 1536)            591360    ['res_block_5_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_5_gelu (Activati  (None, 196, 1536)            0         ['res_block_5_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_5_channel_mixing  (None, 196, 384)             590208    ['res_block_5_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_5_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_5_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_5_channel_drop (  (None, 196, 384)             0         ['res_block_5_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_265 (Add)               (None, 196, 384)             0         ['res_block_5_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_264[0][0]']             
+                                                                                                  
+ res_block_6_norm_1 (Channe  (None, 196, 384)             768       ['add_265[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_6_permute_1 (Per  (None, 384, 196)             0         ['res_block_6_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_6_token_mixing (  (None, 384, 196)             38612     ['res_block_6_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_6_permute_2 (Per  (None, 196, 384)             0         ['res_block_6_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_6_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_6_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_6_token_drop (Dr  (None, 196, 384)             0         ['res_block_6_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_266 (Add)               (None, 196, 384)             0         ['add_265[0][0]',             
+                                                                     'res_block_6_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_6_norm_2 (Channe  (None, 196, 384)             768       ['add_266[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_6_channel_mixing  (None, 196, 1536)            591360    ['res_block_6_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_6_gelu (Activati  (None, 196, 1536)            0         ['res_block_6_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_6_channel_mixing  (None, 196, 384)             590208    ['res_block_6_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_6_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_6_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_6_channel_drop (  (None, 196, 384)             0         ['res_block_6_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_267 (Add)               (None, 196, 384)             0         ['res_block_6_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_266[0][0]']             
+                                                                                                  
+ res_block_7_norm_1 (Channe  (None, 196, 384)             768       ['add_267[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_7_permute_1 (Per  (None, 384, 196)             0         ['res_block_7_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_7_token_mixing (  (None, 384, 196)             38612     ['res_block_7_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_7_permute_2 (Per  (None, 196, 384)             0         ['res_block_7_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_7_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_7_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_7_token_drop (Dr  (None, 196, 384)             0         ['res_block_7_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_268 (Add)               (None, 196, 384)             0         ['add_267[0][0]',             
+                                                                     'res_block_7_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_7_norm_2 (Channe  (None, 196, 384)             768       ['add_268[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_7_channel_mixing  (None, 196, 1536)            591360    ['res_block_7_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_7_gelu (Activati  (None, 196, 1536)            0         ['res_block_7_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_7_channel_mixing  (None, 196, 384)             590208    ['res_block_7_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_7_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_7_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_7_channel_drop (  (None, 196, 384)             0         ['res_block_7_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_269 (Add)               (None, 196, 384)             0         ['res_block_7_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_268[0][0]']             
+                                                                                                  
+ res_block_8_norm_1 (Channe  (None, 196, 384)             768       ['add_269[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_8_permute_1 (Per  (None, 384, 196)             0         ['res_block_8_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_8_token_mixing (  (None, 384, 196)             38612     ['res_block_8_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_8_permute_2 (Per  (None, 196, 384)             0         ['res_block_8_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_8_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_8_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_8_token_drop (Dr  (None, 196, 384)             0         ['res_block_8_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_270 (Add)               (None, 196, 384)             0         ['add_269[0][0]',             
+                                                                     'res_block_8_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_8_norm_2 (Channe  (None, 196, 384)             768       ['add_270[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_8_channel_mixing  (None, 196, 1536)            591360    ['res_block_8_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_8_gelu (Activati  (None, 196, 1536)            0         ['res_block_8_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_8_channel_mixing  (None, 196, 384)             590208    ['res_block_8_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_8_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_8_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_8_channel_drop (  (None, 196, 384)             0         ['res_block_8_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_271 (Add)               (None, 196, 384)             0         ['res_block_8_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_270[0][0]']             
+                                                                                                  
+ res_block_9_norm_1 (Channe  (None, 196, 384)             768       ['add_271[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_9_permute_1 (Per  (None, 384, 196)             0         ['res_block_9_norm_1[0][0]']  
+ mute)                                                                                            
+                                                                                                  
+ res_block_9_token_mixing (  (None, 384, 196)             38612     ['res_block_9_permute_1[0][0]'
+ Dense)                                                             ]                             
+                                                                                                  
+ res_block_9_permute_2 (Per  (None, 196, 384)             0         ['res_block_9_token_mixing[0][
+ mute)                                                              0]']                          
+                                                                                                  
+ res_block_9_gamma_1 (Chann  (None, 196, 384)             384       ['res_block_9_permute_2[0][0]'
+ elAffine)                                                          ]                             
+                                                                                                  
+ res_block_9_token_drop (Dr  (None, 196, 384)             0         ['res_block_9_gamma_1[0][0]'] 
+ opout)                                                                                           
+                                                                                                  
+ add_272 (Add)               (None, 196, 384)             0         ['add_271[0][0]',             
+                                                                     'res_block_9_token_drop[0][0]
+                                                                    ']                            
+                                                                                                  
+ res_block_9_norm_2 (Channe  (None, 196, 384)             768       ['add_272[0][0]']             
+ lAffine)                                                                                         
+                                                                                                  
+ res_block_9_channel_mixing  (None, 196, 1536)            591360    ['res_block_9_norm_2[0][0]']  
+ _1 (Dense)                                                                                       
+                                                                                                  
+ res_block_9_gelu (Activati  (None, 196, 1536)            0         ['res_block_9_channel_mixing_1
+ on)                                                                [0][0]']                      
+                                                                                                  
+ res_block_9_channel_mixing  (None, 196, 384)             590208    ['res_block_9_gelu[0][0]']    
+ _2 (Dense)                                                                                       
+                                                                                                  
+ res_block_9_gamma_2 (Chann  (None, 196, 384)             384       ['res_block_9_channel_mixing_2
+ elAffine)                                                          [0][0]']                      
+                                                                                                  
+ res_block_9_channel_drop (  (None, 196, 384)             0         ['res_block_9_gamma_2[0][0]'] 
+ Dropout)                                                                                         
+                                                                                                  
+ add_273 (Add)               (None, 196, 384)             0         ['res_block_9_channel_drop[0][
+                                                                    0]',                          
+                                                                     'add_272[0][0]']             
+                                                                                                  
+ res_block_10_norm_1 (Chann  (None, 196, 384)             768       ['add_273[0][0]']             
+ elAffine)                                                                                        
+                                                                                                  
+ res_block_10_permute_1 (Pe  (None, 384, 196)             0         ['res_block_10_norm_1[0][0]'] 
+ rmute)                                                                                           
+                                                                                                  
+ res_block_10_token_mixing   (None, 384, 196)             38612     ['res_block_10_permute_1[0][0]
+ (Dense)                                                            ']                            
+                                                                                                  
+ res_block_10_permute_2 (Pe  (None, 196, 384)             0         ['res_block_10_token_mixing[0]
+ rmute)                                                             [0]']                         
+                                                                                                  
+ res_block_10_gamma_1 (Chan  (None, 196, 384)             384       ['res_block_10_permute_2[0][0]
+ nelAffine)                                                         ']                            
+                                                                                                  
+ res_block_10_token_drop (D  (None, 196, 384)             0         ['res_block_10_gamma_1[0][0]']
+ ropout)                                                                                          
+                                                                                                  
+ add_274 (Add)               (None, 196, 384)             0         ['add_273[0][0]',             
+                                                                     'res_block_10_token_drop[0][0
+                                                                    ]']                           
+                                                                                                  
+ res_block_10_norm_2 (Chann  (None, 196, 384)             768       ['add_274[0][0]']             
+ elAffine)                                                                                        
+                                                                                                  
+ res_block_10_channel_mixin  (None, 196, 1536)            591360    ['res_block_10_norm_2[0][0]'] 
+ g_1 (Dense)                                                                                      
+                                                                                                  
+ res_block_10_gelu (Activat  (None, 196, 1536)            0         ['res_block_10_channel_mixing_
+ ion)                                                               1[0][0]']                     
+                                                                                                  
+ res_block_10_channel_mixin  (None, 196, 384)             590208    ['res_block_10_gelu[0][0]']   
+ g_2 (Dense)                                                                                      
+                                                                                                  
+ res_block_10_gamma_2 (Chan  (None, 196, 384)             384       ['res_block_10_channel_mixing_
+ nelAffine)                                                         2[0][0]']                     
+                                                                                                  
+ res_block_10_channel_drop   (None, 196, 384)             0         ['res_block_10_gamma_2[0][0]']
+ (Dropout)                                                                                        
+                                                                                                  
+ add_275 (Add)               (None, 196, 384)             0         ['res_block_10_channel_drop[0]
+                                                                    [0]',                         
+                                                                     'add_274[0][0]']             
+                                                                                                  
+ res_block_11_norm_1 (Chann  (None, 196, 384)             768       ['add_275[0][0]']             
+ elAffine)                                                                                        
+                                                                                                  
+ res_block_11_permute_1 (Pe  (None, 384, 196)             0         ['res_block_11_norm_1[0][0]'] 
+ rmute)                                                                                           
+                                                                                                  
+ res_block_11_token_mixing   (None, 384, 196)             38612     ['res_block_11_permute_1[0][0]
+ (Dense)                                                            ']                            
+                                                                                                  
+ res_block_11_permute_2 (Pe  (None, 196, 384)             0         ['res_block_11_token_mixing[0]
+ rmute)                                                             [0]']                         
+                                                                                                  
+ res_block_11_gamma_1 (Chan  (None, 196, 384)             384       ['res_block_11_permute_2[0][0]
+ nelAffine)                                                         ']                            
+                                                                                                  
+ res_block_11_token_drop (D  (None, 196, 384)             0         ['res_block_11_gamma_1[0][0]']
+ ropout)                                                                                          
+                                                                                                  
+ add_276 (Add)               (None, 196, 384)             0         ['add_275[0][0]',             
+                                                                     'res_block_11_token_drop[0][0
+                                                                    ]']                           
+                                                                                                  
+ res_block_11_norm_2 (Chann  (None, 196, 384)             768       ['add_276[0][0]']             
+ elAffine)                                                                                        
+                                                                                                  
+ res_block_11_channel_mixin  (None, 196, 1536)            591360    ['res_block_11_norm_2[0][0]'] 
+ g_1 (Dense)                                                                                      
+                                                                                                  
+ res_block_11_gelu (Activat  (None, 196, 1536)            0         ['res_block_11_channel_mixing_
+ ion)                                                               1[0][0]']                     
+                                                                                                  
+ res_block_11_channel_mixin  (None, 196, 384)             590208    ['res_block_11_gelu[0][0]']   
+ g_2 (Dense)                                                                                      
+                                                                                                  
+ res_block_11_gamma_2 (Chan  (None, 196, 384)             384       ['res_block_11_channel_mixing_
+ nelAffine)                                                         2[0][0]']                     
+                                                                                                  
+ res_block_11_channel_drop   (None, 196, 384)             0         ['res_block_11_gamma_2[0][0]']
+ (Dropout)                                                                                        
+                                                                                                  
+ add_277 (Add)               (None, 196, 384)             0         ['res_block_11_channel_drop[0]
+                                                                    [0]',                         
+                                                                     'add_276[0][0]']             
+                                                                                                  
+ res_block_12_norm_1 (Chann  (None, 196, 384)             768       ['add_277[0][0]']             
+ elAffine)                                                                                        
+                                                                                                  
+ res_block_12_permute_1 (Pe  (None, 384, 196)             0         ['res_block_12_norm_1[0][0]'] 
+ rmute)                                                                                           
+                                                                                                  
+ res_block_12_token_mixing   (None, 384, 196)             38612     ['res_block_12_permute_1[0][0]
+ (Dense)                                                            ']                            
+                                                                                                  
+ res_block_12_permute_2 (Pe  (None, 196, 384)             0         ['res_block_12_token_mixing[0]
+ rmute)                                                             [0]']                         
+                                                                                                  
+ res_block_12_gamma_1 (Chan  (None, 196, 384)             384       ['res_block_12_permute_2[0][0]
+ nelAffine)                                                         ']                            
+                                                                                                  
+ res_block_12_token_drop (D  (None, 196, 384)             0         ['res_block_12_gamma_1[0][0]']
+ ropout)                                                                                          
+                                                                                                  
+ add_278 (Add)               (None, 196, 384)             0         ['add_277[0][0]',             
+                                                                     'res_block_12_token_drop[0][0
+                                                                    ]']                           
+                                                                                                  
+ res_block_12_norm_2 (Chann  (None, 196, 384)             768       ['add_278[0][0]']             
+ elAffine)                                                                                        
+                                                                                                  
+ res_block_12_channel_mixin  (None, 196, 1536)            591360    ['res_block_12_norm_2[0][0]'] 
+ g_1 (Dense)                                                                                      
+                                                                                                  
+ res_block_12_gelu (Activat  (None, 196, 1536)            0         ['res_block_12_channel_mixing_
+ ion)                                                               1[0][0]']                     
+                                                                                                  
+ res_block_12_channel_mixin  (None, 196, 384)             590208    ['res_block_12_gelu[0][0]']   
+ g_2 (Dense)                                                                                      
+                                                                                                  
+ res_block_12_gamma_2 (Chan  (None, 196, 384)             384       ['res_block_12_channel_mixing_
+ nelAffine)                                                         2[0][0]']                     
+                                                                                                  
+ res_block_12_channel_drop   (None, 196, 384)             0         ['res_block_12_gamma_2[0][0]']
+ (Dropout)                                                                                        
+                                                                                                  
+ add_279 (Add)               (None, 196, 384)             0         ['res_block_12_channel_drop[0]
+                                                                    [0]',                         
+                                                                     'add_278[0][0]']             
+                                                                                                  
+ pre_head_norm (ChannelAffi  (None, 196, 384)             768       ['add_279[0][0]']             
+ ne)                                                                                              
+                                                                                                  
+ global_average_pooling1d_8  (None, 384)                  0         ['pre_head_norm[0][0]']       
+  (GlobalAveragePooling1D)                                                                        
+                                                                                                  
+ dropout_9 (Dropout)         (None, 384)                  0         ['global_average_pooling1d_8[0
+                                                                    ][0]']                        
+                                                                                                  
+ predictions (Dense)         (None, 1000)                 385000    ['dropout_9[0][0]']           
+                                                                                                  
+ activation_57 (Activation)  (None, 1000)                 0         ['predictions[0][0]']         
+                                                                                                  
+==================================================================================================
+Total params: 15350872 (58.56 MB)
+Trainable params: 15350872 (58.56 MB)
+Non-trainable params: 0 (0.00 Byte)
+__________________________________________________________________________________________________

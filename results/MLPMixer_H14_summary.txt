@@ -1,0 +1,122 @@
+Model: "MLPMixer-H14"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_14 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ extract_patches_2 (Extract  (None, 256, 1280)         753920    
+ Patches)                                                        
+                                                                 
+ mixer_block_24 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_25 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_26 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_27 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_28 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_29 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_30 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_31 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_32 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_33 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_34 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_35 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_36 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_37 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_38 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_39 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_40 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_41 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_42 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_43 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_44 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_45 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_46 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_47 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_48 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_49 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_50 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_51 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_52 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_53 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_54 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ mixer_block_55 (MixerBlock  (None, 256, 1280)         13447296  
+ )                                                               
+                                                                 
+ layer_normalization_2 (Lay  (None, 256, 1280)         2560      
+ erNormalization)                                                
+                                                                 
+ global_average_pooling1d_2  (None, 1280)              0         
+  (GlobalAveragePooling1D)                                       
+                                                                 
+ dropout_3 (Dropout)         (None, 1280)              0         
+                                                                 
+ predictions (Dense)         (None, 1000)              1281000   
+                                                                 
+ activation_34 (Activation)  (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 432350952 (1.61 GB)
+Trainable params: 432350952 (1.61 GB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

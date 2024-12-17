@@ -1,0 +1,63 @@
+Model: "Efficient-Lite"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_135 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (ConvolutionBlock)     (None, 112, 112, 24)      744       
+                                                                 
+ stage1.block1 (Lite_EffiBl  (None, 56, 56, 32)        4768      
+ ockS2)                                                          
+                                                                 
+ stage2.block1 (Lite_EffiBl  (None, 28, 28, 64)        14192     
+ ockS2)                                                          
+                                                                 
+ stage2.block2 (Lite_EffiBl  (None, 28, 28, 64)        18848     
+ ockS1)                                                          
+                                                                 
+ stage2.block3 (Lite_EffiBl  (None, 28, 28, 64)        18848     
+ ockS1)                                                          
+                                                                 
+ stage3.block1 (Lite_EffiBl  (None, 14, 14, 128)       50912     
+ ockS2)                                                          
+                                                                 
+ stage3.block2 (Lite_EffiBl  (None, 14, 14, 128)       70464     
+ ockS1)                                                          
+                                                                 
+ stage3.block3 (Lite_EffiBl  (None, 14, 14, 128)       70464     
+ ockS1)                                                          
+                                                                 
+ stage3.block4 (Lite_EffiBl  (None, 14, 14, 128)       70464     
+ ockS1)                                                          
+                                                                 
+ stage3.block5 (Lite_EffiBl  (None, 14, 14, 128)       70464     
+ ockS1)                                                          
+                                                                 
+ stage3.block6 (Lite_EffiBl  (None, 14, 14, 128)       70464     
+ ockS1)                                                          
+                                                                 
+ stage3.block7 (Lite_EffiBl  (None, 14, 14, 128)       70464     
+ ockS1)                                                          
+                                                                 
+ stage4.block1 (Lite_EffiBl  (None, 7, 7, 256)         191936    
+ ockS2)                                                          
+                                                                 
+ stage4.block2 (Lite_EffiBl  (None, 7, 7, 256)         272000    
+ ockS1)                                                          
+                                                                 
+ stage4.block3 (Lite_EffiBl  (None, 7, 7, 256)         272000    
+ ockS1)                                                          
+                                                                 
+ global_avgpool (GlobalAver  (None, 256)               0         
+ agePooling2D)                                                   
+                                                                 
+ predictions (Dense)         (None, 1000)              257000    
+                                                                 
+ activation_1403 (Activatio  (None, 1000)              0         
+ n)                                                              
+                                                                 
+=================================================================
+Total params: 1524032 (5.81 MB)
+Trainable params: 1506016 (5.74 MB)
+Non-trainable params: 18016 (70.38 KB)
+_________________________________________________________________

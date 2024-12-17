@@ -1,0 +1,104 @@
+Model: "SwinTransformer-Base"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_59 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ patch_embed_1 (PatchEmbed)  (None, 3136, 128)         6528      
+                                                                 
+ swin_transformer_block_12   (None, 3136, 128)         201349    
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_13   (None, 3136, 128)         355013    
+ (SwinTransformerBlock)                                          
+                                                                 
+ patch_merging_3 (PatchMerg  (None, 784, 256)          132096    
+ ing)                                                            
+                                                                 
+ swin_transformer_block_14   (None, 784, 256)          793513    
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_15   (None, 784, 256)          831929    
+ (SwinTransformerBlock)                                          
+                                                                 
+ patch_merging_4 (PatchMerg  (None, 196, 512)          526336    
+ ing)                                                            
+                                                                 
+ swin_transformer_block_16   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_17   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_18   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_19   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_20   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_21   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_22   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_23   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_24   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_25   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_26   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_27   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_28   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_29   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_30   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_31   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_32   (None, 196, 512)          3157489   
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_33   (None, 196, 512)          3167093   
+ (SwinTransformerBlock)                                          
+                                                                 
+ patch_merging_5 (PatchMerg  (None, 49, 1024)          2101248   
+ ing)                                                            
+                                                                 
+ swin_transformer_block_34   (None, 49, 1024)          12604033  
+ (SwinTransformerBlock)                                          
+                                                                 
+ swin_transformer_block_35   (None, 49, 1024)          12604033  
+ (SwinTransformerBlock)                                          
+                                                                 
+ layer_normalization_8 (Lay  (None, 49, 1024)          2048      
+ erNormalization)                                                
+                                                                 
+ global_average_pooling1d_1  (None, 1024)              0         
+ 2 (GlobalAveragePooling1D)                                      
+                                                                 
+ predictions (Dense)         (None, 1000)              1025000   
+                                                                 
+ activation_97 (Activation)  (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 88104364 (337.37 MB)
+Trainable params: 87768224 (334.81 MB)
+Non-trainable params: 336140 (2.56 MB)
+_________________________________________________________________

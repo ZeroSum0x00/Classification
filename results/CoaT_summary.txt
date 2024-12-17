@@ -1,0 +1,681 @@
+Model: "CoaT-lite-tiny"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_21 (InputLayer)       [(None, 224, 224, 3)]        0         []                            
+                                                                                                  
+ conv2d_943 (Conv2D)         (None, 56, 56, 64)           3136      ['input_21[0][0]']            
+                                                                                                  
+ reshape_7 (Reshape)         (None, 3136, 64)             0         ['conv2d_943[0][0]']          
+                                                                                                  
+ layer_normalization (Layer  (None, 3136, 64)             128       ['reshape_7[0][0]']           
+ Normalization)                                                                                   
+                                                                                                  
+ serial1_class_token (Class  (None, 3137, 64)             64        ['layer_normalization[0][0]'] 
+ Token)                                                                                           
+                                                                                                  
+ cpe1_ (ConvPositionalEncod  (None, 3137, 64)             640       ['serial1_class_token[0][0]', 
+ ing)                                                                'add_298[0][0]']             
+                                                                                                  
+ layer_normalization_1 (Lay  (None, 3137, 64)             128       ['cpe1_[0][0]']               
+ erNormalization)                                                                                 
+                                                                                                  
+ serial1_block1_factoratt_c  (None, 3137, 192)            12480     ['layer_normalization_1[0][0]'
+ rpe_qkv (Dense)                                                    ]                             
+                                                                                                  
+ tf.split (TFOpLambda)       [(None, 3137, 64),           0         ['serial1_block1_factoratt_crp
+                              (None, 3137, 64),                     e_qkv[0][0]']                 
+                              (None, 3137, 64)]                                                   
+                                                                                                  
+ tf.reshape_1 (TFOpLambda)   (None, 3137, 8, 8)           0         ['tf.split[0][1]']            
+                                                                                                  
+ tf.compat.v1.transpose_1 (  (None, 8, 8, 3137)           0         ['tf.reshape_1[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.reshape_2 (TFOpLambda)   (None, 3137, 8, 8)           0         ['tf.split[0][2]']            
+                                                                                                  
+ tf.reshape (TFOpLambda)     (None, 3137, 8, 8)           0         ['tf.split[0][0]']            
+                                                                                                  
+ activation_925 (Activation  (None, 8, 8, 3137)           0         ['tf.compat.v1.transpose_1[0][
+ )                                                                  0]']                          
+                                                                                                  
+ tf.compat.v1.transpose_2 (  (None, 8, 3137, 8)           0         ['tf.reshape_2[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.compat.v1.transpose (TF  (None, 8, 3137, 8)           0         ['tf.reshape[0][0]']          
+ OpLambda)                                                                                        
+                                                                                                  
+ tf.linalg.matmul (TFOpLamb  (None, 8, 8, 8)              0         ['activation_925[0][0]',      
+ da)                                                                 'tf.compat.v1.transpose_2[0][
+                                                                    0]']                          
+                                                                                                  
+ tf.linalg.matmul_1 (TFOpLa  (None, 8, 3137, 8)           0         ['tf.compat.v1.transpose[0][0]
+ mbda)                                                              ',                            
+                                                                     'tf.linalg.matmul[0][0]']    
+                                                                                                  
+ tf.math.multiply (TFOpLamb  (None, 8, 3137, 8)           0         ['tf.linalg.matmul_1[0][0]']  
+ da)                                                                                              
+                                                                                                  
+ crpe1_ (ConvRelativePositi  (None, 8, 3137, 8)           1984      ['tf.compat.v1.transpose[0][0]
+ onalEncoding)                                                      ',                            
+                                                                     'tf.compat.v1.transpose_2[0][
+                                                                    0]',                          
+                                                                     'tf.compat.v1.transpose_3[0][
+                                                                    0]',                          
+                                                                     'tf.compat.v1.transpose_5[0][
+                                                                    0]']                          
+                                                                                                  
+ add_296 (Add)               (None, 8, 3137, 8)           0         ['tf.math.multiply[0][0]',    
+                                                                     'crpe1_[0][0]']              
+                                                                                                  
+ permute (Permute)           (None, 3137, 8, 8)           0         ['add_296[0][0]']             
+                                                                                                  
+ reshape_8 (Reshape)         (None, 3137, 64)             0         ['permute[0][0]']             
+                                                                                                  
+ serial1_block1_factoratt_c  (None, 3137, 64)             4160      ['reshape_8[0][0]']           
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_297 (Add)               (None, 3137, 64)             0         ['cpe1_[0][0]',               
+                                                                     'serial1_block1_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_2 (Lay  (None, 3137, 64)             128       ['add_297[0][0]']             
+ erNormalization)                                                                                 
+                                                                                                  
+ serial1_block1_mlp_dense_0  (None, 3137, 512)            33280     ['layer_normalization_2[0][0]'
+  (Dense)                                                           ]                             
+                                                                                                  
+ activation_926 (Activation  (None, 3137, 512)            0         ['serial1_block1_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial1_block1_mlp_dense_1  (None, 3137, 64)             32832     ['activation_926[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_298 (Add)               (None, 3137, 64)             0         ['add_297[0][0]',             
+                                                                     'serial1_block1_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ layer_normalization_3 (Lay  (None, 3137, 64)             128       ['cpe1_[1][0]']               
+ erNormalization)                                                                                 
+                                                                                                  
+ serial1_block2_factoratt_c  (None, 3137, 192)            12480     ['layer_normalization_3[0][0]'
+ rpe_qkv (Dense)                                                    ]                             
+                                                                                                  
+ tf.split_1 (TFOpLambda)     [(None, 3137, 64),           0         ['serial1_block2_factoratt_crp
+                              (None, 3137, 64),                     e_qkv[0][0]']                 
+                              (None, 3137, 64)]                                                   
+                                                                                                  
+ tf.reshape_4 (TFOpLambda)   (None, 3137, 8, 8)           0         ['tf.split_1[0][1]']          
+                                                                                                  
+ tf.compat.v1.transpose_4 (  (None, 8, 8, 3137)           0         ['tf.reshape_4[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.reshape_5 (TFOpLambda)   (None, 3137, 8, 8)           0         ['tf.split_1[0][2]']          
+                                                                                                  
+ tf.reshape_3 (TFOpLambda)   (None, 3137, 8, 8)           0         ['tf.split_1[0][0]']          
+                                                                                                  
+ activation_927 (Activation  (None, 8, 8, 3137)           0         ['tf.compat.v1.transpose_4[0][
+ )                                                                  0]']                          
+                                                                                                  
+ tf.compat.v1.transpose_5 (  (None, 8, 3137, 8)           0         ['tf.reshape_5[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.compat.v1.transpose_3 (  (None, 8, 3137, 8)           0         ['tf.reshape_3[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.linalg.matmul_2 (TFOpLa  (None, 8, 8, 8)              0         ['activation_927[0][0]',      
+ mbda)                                                               'tf.compat.v1.transpose_5[0][
+                                                                    0]']                          
+                                                                                                  
+ tf.linalg.matmul_3 (TFOpLa  (None, 8, 3137, 8)           0         ['tf.compat.v1.transpose_3[0][
+ mbda)                                                              0]',                          
+                                                                     'tf.linalg.matmul_2[0][0]']  
+                                                                                                  
+ tf.math.multiply_1 (TFOpLa  (None, 8, 3137, 8)           0         ['tf.linalg.matmul_3[0][0]']  
+ mbda)                                                                                            
+                                                                                                  
+ add_299 (Add)               (None, 8, 3137, 8)           0         ['tf.math.multiply_1[0][0]',  
+                                                                     'crpe1_[1][0]']              
+                                                                                                  
+ permute_1 (Permute)         (None, 3137, 8, 8)           0         ['add_299[0][0]']             
+                                                                                                  
+ reshape_9 (Reshape)         (None, 3137, 64)             0         ['permute_1[0][0]']           
+                                                                                                  
+ serial1_block2_factoratt_c  (None, 3137, 64)             4160      ['reshape_9[0][0]']           
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_300 (Add)               (None, 3137, 64)             0         ['cpe1_[1][0]',               
+                                                                     'serial1_block2_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_4 (Lay  (None, 3137, 64)             128       ['add_300[0][0]']             
+ erNormalization)                                                                                 
+                                                                                                  
+ serial1_block2_mlp_dense_0  (None, 3137, 512)            33280     ['layer_normalization_4[0][0]'
+  (Dense)                                                           ]                             
+                                                                                                  
+ activation_928 (Activation  (None, 3137, 512)            0         ['serial1_block2_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial1_block2_mlp_dense_1  (None, 3137, 64)             32832     ['activation_928[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_301 (Add)               (None, 3137, 64)             0         ['add_300[0][0]',             
+                                                                     'serial1_block2_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ tf.__operators__.getitem_7  (None, 3136, 64)             0         ['add_301[0][0]']             
+  (SlicingOpLambda)                                                                               
+                                                                                                  
+ reshape_10 (Reshape)        (None, 56, 56, 64)           0         ['tf.__operators__.getitem_7[0
+                                                                    ][0]']                        
+                                                                                                  
+ conv2d_944 (Conv2D)         (None, 28, 28, 128)          32896     ['reshape_10[0][0]']          
+                                                                                                  
+ reshape_11 (Reshape)        (None, 784, 128)             0         ['conv2d_944[0][0]']          
+                                                                                                  
+ layer_normalization_5 (Lay  (None, 784, 128)             256       ['reshape_11[0][0]']          
+ erNormalization)                                                                                 
+                                                                                                  
+ serial2_class_token (Class  (None, 785, 128)             128       ['layer_normalization_5[0][0]'
+ Token)                                                             ]                             
+                                                                                                  
+ cpe2_ (ConvPositionalEncod  (None, 785, 128)             1280      ['serial2_class_token[0][0]', 
+ ing)                                                                'add_304[0][0]']             
+                                                                                                  
+ layer_normalization_6 (Lay  (None, 785, 128)             256       ['cpe2_[0][0]']               
+ erNormalization)                                                                                 
+                                                                                                  
+ serial2_block1_factoratt_c  (None, 785, 384)             49536     ['layer_normalization_6[0][0]'
+ rpe_qkv (Dense)                                                    ]                             
+                                                                                                  
+ tf.split_2 (TFOpLambda)     [(None, 785, 128),           0         ['serial2_block1_factoratt_crp
+                              (None, 785, 128),                     e_qkv[0][0]']                 
+                              (None, 785, 128)]                                                   
+                                                                                                  
+ tf.reshape_7 (TFOpLambda)   (None, 785, 8, 16)           0         ['tf.split_2[0][1]']          
+                                                                                                  
+ tf.compat.v1.transpose_7 (  (None, 8, 16, 785)           0         ['tf.reshape_7[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.reshape_8 (TFOpLambda)   (None, 785, 8, 16)           0         ['tf.split_2[0][2]']          
+                                                                                                  
+ tf.reshape_6 (TFOpLambda)   (None, 785, 8, 16)           0         ['tf.split_2[0][0]']          
+                                                                                                  
+ activation_929 (Activation  (None, 8, 16, 785)           0         ['tf.compat.v1.transpose_7[0][
+ )                                                                  0]']                          
+                                                                                                  
+ tf.compat.v1.transpose_8 (  (None, 8, 785, 16)           0         ['tf.reshape_8[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.compat.v1.transpose_6 (  (None, 8, 785, 16)           0         ['tf.reshape_6[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.linalg.matmul_4 (TFOpLa  (None, 8, 16, 16)            0         ['activation_929[0][0]',      
+ mbda)                                                               'tf.compat.v1.transpose_8[0][
+                                                                    0]']                          
+                                                                                                  
+ tf.linalg.matmul_5 (TFOpLa  (None, 8, 785, 16)           0         ['tf.compat.v1.transpose_6[0][
+ mbda)                                                              0]',                          
+                                                                     'tf.linalg.matmul_4[0][0]']  
+                                                                                                  
+ tf.math.multiply_2 (TFOpLa  (None, 8, 785, 16)           0         ['tf.linalg.matmul_5[0][0]']  
+ mbda)                                                                                            
+                                                                                                  
+ crpe2_ (ConvRelativePositi  (None, 8, 785, 16)           3968      ['tf.compat.v1.transpose_6[0][
+ onalEncoding)                                                      0]',                          
+                                                                     'tf.compat.v1.transpose_8[0][
+                                                                    0]',                          
+                                                                     'tf.compat.v1.transpose_9[0][
+                                                                    0]',                          
+                                                                     'tf.compat.v1.transpose_11[0]
+                                                                    [0]']                         
+                                                                                                  
+ add_302 (Add)               (None, 8, 785, 16)           0         ['tf.math.multiply_2[0][0]',  
+                                                                     'crpe2_[0][0]']              
+                                                                                                  
+ permute_2 (Permute)         (None, 785, 8, 16)           0         ['add_302[0][0]']             
+                                                                                                  
+ reshape_12 (Reshape)        (None, 785, 128)             0         ['permute_2[0][0]']           
+                                                                                                  
+ serial2_block1_factoratt_c  (None, 785, 128)             16512     ['reshape_12[0][0]']          
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_303 (Add)               (None, 785, 128)             0         ['cpe2_[0][0]',               
+                                                                     'serial2_block1_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_7 (Lay  (None, 785, 128)             256       ['add_303[0][0]']             
+ erNormalization)                                                                                 
+                                                                                                  
+ serial2_block1_mlp_dense_0  (None, 785, 1024)            132096    ['layer_normalization_7[0][0]'
+  (Dense)                                                           ]                             
+                                                                                                  
+ activation_930 (Activation  (None, 785, 1024)            0         ['serial2_block1_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial2_block1_mlp_dense_1  (None, 785, 128)             131200    ['activation_930[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_304 (Add)               (None, 785, 128)             0         ['add_303[0][0]',             
+                                                                     'serial2_block1_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ layer_normalization_8 (Lay  (None, 785, 128)             256       ['cpe2_[1][0]']               
+ erNormalization)                                                                                 
+                                                                                                  
+ serial2_block2_factoratt_c  (None, 785, 384)             49536     ['layer_normalization_8[0][0]'
+ rpe_qkv (Dense)                                                    ]                             
+                                                                                                  
+ tf.split_3 (TFOpLambda)     [(None, 785, 128),           0         ['serial2_block2_factoratt_crp
+                              (None, 785, 128),                     e_qkv[0][0]']                 
+                              (None, 785, 128)]                                                   
+                                                                                                  
+ tf.reshape_10 (TFOpLambda)  (None, 785, 8, 16)           0         ['tf.split_3[0][1]']          
+                                                                                                  
+ tf.compat.v1.transpose_10   (None, 8, 16, 785)           0         ['tf.reshape_10[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.reshape_11 (TFOpLambda)  (None, 785, 8, 16)           0         ['tf.split_3[0][2]']          
+                                                                                                  
+ tf.reshape_9 (TFOpLambda)   (None, 785, 8, 16)           0         ['tf.split_3[0][0]']          
+                                                                                                  
+ activation_931 (Activation  (None, 8, 16, 785)           0         ['tf.compat.v1.transpose_10[0]
+ )                                                                  [0]']                         
+                                                                                                  
+ tf.compat.v1.transpose_11   (None, 8, 785, 16)           0         ['tf.reshape_11[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.compat.v1.transpose_9 (  (None, 8, 785, 16)           0         ['tf.reshape_9[0][0]']        
+ TFOpLambda)                                                                                      
+                                                                                                  
+ tf.linalg.matmul_6 (TFOpLa  (None, 8, 16, 16)            0         ['activation_931[0][0]',      
+ mbda)                                                               'tf.compat.v1.transpose_11[0]
+                                                                    [0]']                         
+                                                                                                  
+ tf.linalg.matmul_7 (TFOpLa  (None, 8, 785, 16)           0         ['tf.compat.v1.transpose_9[0][
+ mbda)                                                              0]',                          
+                                                                     'tf.linalg.matmul_6[0][0]']  
+                                                                                                  
+ tf.math.multiply_3 (TFOpLa  (None, 8, 785, 16)           0         ['tf.linalg.matmul_7[0][0]']  
+ mbda)                                                                                            
+                                                                                                  
+ add_305 (Add)               (None, 8, 785, 16)           0         ['tf.math.multiply_3[0][0]',  
+                                                                     'crpe2_[1][0]']              
+                                                                                                  
+ permute_3 (Permute)         (None, 785, 8, 16)           0         ['add_305[0][0]']             
+                                                                                                  
+ reshape_13 (Reshape)        (None, 785, 128)             0         ['permute_3[0][0]']           
+                                                                                                  
+ serial2_block2_factoratt_c  (None, 785, 128)             16512     ['reshape_13[0][0]']          
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_306 (Add)               (None, 785, 128)             0         ['cpe2_[1][0]',               
+                                                                     'serial2_block2_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_9 (Lay  (None, 785, 128)             256       ['add_306[0][0]']             
+ erNormalization)                                                                                 
+                                                                                                  
+ serial2_block2_mlp_dense_0  (None, 785, 1024)            132096    ['layer_normalization_9[0][0]'
+  (Dense)                                                           ]                             
+                                                                                                  
+ activation_932 (Activation  (None, 785, 1024)            0         ['serial2_block2_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial2_block2_mlp_dense_1  (None, 785, 128)             131200    ['activation_932[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_307 (Add)               (None, 785, 128)             0         ['add_306[0][0]',             
+                                                                     'serial2_block2_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ tf.__operators__.getitem_8  (None, 784, 128)             0         ['add_307[0][0]']             
+  (SlicingOpLambda)                                                                               
+                                                                                                  
+ reshape_14 (Reshape)        (None, 28, 28, 128)          0         ['tf.__operators__.getitem_8[0
+                                                                    ][0]']                        
+                                                                                                  
+ conv2d_945 (Conv2D)         (None, 14, 14, 256)          131328    ['reshape_14[0][0]']          
+                                                                                                  
+ reshape_15 (Reshape)        (None, 196, 256)             0         ['conv2d_945[0][0]']          
+                                                                                                  
+ layer_normalization_10 (La  (None, 196, 256)             512       ['reshape_15[0][0]']          
+ yerNormalization)                                                                                
+                                                                                                  
+ serial3_class_token (Class  (None, 197, 256)             256       ['layer_normalization_10[0][0]
+ Token)                                                             ']                            
+                                                                                                  
+ cpe3_ (ConvPositionalEncod  (None, 197, 256)             2560      ['serial3_class_token[0][0]', 
+ ing)                                                                'add_310[0][0]']             
+                                                                                                  
+ layer_normalization_11 (La  (None, 197, 256)             512       ['cpe3_[0][0]']               
+ yerNormalization)                                                                                
+                                                                                                  
+ serial3_block1_factoratt_c  (None, 197, 768)             197376    ['layer_normalization_11[0][0]
+ rpe_qkv (Dense)                                                    ']                            
+                                                                                                  
+ tf.split_4 (TFOpLambda)     [(None, 197, 256),           0         ['serial3_block1_factoratt_crp
+                              (None, 197, 256),                     e_qkv[0][0]']                 
+                              (None, 197, 256)]                                                   
+                                                                                                  
+ tf.reshape_13 (TFOpLambda)  (None, 197, 8, 32)           0         ['tf.split_4[0][1]']          
+                                                                                                  
+ tf.compat.v1.transpose_13   (None, 8, 32, 197)           0         ['tf.reshape_13[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.reshape_14 (TFOpLambda)  (None, 197, 8, 32)           0         ['tf.split_4[0][2]']          
+                                                                                                  
+ tf.reshape_12 (TFOpLambda)  (None, 197, 8, 32)           0         ['tf.split_4[0][0]']          
+                                                                                                  
+ activation_933 (Activation  (None, 8, 32, 197)           0         ['tf.compat.v1.transpose_13[0]
+ )                                                                  [0]']                         
+                                                                                                  
+ tf.compat.v1.transpose_14   (None, 8, 197, 32)           0         ['tf.reshape_14[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.compat.v1.transpose_12   (None, 8, 197, 32)           0         ['tf.reshape_12[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.linalg.matmul_8 (TFOpLa  (None, 8, 32, 32)            0         ['activation_933[0][0]',      
+ mbda)                                                               'tf.compat.v1.transpose_14[0]
+                                                                    [0]']                         
+                                                                                                  
+ tf.linalg.matmul_9 (TFOpLa  (None, 8, 197, 32)           0         ['tf.compat.v1.transpose_12[0]
+ mbda)                                                              [0]',                         
+                                                                     'tf.linalg.matmul_8[0][0]']  
+                                                                                                  
+ tf.math.multiply_4 (TFOpLa  (None, 8, 197, 32)           0         ['tf.linalg.matmul_9[0][0]']  
+ mbda)                                                                                            
+                                                                                                  
+ crpe3_ (ConvRelativePositi  (None, 8, 197, 32)           7936      ['tf.compat.v1.transpose_12[0]
+ onalEncoding)                                                      [0]',                         
+                                                                     'tf.compat.v1.transpose_14[0]
+                                                                    [0]',                         
+                                                                     'tf.compat.v1.transpose_15[0]
+                                                                    [0]',                         
+                                                                     'tf.compat.v1.transpose_17[0]
+                                                                    [0]']                         
+                                                                                                  
+ add_308 (Add)               (None, 8, 197, 32)           0         ['tf.math.multiply_4[0][0]',  
+                                                                     'crpe3_[0][0]']              
+                                                                                                  
+ permute_4 (Permute)         (None, 197, 8, 32)           0         ['add_308[0][0]']             
+                                                                                                  
+ reshape_16 (Reshape)        (None, 197, 256)             0         ['permute_4[0][0]']           
+                                                                                                  
+ serial3_block1_factoratt_c  (None, 197, 256)             65792     ['reshape_16[0][0]']          
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_309 (Add)               (None, 197, 256)             0         ['cpe3_[0][0]',               
+                                                                     'serial3_block1_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_12 (La  (None, 197, 256)             512       ['add_309[0][0]']             
+ yerNormalization)                                                                                
+                                                                                                  
+ serial3_block1_mlp_dense_0  (None, 197, 1024)            263168    ['layer_normalization_12[0][0]
+  (Dense)                                                           ']                            
+                                                                                                  
+ activation_934 (Activation  (None, 197, 1024)            0         ['serial3_block1_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial3_block1_mlp_dense_1  (None, 197, 256)             262400    ['activation_934[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_310 (Add)               (None, 197, 256)             0         ['add_309[0][0]',             
+                                                                     'serial3_block1_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ layer_normalization_13 (La  (None, 197, 256)             512       ['cpe3_[1][0]']               
+ yerNormalization)                                                                                
+                                                                                                  
+ serial3_block2_factoratt_c  (None, 197, 768)             197376    ['layer_normalization_13[0][0]
+ rpe_qkv (Dense)                                                    ']                            
+                                                                                                  
+ tf.split_5 (TFOpLambda)     [(None, 197, 256),           0         ['serial3_block2_factoratt_crp
+                              (None, 197, 256),                     e_qkv[0][0]']                 
+                              (None, 197, 256)]                                                   
+                                                                                                  
+ tf.reshape_16 (TFOpLambda)  (None, 197, 8, 32)           0         ['tf.split_5[0][1]']          
+                                                                                                  
+ tf.compat.v1.transpose_16   (None, 8, 32, 197)           0         ['tf.reshape_16[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.reshape_17 (TFOpLambda)  (None, 197, 8, 32)           0         ['tf.split_5[0][2]']          
+                                                                                                  
+ tf.reshape_15 (TFOpLambda)  (None, 197, 8, 32)           0         ['tf.split_5[0][0]']          
+                                                                                                  
+ activation_935 (Activation  (None, 8, 32, 197)           0         ['tf.compat.v1.transpose_16[0]
+ )                                                                  [0]']                         
+                                                                                                  
+ tf.compat.v1.transpose_17   (None, 8, 197, 32)           0         ['tf.reshape_17[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.compat.v1.transpose_15   (None, 8, 197, 32)           0         ['tf.reshape_15[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.linalg.matmul_10 (TFOpL  (None, 8, 32, 32)            0         ['activation_935[0][0]',      
+ ambda)                                                              'tf.compat.v1.transpose_17[0]
+                                                                    [0]']                         
+                                                                                                  
+ tf.linalg.matmul_11 (TFOpL  (None, 8, 197, 32)           0         ['tf.compat.v1.transpose_15[0]
+ ambda)                                                             [0]',                         
+                                                                     'tf.linalg.matmul_10[0][0]'] 
+                                                                                                  
+ tf.math.multiply_5 (TFOpLa  (None, 8, 197, 32)           0         ['tf.linalg.matmul_11[0][0]'] 
+ mbda)                                                                                            
+                                                                                                  
+ add_311 (Add)               (None, 8, 197, 32)           0         ['tf.math.multiply_5[0][0]',  
+                                                                     'crpe3_[1][0]']              
+                                                                                                  
+ permute_5 (Permute)         (None, 197, 8, 32)           0         ['add_311[0][0]']             
+                                                                                                  
+ reshape_17 (Reshape)        (None, 197, 256)             0         ['permute_5[0][0]']           
+                                                                                                  
+ serial3_block2_factoratt_c  (None, 197, 256)             65792     ['reshape_17[0][0]']          
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_312 (Add)               (None, 197, 256)             0         ['cpe3_[1][0]',               
+                                                                     'serial3_block2_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_14 (La  (None, 197, 256)             512       ['add_312[0][0]']             
+ yerNormalization)                                                                                
+                                                                                                  
+ serial3_block2_mlp_dense_0  (None, 197, 1024)            263168    ['layer_normalization_14[0][0]
+  (Dense)                                                           ']                            
+                                                                                                  
+ activation_936 (Activation  (None, 197, 1024)            0         ['serial3_block2_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial3_block2_mlp_dense_1  (None, 197, 256)             262400    ['activation_936[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_313 (Add)               (None, 197, 256)             0         ['add_312[0][0]',             
+                                                                     'serial3_block2_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ tf.__operators__.getitem_9  (None, 196, 256)             0         ['add_313[0][0]']             
+  (SlicingOpLambda)                                                                               
+                                                                                                  
+ reshape_18 (Reshape)        (None, 14, 14, 256)          0         ['tf.__operators__.getitem_9[0
+                                                                    ][0]']                        
+                                                                                                  
+ conv2d_946 (Conv2D)         (None, 7, 7, 320)            328000    ['reshape_18[0][0]']          
+                                                                                                  
+ reshape_19 (Reshape)        (None, 49, 320)              0         ['conv2d_946[0][0]']          
+                                                                                                  
+ layer_normalization_15 (La  (None, 49, 320)              640       ['reshape_19[0][0]']          
+ yerNormalization)                                                                                
+                                                                                                  
+ serial4_class_token (Class  (None, 50, 320)              320       ['layer_normalization_15[0][0]
+ Token)                                                             ']                            
+                                                                                                  
+ cpe4_ (ConvPositionalEncod  (None, 50, 320)              3200      ['serial4_class_token[0][0]', 
+ ing)                                                                'add_316[0][0]']             
+                                                                                                  
+ layer_normalization_16 (La  (None, 50, 320)              640       ['cpe4_[0][0]']               
+ yerNormalization)                                                                                
+                                                                                                  
+ serial4_block1_factoratt_c  (None, 50, 960)              308160    ['layer_normalization_16[0][0]
+ rpe_qkv (Dense)                                                    ']                            
+                                                                                                  
+ tf.split_6 (TFOpLambda)     [(None, 50, 320),            0         ['serial4_block1_factoratt_crp
+                              (None, 50, 320),                      e_qkv[0][0]']                 
+                              (None, 50, 320)]                                                    
+                                                                                                  
+ tf.reshape_19 (TFOpLambda)  (None, 50, 8, 40)            0         ['tf.split_6[0][1]']          
+                                                                                                  
+ tf.compat.v1.transpose_19   (None, 8, 40, 50)            0         ['tf.reshape_19[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.reshape_20 (TFOpLambda)  (None, 50, 8, 40)            0         ['tf.split_6[0][2]']          
+                                                                                                  
+ tf.reshape_18 (TFOpLambda)  (None, 50, 8, 40)            0         ['tf.split_6[0][0]']          
+                                                                                                  
+ activation_937 (Activation  (None, 8, 40, 50)            0         ['tf.compat.v1.transpose_19[0]
+ )                                                                  [0]']                         
+                                                                                                  
+ tf.compat.v1.transpose_20   (None, 8, 50, 40)            0         ['tf.reshape_20[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.compat.v1.transpose_18   (None, 8, 50, 40)            0         ['tf.reshape_18[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.linalg.matmul_12 (TFOpL  (None, 8, 40, 40)            0         ['activation_937[0][0]',      
+ ambda)                                                              'tf.compat.v1.transpose_20[0]
+                                                                    [0]']                         
+                                                                                                  
+ tf.linalg.matmul_13 (TFOpL  (None, 8, 50, 40)            0         ['tf.compat.v1.transpose_18[0]
+ ambda)                                                             [0]',                         
+                                                                     'tf.linalg.matmul_12[0][0]'] 
+                                                                                                  
+ tf.math.multiply_6 (TFOpLa  (None, 8, 50, 40)            0         ['tf.linalg.matmul_13[0][0]'] 
+ mbda)                                                                                            
+                                                                                                  
+ crpe4_ (ConvRelativePositi  (None, 8, 50, 40)            9920      ['tf.compat.v1.transpose_18[0]
+ onalEncoding)                                                      [0]',                         
+                                                                     'tf.compat.v1.transpose_20[0]
+                                                                    [0]',                         
+                                                                     'tf.compat.v1.transpose_21[0]
+                                                                    [0]',                         
+                                                                     'tf.compat.v1.transpose_23[0]
+                                                                    [0]']                         
+                                                                                                  
+ add_314 (Add)               (None, 8, 50, 40)            0         ['tf.math.multiply_6[0][0]',  
+                                                                     'crpe4_[0][0]']              
+                                                                                                  
+ permute_6 (Permute)         (None, 50, 8, 40)            0         ['add_314[0][0]']             
+                                                                                                  
+ reshape_20 (Reshape)        (None, 50, 320)              0         ['permute_6[0][0]']           
+                                                                                                  
+ serial4_block1_factoratt_c  (None, 50, 320)              102720    ['reshape_20[0][0]']          
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_315 (Add)               (None, 50, 320)              0         ['cpe4_[0][0]',               
+                                                                     'serial4_block1_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_17 (La  (None, 50, 320)              640       ['add_315[0][0]']             
+ yerNormalization)                                                                                
+                                                                                                  
+ serial4_block1_mlp_dense_0  (None, 50, 1280)             410880    ['layer_normalization_17[0][0]
+  (Dense)                                                           ']                            
+                                                                                                  
+ activation_938 (Activation  (None, 50, 1280)             0         ['serial4_block1_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial4_block1_mlp_dense_1  (None, 50, 320)              409920    ['activation_938[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_316 (Add)               (None, 50, 320)              0         ['add_315[0][0]',             
+                                                                     'serial4_block1_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ layer_normalization_18 (La  (None, 50, 320)              640       ['cpe4_[1][0]']               
+ yerNormalization)                                                                                
+                                                                                                  
+ serial4_block2_factoratt_c  (None, 50, 960)              308160    ['layer_normalization_18[0][0]
+ rpe_qkv (Dense)                                                    ']                            
+                                                                                                  
+ tf.split_7 (TFOpLambda)     [(None, 50, 320),            0         ['serial4_block2_factoratt_crp
+                              (None, 50, 320),                      e_qkv[0][0]']                 
+                              (None, 50, 320)]                                                    
+                                                                                                  
+ tf.reshape_22 (TFOpLambda)  (None, 50, 8, 40)            0         ['tf.split_7[0][1]']          
+                                                                                                  
+ tf.compat.v1.transpose_22   (None, 8, 40, 50)            0         ['tf.reshape_22[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.reshape_23 (TFOpLambda)  (None, 50, 8, 40)            0         ['tf.split_7[0][2]']          
+                                                                                                  
+ tf.reshape_21 (TFOpLambda)  (None, 50, 8, 40)            0         ['tf.split_7[0][0]']          
+                                                                                                  
+ activation_939 (Activation  (None, 8, 40, 50)            0         ['tf.compat.v1.transpose_22[0]
+ )                                                                  [0]']                         
+                                                                                                  
+ tf.compat.v1.transpose_23   (None, 8, 50, 40)            0         ['tf.reshape_23[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.compat.v1.transpose_21   (None, 8, 50, 40)            0         ['tf.reshape_21[0][0]']       
+ (TFOpLambda)                                                                                     
+                                                                                                  
+ tf.linalg.matmul_14 (TFOpL  (None, 8, 40, 40)            0         ['activation_939[0][0]',      
+ ambda)                                                              'tf.compat.v1.transpose_23[0]
+                                                                    [0]']                         
+                                                                                                  
+ tf.linalg.matmul_15 (TFOpL  (None, 8, 50, 40)            0         ['tf.compat.v1.transpose_21[0]
+ ambda)                                                             [0]',                         
+                                                                     'tf.linalg.matmul_14[0][0]'] 
+                                                                                                  
+ tf.math.multiply_7 (TFOpLa  (None, 8, 50, 40)            0         ['tf.linalg.matmul_15[0][0]'] 
+ mbda)                                                                                            
+                                                                                                  
+ add_317 (Add)               (None, 8, 50, 40)            0         ['tf.math.multiply_7[0][0]',  
+                                                                     'crpe4_[1][0]']              
+                                                                                                  
+ permute_7 (Permute)         (None, 50, 8, 40)            0         ['add_317[0][0]']             
+                                                                                                  
+ reshape_21 (Reshape)        (None, 50, 320)              0         ['permute_7[0][0]']           
+                                                                                                  
+ serial4_block2_factoratt_c  (None, 50, 320)              102720    ['reshape_21[0][0]']          
+ rpe_out (Dense)                                                                                  
+                                                                                                  
+ add_318 (Add)               (None, 50, 320)              0         ['cpe4_[1][0]',               
+                                                                     'serial4_block2_factoratt_crp
+                                                                    e_out[0][0]']                 
+                                                                                                  
+ layer_normalization_19 (La  (None, 50, 320)              640       ['add_318[0][0]']             
+ yerNormalization)                                                                                
+                                                                                                  
+ serial4_block2_mlp_dense_0  (None, 50, 1280)             410880    ['layer_normalization_19[0][0]
+  (Dense)                                                           ']                            
+                                                                                                  
+ activation_940 (Activation  (None, 50, 1280)             0         ['serial4_block2_mlp_dense_0[0
+ )                                                                  ][0]']                        
+                                                                                                  
+ serial4_block2_mlp_dense_1  (None, 50, 320)              409920    ['activation_940[0][0]']      
+  (Dense)                                                                                         
+                                                                                                  
+ add_319 (Add)               (None, 50, 320)              0         ['add_318[0][0]',             
+                                                                     'serial4_block2_mlp_dense_1[0
+                                                                    ][0]']                        
+                                                                                                  
+ layer_normalization_20 (La  (None, 50, 320)              640       ['add_319[0][0]']             
+ yerNormalization)                                                                                
+                                                                                                  
+ tf.__operators__.getitem_1  (None, 320)                  0         ['layer_normalization_20[0][0]
+ 1 (SlicingOpLambda)                                                ']                            
+                                                                                                  
+ predictions (Dense)         (None, 1000)                 321000    ['tf.__operators__.getitem_11[
+                                                                    0][0]']                       
+                                                                                                  
+ activation_941 (Activation  (None, 1000)                 0         ['predictions[0][0]']         
+ )                                                                                                
+                                                                                                  
+==================================================================================================
+Total params: 5721960 (21.83 MB)
+Trainable params: 5721960 (21.83 MB)
+Non-trainable params: 0 (0.00 Byte)
+__________________________________________________________________________________________________

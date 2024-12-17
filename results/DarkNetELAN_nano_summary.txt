@@ -1,0 +1,52 @@
+Model: "DarkNet-ELAN-nano"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_109 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem.block1 (ConvolutionBl  (None, 224, 224, 32)      992       
+ ock)                                                            
+                                                                 
+ stem.block2 (ConvolutionBl  (None, 112, 112, 64)      18688     
+ ock)                                                            
+                                                                 
+ stem.block3 (ConvolutionBl  (None, 112, 112, 64)      37120     
+ ock)                                                            
+                                                                 
+ stage1.block1 (Convolution  (None, 56, 56, 128)       74240     
+ Block)                                                          
+                                                                 
+ stage1.block2 (ScaleUpConc  (None, 56, 56, 256)       231936    
+ atBlock)                                                        
+                                                                 
+ stage2.block1 (TransitionB  (None, 28, 28, 256)       214528    
+ lock)                                                           
+                                                                 
+ stage2.block2 (ScaleUpConc  (None, 28, 28, 512)       922624    
+ atBlock)                                                        
+                                                                 
+ stage3.block1 (TransitionB  (None, 14, 14, 512)       855040    
+ lock)                                                           
+                                                                 
+ stage3.block2 (ScaleUpConc  (None, 14, 14, 1024)      3680256   
+ atBlock)                                                        
+                                                                 
+ stage4.block1 (TransitionB  (None, 7, 7, 1024)        3414016   
+ lock)                                                           
+                                                                 
+ stage4.block2 (ScaleUpConc  (None, 7, 7, 1024)        3942400   
+ atBlock)                                                        
+                                                                 
+ global_avgpool (GlobalAver  (None, 1024)              0         
+ agePooling2D)                                                   
+                                                                 
+ predictions (Dense)         (None, 1000)              1025000   
+                                                                 
+ activation_1375 (Activatio  (None, 1000)              0         
+ n)                                                              
+                                                                 
+=================================================================
+Total params: 14416840 (55.00 MB)
+Trainable params: 14396808 (54.92 MB)
+Non-trainable params: 20032 (78.25 KB)
+_________________________________________________________________

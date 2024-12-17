@@ -1,0 +1,40 @@
+Model: "Efficient-Rep6-large_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_160 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (ConvolutionBlock)     (None, 112, 112, 64)      1984      
+                                                                 
+ stage1.block1 (Convolution  (None, 56, 56, 128)       74240     
+ Block)                                                          
+                                                                 
+ stage1.block2 (BepC3)       (None, 56, 56, 128)       256515    
+                                                                 
+ stage2.block1 (Convolution  (None, 28, 28, 256)       295936    
+ Block)                                                          
+                                                                 
+ stage2.block2 (BepC3)       (None, 28, 28, 256)       1908742   
+                                                                 
+ stage3.block1 (Convolution  (None, 14, 14, 512)       1181696   
+ Block)                                                          
+                                                                 
+ stage3.block2 (BepC3)       (None, 14, 14, 512)       11163657  
+                                                                 
+ stage4.block1 (Convolution  (None, 7, 7, 768)         3542016   
+ Block)                                                          
+                                                                 
+ stage4.block2 (BepC3)       (None, 7, 7, 768)         9157635   
+                                                                 
+ stage5.block1 (Convolution  (None, 3, 3, 1024)        7081984   
+ Block)                                                          
+                                                                 
+ stage5.block2 (BepC3)       (None, 3, 3, 1024)        16273411  
+                                                                 
+ stage5.block3 (SPPF)        (None, 3, 3, 1024)        2627584   
+                                                                 
+=================================================================
+Total params: 53565400 (204.34 MB)
+Trainable params: 53522264 (204.17 MB)
+Non-trainable params: 43136 (168.50 KB)
+_________________________________________________________________

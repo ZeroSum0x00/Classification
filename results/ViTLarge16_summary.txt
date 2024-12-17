@@ -1,0 +1,102 @@
+Model: "ViT-Large-16"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_87 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ extract_patches_12 (Extrac  (None, 196, 1024)         787456    
+ tPatches)                                                       
+                                                                 
+ class_token (Classificatio  (None, 197, 1024)         1024      
+ nToken)                                                         
+                                                                 
+ Transformer/posembed_input  (None, 197, 1024)         201728    
+  (PositionalEmbedding)                                          
+                                                                 
+ Transformer/encoderblock_0  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_2  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_3  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_4  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_5  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_6  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_7  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_8  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_9  multiple                  12600320  
+  (TransformerBlock)                                             
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 0 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 1 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 2 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 3 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 4 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 5 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 6 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 7 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 8 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_1  multiple                  12600320  
+ 9 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_2  multiple                  12600320  
+ 0 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_2  multiple                  12600320  
+ 1 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_2  multiple                  12600320  
+ 2 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoderblock_2  multiple                  12600320  
+ 3 (TransformerBlock)                                            
+                                                                 
+ Transformer/encoder_norm (  (None, 197, 1024)         2048      
+ LayerNormalization)                                             
+                                                                 
+ ExtractToken (Lambda)       (None, 1024)              0         
+                                                                 
+ predictions (Dense)         (None, 1000)              1025000   
+                                                                 
+ activation_141 (Activation  (None, 1000)              0         
+ )                                                               
+                                                                 
+=================================================================
+Total params: 304424936 (1.13 GB)
+Trainable params: 304424936 (1.13 GB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

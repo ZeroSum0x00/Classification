@@ -1,0 +1,48 @@
+Model: "Efficient-Rep6-medium"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_161 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (RepVGGBlock)          (None, 112, 112, 48)      1344      
+                                                                 
+ stage1.block1 (RepVGGBlock  (None, 56, 56, 96)        41568     
+ )                                                               
+                                                                 
+ stage1.block2 (BepC3)       (None, 56, 56, 96)        173186    
+                                                                 
+ stage2.block1 (RepVGGBlock  (None, 28, 28, 192)       166080    
+ )                                                               
+                                                                 
+ stage2.block2 (BepC3)       (None, 28, 28, 192)       985603    
+                                                                 
+ stage3.block1 (RepVGGBlock  (None, 14, 14, 384)       663936    
+ )                                                               
+                                                                 
+ stage3.block2 (BepC3)       (None, 14, 14, 384)       6297605   
+                                                                 
+ stage4.block1 (RepVGGBlock  (None, 7, 7, 576)         1991232   
+ )                                                               
+                                                                 
+ stage4.block2 (BepC3)       (None, 7, 7, 576)         6200066   
+                                                                 
+ stage5.block1 (RepVGGBlock  (None, 4, 4, 768)         3982080   
+ )                                                               
+                                                                 
+ stage5.block2 (BepC3)       (None, 4, 4, 768)         11019266  
+                                                                 
+ stage5.block3 (SPPF)        (None, 4, 4, 768)         1479168   
+                                                                 
+ global_avgpool (GlobalAver  (None, 768)               0         
+ agePooling2D)                                                   
+                                                                 
+ predictions (Dense)         (None, 1000)              769000    
+                                                                 
+ activation_1429 (Activatio  (None, 1000)              0         
+ n)                                                              
+                                                                 
+=================================================================
+Total params: 33770134 (128.82 MB)
+Trainable params: 33758422 (128.78 MB)
+Non-trainable params: 11712 (45.75 KB)
+_________________________________________________________________

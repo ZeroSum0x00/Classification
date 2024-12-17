@@ -1,0 +1,87 @@
+Model: "RepVGG-A2"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_26 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ RepVGG_block_1 (RepVGGBloc  (None, 112, 112, 64)      1792      
+ k)                                                              
+                                                                 
+ RepVGG_block_2 (RepVGGBloc  (None, 56, 56, 96)        55392     
+ k)                                                              
+                                                                 
+ RepVGG_block_3 (RepVGGBloc  (None, 56, 56, 96)        83040     
+ k)                                                              
+                                                                 
+ RepVGG_block_4 (RepVGGBloc  (None, 28, 28, 192)       166080    
+ k)                                                              
+                                                                 
+ RepVGG_block_5 (RepVGGBloc  (None, 28, 28, 192)       331968    
+ k)                                                              
+                                                                 
+ RepVGG_block_6 (RepVGGBloc  (None, 28, 28, 192)       331968    
+ k)                                                              
+                                                                 
+ RepVGG_block_7 (RepVGGBloc  (None, 28, 28, 192)       331968    
+ k)                                                              
+                                                                 
+ RepVGG_block_8 (RepVGGBloc  (None, 14, 14, 384)       663936    
+ k)                                                              
+                                                                 
+ RepVGG_block_9 (RepVGGBloc  (None, 14, 14, 384)       1327488   
+ k)                                                              
+                                                                 
+ RepVGG_block_10 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_11 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_12 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_13 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_14 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_15 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_16 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_17 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_18 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_19 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_20 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_21 (RepVGGBlo  (None, 14, 14, 384)       1327488   
+ ck)                                                             
+                                                                 
+ RepVGG_block_22 (RepVGGBlo  (None, 7, 7, 1408)        4867456   
+ ck)                                                             
+                                                                 
+ adaptive_average_pooling2d  (None, 1, 1, 1408)        0         
+ _2 (AdaptiveAveragePooling                                      
+ 2D)                                                             
+                                                                 
+ flatten (Flatten)           (None, 1408)              0         
+                                                                 
+ predictions (Dense)         (None, 1000)              1409000   
+                                                                 
+ activation_45 (Activation)  (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 25499944 (97.27 MB)
+Trainable params: 25499944 (97.27 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

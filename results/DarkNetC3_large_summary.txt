@@ -1,0 +1,43 @@
+Model: "DarkNet-C3-Large"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_58 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (StemBlock)            (None, 112, 112, 64)      7168      
+                                                                 
+ stage1.block1 (Convolution  (None, 56, 56, 128)       74240     
+ Block)                                                          
+                                                                 
+ stage1.block2 (C3)          (None, 56, 56, 128)       158208    
+                                                                 
+ stage2.block1 (Convolution  (None, 28, 28, 256)       295936    
+ Block)                                                          
+                                                                 
+ stage2.block2 (C3)          (None, 28, 28, 256)       1122304   
+                                                                 
+ stage3.block1 (Convolution  (None, 14, 14, 512)       1181696   
+ Block)                                                          
+                                                                 
+ stage3.block2 (C3)          (None, 14, 14, 512)       6445056   
+                                                                 
+ stage4.block1 (Convolution  (None, 7, 7, 1024)        4722688   
+ Block)                                                          
+                                                                 
+ stage4.block2 (C3)          (None, 7, 7, 1024)        9981952   
+                                                                 
+ stage4.block3 (SPP)         (None, 7, 7, 1024)        2627584   
+                                                                 
+ global_avgpool (GlobalAver  (None, 1024)              0         
+ agePooling2D)                                                   
+                                                                 
+ predictions (Dense)         (None, 1000)              1025000   
+                                                                 
+ activation_1342 (Activatio  (None, 1000)              0         
+ n)                                                              
+                                                                 
+=================================================================
+Total params: 27641832 (105.45 MB)
+Trainable params: 27607912 (105.32 MB)
+Non-trainable params: 33920 (132.50 KB)
+_________________________________________________________________

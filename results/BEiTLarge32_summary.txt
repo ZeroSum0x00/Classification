@@ -1,0 +1,103 @@
+Model: "BEiT-Large-32"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_8 (InputLayer)        [(None, 224, 224, 3)]     0         
+                                                                 
+ stem_conv (PatchConv2DWith  (None, 7, 7, 1024)        3146752   
+ ResampleWeights)                                                
+                                                                 
+ reshape_6 (Reshape)         (None, 49, 1024)          0         
+                                                                 
+ cls_token (ClassToken)      (None, 50, 1024)          1024      
+                                                                 
+ AttentionMLP_block_1 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_2 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_3 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_4 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_5 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_6 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_7 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_8 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_9 (Atte  (None, 50, 1024)          12600000  
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_10 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_11 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_12 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_13 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_14 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_15 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_16 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_17 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_18 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_19 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_20 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_21 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_22 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_23 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_24 (Att  (None, 50, 1024)          12600000  
+ entionMLPBlock)                                                 
+                                                                 
+ tf.__operators__.getitem_6  (None, 49, 1024)          0         
+  (SlicingOpLambda)                                              
+                                                                 
+ tf.math.reduce_mean_6 (TFO  (None, 1024)              0         
+ pLambda)                                                        
+                                                                 
+ out_ln (LayerNormalization  (None, 1024)              2048      
+ )                                                               
+                                                                 
+ predictions (Dense)         (None, 1000)              1025000   
+                                                                 
+ activation_14 (Activation)  (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 306574824 (1.14 GB)
+Trainable params: 306574824 (1.14 GB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

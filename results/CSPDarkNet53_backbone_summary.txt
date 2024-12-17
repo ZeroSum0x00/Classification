@@ -1,0 +1,43 @@
+Model: "CSPDarkNet-53_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_20 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (ConvolutionBlock)     (None, 224, 224, 32)      992       
+                                                                 
+ stage1_block1 (Convolution  (None, 112, 112, 64)      18688     
+ Block)                                                          
+                                                                 
+ stage1_block2 (CSPDarkNetB  (None, 112, 112, 64)      42368     
+ lock)                                                           
+                                                                 
+ stage2_block1 (Convolution  (None, 56, 56, 128)       74240     
+ Block)                                                          
+                                                                 
+ stage2_block2 (CSPDarkNetB  (None, 56, 56, 128)       121088    
+ lock)                                                           
+                                                                 
+ stage3_block1 (Convolution  (None, 28, 28, 256)       295936    
+ Block)                                                          
+                                                                 
+ stage3_block2 (CSPDarkNetB  (None, 28, 28, 256)       1468928   
+ lock)                                                           
+                                                                 
+ stage4_block1 (Convolution  (None, 14, 14, 512)       1181696   
+ Block)                                                          
+                                                                 
+ stage4_block2 (CSPDarkNetB  (None, 14, 14, 512)       5854208   
+ lock)                                                           
+                                                                 
+ stage5_block1 (Convolution  (None, 7, 7, 1024)        4722688   
+ Block)                                                          
+                                                                 
+ stage5_block2 (CSPDarkNetB  (None, 7, 7, 1024)        12871680  
+ lock)                                                           
+                                                                 
+=================================================================
+Total params: 26652512 (101.67 MB)
+Trainable params: 26617184 (101.54 MB)
+Non-trainable params: 35328 (138.00 KB)
+_________________________________________________________________

@@ -1,0 +1,712 @@
+Model: "EfficientNet-B0"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_150 (InputLayer)      [(None, 224, 224, 3)]        0         []                            
+                                                                                                  
+ stem_conv_pad (ZeroPadding  (None, 225, 225, 3)          0         ['input_150[0][0]']           
+ 2D)                                                                                              
+                                                                                                  
+ stem_conv (Conv2D)          (None, 112, 112, 32)         864       ['stem_conv_pad[0][0]']       
+                                                                                                  
+ stem_bn (BatchNormalizatio  (None, 112, 112, 32)         128       ['stem_conv[0][0]']           
+ n)                                                                                               
+                                                                                                  
+ stem_activation (Activatio  (None, 112, 112, 32)         0         ['stem_bn[0][0]']             
+ n)                                                                                               
+                                                                                                  
+ block_1a_dwconv (Depthwise  (None, 112, 112, 32)         288       ['stem_activation[0][0]']     
+ Conv2D)                                                                                          
+                                                                                                  
+ block_1a_bn (LayerNormaliz  (None, 112, 112, 32)         64        ['block_1a_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_1a_activation (Activ  (None, 112, 112, 32)         0         ['block_1a_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_1a_se_squeeze (Globa  (None, 32)                   0         ['block_1a_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_1a_se_reshape (Resha  (None, 1, 1, 32)             0         ['block_1a_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_1a_se_reduce (Conv2D  (None, 1, 1, 8)              264       ['block_1a_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_1a_se_expand (Conv2D  (None, 1, 1, 32)             288       ['block_1a_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_1a_se_excite (Multip  (None, 112, 112, 32)         0         ['block_1a_activation[0][0]', 
+ ly)                                                                 'block_1a_se_expand[0][0]']  
+                                                                                                  
+ block_1a_project_conv (Con  (None, 112, 112, 16)         512       ['block_1a_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_1a_project_bn (Layer  (None, 112, 112, 16)         32        ['block_1a_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_2a_expand_conv (Conv  (None, 112, 112, 96)         1536      ['block_1a_project_bn[0][0]'] 
+ 2D)                                                                                              
+                                                                                                  
+ block_2a_expand_bn (LayerN  (None, 112, 112, 96)         192       ['block_2a_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_2a_expand_activation  (None, 112, 112, 96)         0         ['block_2a_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_2a_dwconv_pad (ZeroP  (None, 113, 113, 96)         0         ['block_2a_expand_activation[0
+ adding2D)                                                          ][0]']                        
+                                                                                                  
+ block_2a_dwconv (Depthwise  (None, 56, 56, 96)           864       ['block_2a_dwconv_pad[0][0]'] 
+ Conv2D)                                                                                          
+                                                                                                  
+ block_2a_bn (LayerNormaliz  (None, 56, 56, 96)           192       ['block_2a_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_2a_activation (Activ  (None, 56, 56, 96)           0         ['block_2a_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_2a_se_squeeze (Globa  (None, 96)                   0         ['block_2a_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_2a_se_reshape (Resha  (None, 1, 1, 96)             0         ['block_2a_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_2a_se_reduce (Conv2D  (None, 1, 1, 4)              388       ['block_2a_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_2a_se_expand (Conv2D  (None, 1, 1, 96)             480       ['block_2a_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_2a_se_excite (Multip  (None, 56, 56, 96)           0         ['block_2a_activation[0][0]', 
+ ly)                                                                 'block_2a_se_expand[0][0]']  
+                                                                                                  
+ block_2a_project_conv (Con  (None, 56, 56, 24)           2304      ['block_2a_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_2a_project_bn (Layer  (None, 56, 56, 24)           48        ['block_2a_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_2b_expand_conv (Conv  (None, 56, 56, 144)          3456      ['block_2a_project_bn[0][0]'] 
+ 2D)                                                                                              
+                                                                                                  
+ block_2b_expand_bn (LayerN  (None, 56, 56, 144)          288       ['block_2b_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_2b_expand_activation  (None, 56, 56, 144)          0         ['block_2b_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_2b_dwconv (Depthwise  (None, 56, 56, 144)          1296      ['block_2b_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_2b_bn (LayerNormaliz  (None, 56, 56, 144)          288       ['block_2b_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_2b_activation (Activ  (None, 56, 56, 144)          0         ['block_2b_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_2b_se_squeeze (Globa  (None, 144)                  0         ['block_2b_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_2b_se_reshape (Resha  (None, 1, 1, 144)            0         ['block_2b_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_2b_se_reduce (Conv2D  (None, 1, 1, 6)              870       ['block_2b_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_2b_se_expand (Conv2D  (None, 1, 1, 144)            1008      ['block_2b_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_2b_se_excite (Multip  (None, 56, 56, 144)          0         ['block_2b_activation[0][0]', 
+ ly)                                                                 'block_2b_se_expand[0][0]']  
+                                                                                                  
+ block_2b_project_conv (Con  (None, 56, 56, 24)           3456      ['block_2b_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_2b_project_bn (Layer  (None, 56, 56, 24)           48        ['block_2b_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_2b_drop (Dropout)     (None, 56, 56, 24)           0         ['block_2b_project_bn[0][0]'] 
+                                                                                                  
+ block_2b_add (Add)          (None, 56, 56, 24)           0         ['block_2b_drop[0][0]',       
+                                                                     'block_2a_project_bn[0][0]'] 
+                                                                                                  
+ block_3a_expand_conv (Conv  (None, 56, 56, 144)          3456      ['block_2b_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_3a_expand_bn (LayerN  (None, 56, 56, 144)          288       ['block_3a_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_3a_expand_activation  (None, 56, 56, 144)          0         ['block_3a_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_3a_dwconv_pad (ZeroP  (None, 59, 59, 144)          0         ['block_3a_expand_activation[0
+ adding2D)                                                          ][0]']                        
+                                                                                                  
+ block_3a_dwconv (Depthwise  (None, 28, 28, 144)          3600      ['block_3a_dwconv_pad[0][0]'] 
+ Conv2D)                                                                                          
+                                                                                                  
+ block_3a_bn (LayerNormaliz  (None, 28, 28, 144)          288       ['block_3a_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_3a_activation (Activ  (None, 28, 28, 144)          0         ['block_3a_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_3a_se_squeeze (Globa  (None, 144)                  0         ['block_3a_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_3a_se_reshape (Resha  (None, 1, 1, 144)            0         ['block_3a_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_3a_se_reduce (Conv2D  (None, 1, 1, 6)              870       ['block_3a_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_3a_se_expand (Conv2D  (None, 1, 1, 144)            1008      ['block_3a_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_3a_se_excite (Multip  (None, 28, 28, 144)          0         ['block_3a_activation[0][0]', 
+ ly)                                                                 'block_3a_se_expand[0][0]']  
+                                                                                                  
+ block_3a_project_conv (Con  (None, 28, 28, 40)           5760      ['block_3a_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_3a_project_bn (Layer  (None, 28, 28, 40)           80        ['block_3a_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_3b_expand_conv (Conv  (None, 28, 28, 240)          9600      ['block_3a_project_bn[0][0]'] 
+ 2D)                                                                                              
+                                                                                                  
+ block_3b_expand_bn (LayerN  (None, 28, 28, 240)          480       ['block_3b_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_3b_expand_activation  (None, 28, 28, 240)          0         ['block_3b_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_3b_dwconv (Depthwise  (None, 28, 28, 240)          6000      ['block_3b_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_3b_bn (LayerNormaliz  (None, 28, 28, 240)          480       ['block_3b_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_3b_activation (Activ  (None, 28, 28, 240)          0         ['block_3b_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_3b_se_squeeze (Globa  (None, 240)                  0         ['block_3b_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_3b_se_reshape (Resha  (None, 1, 1, 240)            0         ['block_3b_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_3b_se_reduce (Conv2D  (None, 1, 1, 10)             2410      ['block_3b_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_3b_se_expand (Conv2D  (None, 1, 1, 240)            2640      ['block_3b_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_3b_se_excite (Multip  (None, 28, 28, 240)          0         ['block_3b_activation[0][0]', 
+ ly)                                                                 'block_3b_se_expand[0][0]']  
+                                                                                                  
+ block_3b_project_conv (Con  (None, 28, 28, 40)           9600      ['block_3b_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_3b_project_bn (Layer  (None, 28, 28, 40)           80        ['block_3b_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_3b_drop (Dropout)     (None, 28, 28, 40)           0         ['block_3b_project_bn[0][0]'] 
+                                                                                                  
+ block_3b_add (Add)          (None, 28, 28, 40)           0         ['block_3b_drop[0][0]',       
+                                                                     'block_3a_project_bn[0][0]'] 
+                                                                                                  
+ block_4a_expand_conv (Conv  (None, 28, 28, 240)          9600      ['block_3b_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_4a_expand_bn (LayerN  (None, 28, 28, 240)          480       ['block_4a_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_4a_expand_activation  (None, 28, 28, 240)          0         ['block_4a_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_4a_dwconv_pad (ZeroP  (None, 29, 29, 240)          0         ['block_4a_expand_activation[0
+ adding2D)                                                          ][0]']                        
+                                                                                                  
+ block_4a_dwconv (Depthwise  (None, 14, 14, 240)          2160      ['block_4a_dwconv_pad[0][0]'] 
+ Conv2D)                                                                                          
+                                                                                                  
+ block_4a_bn (LayerNormaliz  (None, 14, 14, 240)          480       ['block_4a_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_4a_activation (Activ  (None, 14, 14, 240)          0         ['block_4a_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_4a_se_squeeze (Globa  (None, 240)                  0         ['block_4a_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_4a_se_reshape (Resha  (None, 1, 1, 240)            0         ['block_4a_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_4a_se_reduce (Conv2D  (None, 1, 1, 10)             2410      ['block_4a_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_4a_se_expand (Conv2D  (None, 1, 1, 240)            2640      ['block_4a_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_4a_se_excite (Multip  (None, 14, 14, 240)          0         ['block_4a_activation[0][0]', 
+ ly)                                                                 'block_4a_se_expand[0][0]']  
+                                                                                                  
+ block_4a_project_conv (Con  (None, 14, 14, 80)           19200     ['block_4a_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_4a_project_bn (Layer  (None, 14, 14, 80)           160       ['block_4a_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_4b_expand_conv (Conv  (None, 14, 14, 480)          38400     ['block_4a_project_bn[0][0]'] 
+ 2D)                                                                                              
+                                                                                                  
+ block_4b_expand_bn (LayerN  (None, 14, 14, 480)          960       ['block_4b_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_4b_expand_activation  (None, 14, 14, 480)          0         ['block_4b_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_4b_dwconv (Depthwise  (None, 14, 14, 480)          4320      ['block_4b_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_4b_bn (LayerNormaliz  (None, 14, 14, 480)          960       ['block_4b_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_4b_activation (Activ  (None, 14, 14, 480)          0         ['block_4b_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_4b_se_squeeze (Globa  (None, 480)                  0         ['block_4b_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_4b_se_reshape (Resha  (None, 1, 1, 480)            0         ['block_4b_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_4b_se_reduce (Conv2D  (None, 1, 1, 20)             9620      ['block_4b_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_4b_se_expand (Conv2D  (None, 1, 1, 480)            10080     ['block_4b_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_4b_se_excite (Multip  (None, 14, 14, 480)          0         ['block_4b_activation[0][0]', 
+ ly)                                                                 'block_4b_se_expand[0][0]']  
+                                                                                                  
+ block_4b_project_conv (Con  (None, 14, 14, 80)           38400     ['block_4b_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_4b_project_bn (Layer  (None, 14, 14, 80)           160       ['block_4b_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_4b_drop (Dropout)     (None, 14, 14, 80)           0         ['block_4b_project_bn[0][0]'] 
+                                                                                                  
+ block_4b_add (Add)          (None, 14, 14, 80)           0         ['block_4b_drop[0][0]',       
+                                                                     'block_4a_project_bn[0][0]'] 
+                                                                                                  
+ block_4c_expand_conv (Conv  (None, 14, 14, 480)          38400     ['block_4b_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_4c_expand_bn (LayerN  (None, 14, 14, 480)          960       ['block_4c_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_4c_expand_activation  (None, 14, 14, 480)          0         ['block_4c_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_4c_dwconv (Depthwise  (None, 14, 14, 480)          4320      ['block_4c_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_4c_bn (LayerNormaliz  (None, 14, 14, 480)          960       ['block_4c_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_4c_activation (Activ  (None, 14, 14, 480)          0         ['block_4c_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_4c_se_squeeze (Globa  (None, 480)                  0         ['block_4c_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_4c_se_reshape (Resha  (None, 1, 1, 480)            0         ['block_4c_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_4c_se_reduce (Conv2D  (None, 1, 1, 20)             9620      ['block_4c_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_4c_se_expand (Conv2D  (None, 1, 1, 480)            10080     ['block_4c_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_4c_se_excite (Multip  (None, 14, 14, 480)          0         ['block_4c_activation[0][0]', 
+ ly)                                                                 'block_4c_se_expand[0][0]']  
+                                                                                                  
+ block_4c_project_conv (Con  (None, 14, 14, 80)           38400     ['block_4c_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_4c_project_bn (Layer  (None, 14, 14, 80)           160       ['block_4c_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_4c_drop (Dropout)     (None, 14, 14, 80)           0         ['block_4c_project_bn[0][0]'] 
+                                                                                                  
+ block_4c_add (Add)          (None, 14, 14, 80)           0         ['block_4c_drop[0][0]',       
+                                                                     'block_4b_add[0][0]']        
+                                                                                                  
+ block_5a_expand_conv (Conv  (None, 14, 14, 480)          38400     ['block_4c_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_5a_expand_bn (LayerN  (None, 14, 14, 480)          960       ['block_5a_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_5a_expand_activation  (None, 14, 14, 480)          0         ['block_5a_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_5a_dwconv (Depthwise  (None, 14, 14, 480)          12000     ['block_5a_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_5a_bn (LayerNormaliz  (None, 14, 14, 480)          960       ['block_5a_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_5a_activation (Activ  (None, 14, 14, 480)          0         ['block_5a_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_5a_se_squeeze (Globa  (None, 480)                  0         ['block_5a_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_5a_se_reshape (Resha  (None, 1, 1, 480)            0         ['block_5a_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_5a_se_reduce (Conv2D  (None, 1, 1, 20)             9620      ['block_5a_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_5a_se_expand (Conv2D  (None, 1, 1, 480)            10080     ['block_5a_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_5a_se_excite (Multip  (None, 14, 14, 480)          0         ['block_5a_activation[0][0]', 
+ ly)                                                                 'block_5a_se_expand[0][0]']  
+                                                                                                  
+ block_5a_project_conv (Con  (None, 14, 14, 112)          53760     ['block_5a_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_5a_project_bn (Layer  (None, 14, 14, 112)          224       ['block_5a_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_5b_expand_conv (Conv  (None, 14, 14, 672)          75264     ['block_5a_project_bn[0][0]'] 
+ 2D)                                                                                              
+                                                                                                  
+ block_5b_expand_bn (LayerN  (None, 14, 14, 672)          1344      ['block_5b_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_5b_expand_activation  (None, 14, 14, 672)          0         ['block_5b_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_5b_dwconv (Depthwise  (None, 14, 14, 672)          16800     ['block_5b_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_5b_bn (LayerNormaliz  (None, 14, 14, 672)          1344      ['block_5b_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_5b_activation (Activ  (None, 14, 14, 672)          0         ['block_5b_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_5b_se_squeeze (Globa  (None, 672)                  0         ['block_5b_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_5b_se_reshape (Resha  (None, 1, 1, 672)            0         ['block_5b_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_5b_se_reduce (Conv2D  (None, 1, 1, 28)             18844     ['block_5b_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_5b_se_expand (Conv2D  (None, 1, 1, 672)            19488     ['block_5b_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_5b_se_excite (Multip  (None, 14, 14, 672)          0         ['block_5b_activation[0][0]', 
+ ly)                                                                 'block_5b_se_expand[0][0]']  
+                                                                                                  
+ block_5b_project_conv (Con  (None, 14, 14, 112)          75264     ['block_5b_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_5b_project_bn (Layer  (None, 14, 14, 112)          224       ['block_5b_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_5b_drop (Dropout)     (None, 14, 14, 112)          0         ['block_5b_project_bn[0][0]'] 
+                                                                                                  
+ block_5b_add (Add)          (None, 14, 14, 112)          0         ['block_5b_drop[0][0]',       
+                                                                     'block_5a_project_bn[0][0]'] 
+                                                                                                  
+ block_5c_expand_conv (Conv  (None, 14, 14, 672)          75264     ['block_5b_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_5c_expand_bn (LayerN  (None, 14, 14, 672)          1344      ['block_5c_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_5c_expand_activation  (None, 14, 14, 672)          0         ['block_5c_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_5c_dwconv (Depthwise  (None, 14, 14, 672)          16800     ['block_5c_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_5c_bn (LayerNormaliz  (None, 14, 14, 672)          1344      ['block_5c_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_5c_activation (Activ  (None, 14, 14, 672)          0         ['block_5c_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_5c_se_squeeze (Globa  (None, 672)                  0         ['block_5c_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_5c_se_reshape (Resha  (None, 1, 1, 672)            0         ['block_5c_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_5c_se_reduce (Conv2D  (None, 1, 1, 28)             18844     ['block_5c_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_5c_se_expand (Conv2D  (None, 1, 1, 672)            19488     ['block_5c_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_5c_se_excite (Multip  (None, 14, 14, 672)          0         ['block_5c_activation[0][0]', 
+ ly)                                                                 'block_5c_se_expand[0][0]']  
+                                                                                                  
+ block_5c_project_conv (Con  (None, 14, 14, 112)          75264     ['block_5c_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_5c_project_bn (Layer  (None, 14, 14, 112)          224       ['block_5c_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_5c_drop (Dropout)     (None, 14, 14, 112)          0         ['block_5c_project_bn[0][0]'] 
+                                                                                                  
+ block_5c_add (Add)          (None, 14, 14, 112)          0         ['block_5c_drop[0][0]',       
+                                                                     'block_5b_add[0][0]']        
+                                                                                                  
+ block_6a_expand_conv (Conv  (None, 14, 14, 672)          75264     ['block_5c_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_6a_expand_bn (LayerN  (None, 14, 14, 672)          1344      ['block_6a_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_6a_expand_activation  (None, 14, 14, 672)          0         ['block_6a_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_6a_dwconv_pad (ZeroP  (None, 17, 17, 672)          0         ['block_6a_expand_activation[0
+ adding2D)                                                          ][0]']                        
+                                                                                                  
+ block_6a_dwconv (Depthwise  (None, 7, 7, 672)            16800     ['block_6a_dwconv_pad[0][0]'] 
+ Conv2D)                                                                                          
+                                                                                                  
+ block_6a_bn (LayerNormaliz  (None, 7, 7, 672)            1344      ['block_6a_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_6a_activation (Activ  (None, 7, 7, 672)            0         ['block_6a_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_6a_se_squeeze (Globa  (None, 672)                  0         ['block_6a_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_6a_se_reshape (Resha  (None, 1, 1, 672)            0         ['block_6a_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_6a_se_reduce (Conv2D  (None, 1, 1, 28)             18844     ['block_6a_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_6a_se_expand (Conv2D  (None, 1, 1, 672)            19488     ['block_6a_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_6a_se_excite (Multip  (None, 7, 7, 672)            0         ['block_6a_activation[0][0]', 
+ ly)                                                                 'block_6a_se_expand[0][0]']  
+                                                                                                  
+ block_6a_project_conv (Con  (None, 7, 7, 192)            129024    ['block_6a_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_6a_project_bn (Layer  (None, 7, 7, 192)            384       ['block_6a_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_6b_expand_conv (Conv  (None, 7, 7, 1152)           221184    ['block_6a_project_bn[0][0]'] 
+ 2D)                                                                                              
+                                                                                                  
+ block_6b_expand_bn (LayerN  (None, 7, 7, 1152)           2304      ['block_6b_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_6b_expand_activation  (None, 7, 7, 1152)           0         ['block_6b_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_6b_dwconv (Depthwise  (None, 7, 7, 1152)           28800     ['block_6b_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_6b_bn (LayerNormaliz  (None, 7, 7, 1152)           2304      ['block_6b_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_6b_activation (Activ  (None, 7, 7, 1152)           0         ['block_6b_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_6b_se_squeeze (Globa  (None, 1152)                 0         ['block_6b_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_6b_se_reshape (Resha  (None, 1, 1, 1152)           0         ['block_6b_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_6b_se_reduce (Conv2D  (None, 1, 1, 48)             55344     ['block_6b_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_6b_se_expand (Conv2D  (None, 1, 1, 1152)           56448     ['block_6b_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_6b_se_excite (Multip  (None, 7, 7, 1152)           0         ['block_6b_activation[0][0]', 
+ ly)                                                                 'block_6b_se_expand[0][0]']  
+                                                                                                  
+ block_6b_project_conv (Con  (None, 7, 7, 192)            221184    ['block_6b_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_6b_project_bn (Layer  (None, 7, 7, 192)            384       ['block_6b_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_6b_drop (Dropout)     (None, 7, 7, 192)            0         ['block_6b_project_bn[0][0]'] 
+                                                                                                  
+ block_6b_add (Add)          (None, 7, 7, 192)            0         ['block_6b_drop[0][0]',       
+                                                                     'block_6a_project_bn[0][0]'] 
+                                                                                                  
+ block_6c_expand_conv (Conv  (None, 7, 7, 1152)           221184    ['block_6b_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_6c_expand_bn (LayerN  (None, 7, 7, 1152)           2304      ['block_6c_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_6c_expand_activation  (None, 7, 7, 1152)           0         ['block_6c_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_6c_dwconv (Depthwise  (None, 7, 7, 1152)           28800     ['block_6c_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_6c_bn (LayerNormaliz  (None, 7, 7, 1152)           2304      ['block_6c_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_6c_activation (Activ  (None, 7, 7, 1152)           0         ['block_6c_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_6c_se_squeeze (Globa  (None, 1152)                 0         ['block_6c_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_6c_se_reshape (Resha  (None, 1, 1, 1152)           0         ['block_6c_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_6c_se_reduce (Conv2D  (None, 1, 1, 48)             55344     ['block_6c_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_6c_se_expand (Conv2D  (None, 1, 1, 1152)           56448     ['block_6c_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_6c_se_excite (Multip  (None, 7, 7, 1152)           0         ['block_6c_activation[0][0]', 
+ ly)                                                                 'block_6c_se_expand[0][0]']  
+                                                                                                  
+ block_6c_project_conv (Con  (None, 7, 7, 192)            221184    ['block_6c_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_6c_project_bn (Layer  (None, 7, 7, 192)            384       ['block_6c_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_6c_drop (Dropout)     (None, 7, 7, 192)            0         ['block_6c_project_bn[0][0]'] 
+                                                                                                  
+ block_6c_add (Add)          (None, 7, 7, 192)            0         ['block_6c_drop[0][0]',       
+                                                                     'block_6b_add[0][0]']        
+                                                                                                  
+ block_6d_expand_conv (Conv  (None, 7, 7, 1152)           221184    ['block_6c_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_6d_expand_bn (LayerN  (None, 7, 7, 1152)           2304      ['block_6d_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_6d_expand_activation  (None, 7, 7, 1152)           0         ['block_6d_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_6d_dwconv (Depthwise  (None, 7, 7, 1152)           28800     ['block_6d_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_6d_bn (LayerNormaliz  (None, 7, 7, 1152)           2304      ['block_6d_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_6d_activation (Activ  (None, 7, 7, 1152)           0         ['block_6d_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_6d_se_squeeze (Globa  (None, 1152)                 0         ['block_6d_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_6d_se_reshape (Resha  (None, 1, 1, 1152)           0         ['block_6d_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_6d_se_reduce (Conv2D  (None, 1, 1, 48)             55344     ['block_6d_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_6d_se_expand (Conv2D  (None, 1, 1, 1152)           56448     ['block_6d_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_6d_se_excite (Multip  (None, 7, 7, 1152)           0         ['block_6d_activation[0][0]', 
+ ly)                                                                 'block_6d_se_expand[0][0]']  
+                                                                                                  
+ block_6d_project_conv (Con  (None, 7, 7, 192)            221184    ['block_6d_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_6d_project_bn (Layer  (None, 7, 7, 192)            384       ['block_6d_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ block_6d_drop (Dropout)     (None, 7, 7, 192)            0         ['block_6d_project_bn[0][0]'] 
+                                                                                                  
+ block_6d_add (Add)          (None, 7, 7, 192)            0         ['block_6d_drop[0][0]',       
+                                                                     'block_6c_add[0][0]']        
+                                                                                                  
+ block_7a_expand_conv (Conv  (None, 7, 7, 1152)           221184    ['block_6d_add[0][0]']        
+ 2D)                                                                                              
+                                                                                                  
+ block_7a_expand_bn (LayerN  (None, 7, 7, 1152)           2304      ['block_7a_expand_conv[0][0]']
+ ormalization)                                                                                    
+                                                                                                  
+ block_7a_expand_activation  (None, 7, 7, 1152)           0         ['block_7a_expand_bn[0][0]']  
+  (Activation)                                                                                    
+                                                                                                  
+ block_7a_dwconv (Depthwise  (None, 7, 7, 1152)           10368     ['block_7a_expand_activation[0
+ Conv2D)                                                            ][0]']                        
+                                                                                                  
+ block_7a_bn (LayerNormaliz  (None, 7, 7, 1152)           2304      ['block_7a_dwconv[0][0]']     
+ ation)                                                                                           
+                                                                                                  
+ block_7a_activation (Activ  (None, 7, 7, 1152)           0         ['block_7a_bn[0][0]']         
+ ation)                                                                                           
+                                                                                                  
+ block_7a_se_squeeze (Globa  (None, 1152)                 0         ['block_7a_activation[0][0]'] 
+ lAveragePooling2D)                                                                               
+                                                                                                  
+ block_7a_se_reshape (Resha  (None, 1, 1, 1152)           0         ['block_7a_se_squeeze[0][0]'] 
+ pe)                                                                                              
+                                                                                                  
+ block_7a_se_reduce (Conv2D  (None, 1, 1, 48)             55344     ['block_7a_se_reshape[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ block_7a_se_expand (Conv2D  (None, 1, 1, 1152)           56448     ['block_7a_se_reduce[0][0]']  
+ )                                                                                                
+                                                                                                  
+ block_7a_se_excite (Multip  (None, 7, 7, 1152)           0         ['block_7a_activation[0][0]', 
+ ly)                                                                 'block_7a_se_expand[0][0]']  
+                                                                                                  
+ block_7a_project_conv (Con  (None, 7, 7, 320)            368640    ['block_7a_se_excite[0][0]']  
+ v2D)                                                                                             
+                                                                                                  
+ block_7a_project_bn (Layer  (None, 7, 7, 320)            640       ['block_7a_project_conv[0][0]'
+ Normalization)                                                     ]                             
+                                                                                                  
+ top_conv (Conv2D)           (None, 7, 7, 1280)           409600    ['block_7a_project_bn[0][0]'] 
+                                                                                                  
+ top_bn (BatchNormalization  (None, 7, 7, 1280)           5120      ['top_conv[0][0]']            
+ )                                                                                                
+                                                                                                  
+ top_activation (Activation  (None, 7, 7, 1280)           0         ['top_bn[0][0]']              
+ )                                                                                                
+                                                                                                  
+ global_avgpool (GlobalAver  (None, 1280)                 0         ['top_activation[0][0]']      
+ agePooling2D)                                                                                    
+                                                                                                  
+ top_dropout (Dropout)       (None, 1280)                 0         ['global_avgpool[0][0]']      
+                                                                                                  
+ predictions (Dense)         (None, 1000)                 1281000   ['top_dropout[0][0]']         
+                                                                                                  
+ activation_1418 (Activatio  (None, 1000)                 0         ['predictions[0][0]']         
+ n)                                                                                               
+                                                                                                  
+==================================================================================================
+Total params: 5291172 (20.18 MB)
+Trainable params: 5288548 (20.17 MB)
+Non-trainable params: 2624 (10.25 KB)
+__________________________________________________________________________________________________

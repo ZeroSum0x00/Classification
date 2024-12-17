@@ -1,0 +1,86 @@
+Model: "DeiT-Small"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_117 (InputLayer)      [(None, 224, 224, 3)]        0         []                            
+                                                                                                  
+ Extract_Patches (ExtractPa  (None, 196, 384)             295296    ['input_117[0][0]']           
+ tches)                                                                                           
+                                                                                                  
+ Distillation_Token (Distil  (None, 197, 384)             384       ['Extract_Patches[0][0]']     
+ lationToken)                                                                                     
+                                                                                                  
+ Classification_Token (Clas  (None, 198, 384)             384       ['Distillation_Token[0][0]']  
+ sificationToken)                                                                                 
+                                                                                                  
+ Positional_Embedding (Posi  (None, 198, 384)             76032     ['Classification_Token[0][0]']
+ tionalEmbedding)                                                                                 
+                                                                                                  
+ Transformer/encoderblock_0  multiple                     2960256   ['Positional_Embedding[0][0]']
+  (TransformerBlock)                                                                              
+                                                                                                  
+ Transformer/encoderblock_1  multiple                     2960256   ['Transformer/encoderblock_0[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_2  multiple                     2960256   ['Transformer/encoderblock_1[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_3  multiple                     2960256   ['Transformer/encoderblock_2[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_4  multiple                     2960256   ['Transformer/encoderblock_3[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_5  multiple                     2960256   ['Transformer/encoderblock_4[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_6  multiple                     2960256   ['Transformer/encoderblock_5[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_7  multiple                     2960256   ['Transformer/encoderblock_6[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_8  multiple                     2960256   ['Transformer/encoderblock_7[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_9  multiple                     2960256   ['Transformer/encoderblock_8[0
+  (TransformerBlock)                                                ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_1  multiple                     2960256   ['Transformer/encoderblock_9[0
+ 0 (TransformerBlock)                                               ][0]']                        
+                                                                                                  
+ Transformer/encoderblock_1  multiple                     2960256   ['Transformer/encoderblock_10[
+ 1 (TransformerBlock)                                               0][0]']                       
+                                                                                                  
+ Transformer/encoder_norm (  (None, 198, 384)             768       ['Transformer/encoderblock_11[
+ LayerNormalization)                                                0][0]']                       
+                                                                                                  
+ Extract_Predict_Token (Lam  (None, 384)                  0         ['Transformer/encoder_norm[0][
+ bda)                                                               0]']                          
+                                                                                                  
+ Extract_Distillation_Token  (None, 384)                  0         ['Transformer/encoder_norm[0][
+  (Lambda)                                                          0]']                          
+                                                                                                  
+ head (Dense)                (None, 1000)                 385000    ['Extract_Predict_Token[0][0]'
+                                                                    ]                             
+                                                                                                  
+ dist (Dense)                (None, 1000)                 385000    ['Extract_Distillation_Token[0
+                                                                    ][0]']                        
+                                                                                                  
+ activation_1381 (Activatio  (None, 1000)                 0         ['head[0][0]']                
+ n)                                                                                               
+                                                                                                  
+ activation_1382 (Activatio  (None, 1000)                 0         ['dist[0][0]']                
+ n)                                                                                               
+                                                                                                  
+ tf.__operators__.add_72 (T  (None, 1000)                 0         ['activation_1381[0][0]',     
+ FOpLambda)                                                          'activation_1382[0][0]']     
+                                                                                                  
+ tf.math.truediv (TFOpLambd  (None, 1000)                 0         ['tf.__operators__.add_72[0][0
+ a)                                                                 ]']                           
+                                                                                                  
+==================================================================================================
+Total params: 36665936 (139.87 MB)
+Trainable params: 36665936 (139.87 MB)
+Non-trainable params: 0 (0.00 Byte)
+__________________________________________________________________________________________________

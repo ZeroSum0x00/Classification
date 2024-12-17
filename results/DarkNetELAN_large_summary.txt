@@ -1,0 +1,48 @@
+Model: "DarkNet-ELAN-large"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_5 (InputLayer)        [(None, 256, 256, 3)]     0         
+                                                                 
+ stem.block1 (ReOrg)         (None, 128, 128, 12)      0         
+                                                                 
+ stem.block2 (ConvolutionBl  (None, 128, 128, 80)      8960      
+ ock)                                                            
+                                                                 
+ stage1.block1 (DownC)       (None, 64, 64, 160)       71360     
+                                                                 
+ stage1.block2 (ScaleUpConc  (None, 64, 64, 160)       295552    
+ atBlock)                                                        
+                                                                 
+ stage2.block1 (DownC)       (None, 32, 32, 320)       283520    
+                                                                 
+ stage2.block2 (ScaleUpConc  (None, 32, 32, 320)       1176832   
+ atBlock)                                                        
+                                                                 
+ stage3.block1 (DownC)       (None, 16, 16, 640)       1130240   
+                                                                 
+ stage3.block2 (ScaleUpConc  (None, 16, 16, 640)       4696576   
+ atBlock)                                                        
+                                                                 
+ stage4.block1 (DownC)       (None, 8, 8, 960)         3488000   
+                                                                 
+ stage4.block2 (ScaleUpConc  (None, 8, 8, 960)         10559232  
+ atBlock)                                                        
+                                                                 
+ stage5.block1 (DownC)       (None, 4, 4, 1280)        7074560   
+                                                                 
+ stage5.block2 (ScaleUpConc  (None, 4, 4, 1280)        18764800  
+ atBlock)                                                        
+                                                                 
+ global_avgpool (GlobalAver  (None, 1280)              0         
+ agePooling2D)                                                   
+                                                                 
+ predictions (Dense)         (None, 1000)              1281000   
+                                                                 
+ activation_4 (Activation)   (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 48830632 (186.27 MB)
+Trainable params: 48791208 (186.12 MB)
+Non-trainable params: 39424 (154.00 KB)
+_________________________________________________________________

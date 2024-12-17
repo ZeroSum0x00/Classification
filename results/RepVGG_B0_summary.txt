@@ -1,0 +1,105 @@
+Model: "RepVGG-B0"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_27 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ RepVGG_block_1 (RepVGGBloc  (None, 112, 112, 64)      1792      
+ k)                                                              
+                                                                 
+ RepVGG_block_2 (RepVGGBloc  (None, 56, 56, 64)        36928     
+ k)                                                              
+                                                                 
+ RepVGG_block_3 (RepVGGBloc  (None, 56, 56, 64)        36928     
+ k)                                                              
+                                                                 
+ RepVGG_block_4 (RepVGGBloc  (None, 56, 56, 64)        36928     
+ k)                                                              
+                                                                 
+ RepVGG_block_5 (RepVGGBloc  (None, 56, 56, 64)        36928     
+ k)                                                              
+                                                                 
+ RepVGG_block_6 (RepVGGBloc  (None, 28, 28, 128)       73856     
+ k)                                                              
+                                                                 
+ RepVGG_block_7 (RepVGGBloc  (None, 28, 28, 128)       147584    
+ k)                                                              
+                                                                 
+ RepVGG_block_8 (RepVGGBloc  (None, 28, 28, 128)       147584    
+ k)                                                              
+                                                                 
+ RepVGG_block_9 (RepVGGBloc  (None, 28, 28, 128)       147584    
+ k)                                                              
+                                                                 
+ RepVGG_block_10 (RepVGGBlo  (None, 28, 28, 128)       147584    
+ ck)                                                             
+                                                                 
+ RepVGG_block_11 (RepVGGBlo  (None, 28, 28, 128)       147584    
+ ck)                                                             
+                                                                 
+ RepVGG_block_12 (RepVGGBlo  (None, 14, 14, 256)       295168    
+ ck)                                                             
+                                                                 
+ RepVGG_block_13 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_14 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_15 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_16 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_17 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_18 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_19 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_20 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_21 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_22 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_23 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_24 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_25 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_26 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_27 (RepVGGBlo  (None, 14, 14, 256)       590080    
+ ck)                                                             
+                                                                 
+ RepVGG_block_28 (RepVGGBlo  (None, 7, 7, 1280)        2950400   
+ ck)                                                             
+                                                                 
+ adaptive_average_pooling2d  (None, 1, 1, 1280)        0         
+ _3 (AdaptiveAveragePooling                                      
+ 2D)                                                             
+                                                                 
+ flatten (Flatten)           (None, 1280)              0         
+                                                                 
+ predictions (Dense)         (None, 1000)              1281000   
+                                                                 
+ activation_46 (Activation)  (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 14339048 (54.70 MB)
+Trainable params: 14339048 (54.70 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

@@ -1,0 +1,69 @@
+Model: "SwinTransformer-v2-Tiny"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_66 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ patch_embed_8 (PatchEmbed)  (None, 3136, 96)          4896      
+                                                                 
+ swin_transformer_block_168  (None, 3136, 96)          117654    
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_169  (None, 3136, 96)          271318    
+  (SwinTransformerBlock)                                         
+                                                                 
+ patch_merging_24 (PatchMer  (None, 784, 192)          74496     
+ ging)                                                           
+                                                                 
+ swin_transformer_block_170  (None, 784, 192)          452217    
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_171  (None, 784, 192)          490633    
+  (SwinTransformerBlock)                                         
+                                                                 
+ patch_merging_25 (PatchMer  (None, 196, 384)          296448    
+ ging)                                                           
+                                                                 
+ swin_transformer_block_172  (None, 196, 384)          1784895   
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_173  (None, 196, 384)          1794499   
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_174  (None, 196, 384)          1784895   
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_175  (None, 196, 384)          1794499   
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_176  (None, 196, 384)          1784895   
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_177  (None, 196, 384)          1794499   
+  (SwinTransformerBlock)                                         
+                                                                 
+ patch_merging_26 (PatchMer  (None, 49, 768)           1182720   
+ ging)                                                           
+                                                                 
+ swin_transformer_block_178  (None, 49, 768)           7104459   
+  (SwinTransformerBlock)                                         
+                                                                 
+ swin_transformer_block_179  (None, 49, 768)           7104459   
+  (SwinTransformerBlock)                                         
+                                                                 
+ layer_normalization_15 (La  (None, 49, 768)           1536      
+ yerNormalization)                                               
+                                                                 
+ global_average_pooling1d_1  (None, 768)               0         
+ 9 (GlobalAveragePooling1D)                                      
+                                                                 
+ predictions (Dense)         (None, 1000)              769000    
+                                                                 
+ activation_104 (Activation  (None, 1000)              0         
+ )                                                               
+                                                                 
+=================================================================
+Total params: 28608018 (110.08 MB)
+Trainable params: 28354258 (108.16 MB)
+Non-trainable params: 253760 (1.92 MB)
+_________________________________________________________________

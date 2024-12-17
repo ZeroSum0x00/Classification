@@ -1,0 +1,1068 @@
+Model: "BiT-M-R101x1"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_9 (InputLayer)        [(None, 224, 224, 3)]        0         []                            
+                                                                                                  
+ padding_from_kernel_size (  (None, 230, 230, 3)          0         ['input_9[0][0]']             
+ PaddingFromKernelSize)                                                                           
+                                                                                                  
+ conv2d_5 (Conv2D)           (None, 112, 112, 64)         9408      ['padding_from_kernel_size[0][
+                                                                    0]']                          
+                                                                                                  
+ padding_from_kernel_size_1  (None, 114, 114, 64)         0         ['conv2d_5[0][0]']            
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ max_pooling2d_3 (MaxPoolin  (None, 56, 56, 64)           0         ['padding_from_kernel_size_1[0
+ g2D)                                                               ][0]']                        
+                                                                                                  
+ group_normalization (Group  (None, 56, 56, 64)           128       ['max_pooling2d_3[0][0]']     
+ Normalization)                                                                                   
+                                                                                                  
+ activation_15 (Activation)  (None, 56, 56, 64)           0         ['group_normalization[0][0]'] 
+                                                                                                  
+ conv2d_7 (Conv2D)           (None, 56, 56, 64)           4096      ['activation_15[0][0]']       
+                                                                                                  
+ group_normalization_1 (Gro  (None, 56, 56, 64)           128       ['conv2d_7[0][0]']            
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_16 (Activation)  (None, 56, 56, 64)           0         ['group_normalization_1[0][0]'
+                                                                    ]                             
+                                                                                                  
+ padding_from_kernel_size_2  (None, 58, 58, 64)           0         ['activation_16[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_8 (Conv2D)           (None, 56, 56, 64)           36864     ['padding_from_kernel_size_2[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_2 (Gro  (None, 56, 56, 64)           128       ['conv2d_8[0][0]']            
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_17 (Activation)  (None, 56, 56, 64)           0         ['group_normalization_2[0][0]'
+                                                                    ]                             
+                                                                                                  
+ conv2d_9 (Conv2D)           (None, 56, 56, 256)          16384     ['activation_17[0][0]']       
+                                                                                                  
+ conv2d_6 (Conv2D)           (None, 56, 56, 256)          16384     ['activation_15[0][0]']       
+                                                                                                  
+ add (Add)                   (None, 56, 56, 256)          0         ['conv2d_9[0][0]',            
+                                                                     'conv2d_6[0][0]']            
+                                                                                                  
+ group_normalization_3 (Gro  (None, 56, 56, 256)          512       ['add[0][0]']                 
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_18 (Activation)  (None, 56, 56, 256)          0         ['group_normalization_3[0][0]'
+                                                                    ]                             
+                                                                                                  
+ conv2d_10 (Conv2D)          (None, 56, 56, 64)           16384     ['activation_18[0][0]']       
+                                                                                                  
+ group_normalization_4 (Gro  (None, 56, 56, 64)           128       ['conv2d_10[0][0]']           
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_19 (Activation)  (None, 56, 56, 64)           0         ['group_normalization_4[0][0]'
+                                                                    ]                             
+                                                                                                  
+ padding_from_kernel_size_3  (None, 58, 58, 64)           0         ['activation_19[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_11 (Conv2D)          (None, 56, 56, 64)           36864     ['padding_from_kernel_size_3[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_5 (Gro  (None, 56, 56, 64)           128       ['conv2d_11[0][0]']           
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_20 (Activation)  (None, 56, 56, 64)           0         ['group_normalization_5[0][0]'
+                                                                    ]                             
+                                                                                                  
+ conv2d_12 (Conv2D)          (None, 56, 56, 256)          16384     ['activation_20[0][0]']       
+                                                                                                  
+ add_1 (Add)                 (None, 56, 56, 256)          0         ['conv2d_12[0][0]',           
+                                                                     'add[0][0]']                 
+                                                                                                  
+ group_normalization_6 (Gro  (None, 56, 56, 256)          512       ['add_1[0][0]']               
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_21 (Activation)  (None, 56, 56, 256)          0         ['group_normalization_6[0][0]'
+                                                                    ]                             
+                                                                                                  
+ conv2d_13 (Conv2D)          (None, 56, 56, 64)           16384     ['activation_21[0][0]']       
+                                                                                                  
+ group_normalization_7 (Gro  (None, 56, 56, 64)           128       ['conv2d_13[0][0]']           
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_22 (Activation)  (None, 56, 56, 64)           0         ['group_normalization_7[0][0]'
+                                                                    ]                             
+                                                                                                  
+ padding_from_kernel_size_4  (None, 58, 58, 64)           0         ['activation_22[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_14 (Conv2D)          (None, 56, 56, 64)           36864     ['padding_from_kernel_size_4[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_8 (Gro  (None, 56, 56, 64)           128       ['conv2d_14[0][0]']           
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_23 (Activation)  (None, 56, 56, 64)           0         ['group_normalization_8[0][0]'
+                                                                    ]                             
+                                                                                                  
+ conv2d_15 (Conv2D)          (None, 56, 56, 256)          16384     ['activation_23[0][0]']       
+                                                                                                  
+ add_2 (Add)                 (None, 56, 56, 256)          0         ['conv2d_15[0][0]',           
+                                                                     'add_1[0][0]']               
+                                                                                                  
+ group_normalization_9 (Gro  (None, 56, 56, 256)          512       ['add_2[0][0]']               
+ upNormalization)                                                                                 
+                                                                                                  
+ activation_24 (Activation)  (None, 56, 56, 256)          0         ['group_normalization_9[0][0]'
+                                                                    ]                             
+                                                                                                  
+ conv2d_17 (Conv2D)          (None, 56, 56, 128)          32768     ['activation_24[0][0]']       
+                                                                                                  
+ group_normalization_10 (Gr  (None, 56, 56, 128)          256       ['conv2d_17[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_25 (Activation)  (None, 56, 56, 128)          0         ['group_normalization_10[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_5  (None, 58, 58, 128)          0         ['activation_25[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_18 (Conv2D)          (None, 28, 28, 128)          147456    ['padding_from_kernel_size_5[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_11 (Gr  (None, 28, 28, 128)          256       ['conv2d_18[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_26 (Activation)  (None, 28, 28, 128)          0         ['group_normalization_11[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_19 (Conv2D)          (None, 28, 28, 512)          65536     ['activation_26[0][0]']       
+                                                                                                  
+ conv2d_16 (Conv2D)          (None, 28, 28, 512)          131072    ['activation_24[0][0]']       
+                                                                                                  
+ add_3 (Add)                 (None, 28, 28, 512)          0         ['conv2d_19[0][0]',           
+                                                                     'conv2d_16[0][0]']           
+                                                                                                  
+ group_normalization_12 (Gr  (None, 28, 28, 512)          1024      ['add_3[0][0]']               
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_27 (Activation)  (None, 28, 28, 512)          0         ['group_normalization_12[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_20 (Conv2D)          (None, 28, 28, 128)          65536     ['activation_27[0][0]']       
+                                                                                                  
+ group_normalization_13 (Gr  (None, 28, 28, 128)          256       ['conv2d_20[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_28 (Activation)  (None, 28, 28, 128)          0         ['group_normalization_13[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_6  (None, 30, 30, 128)          0         ['activation_28[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_21 (Conv2D)          (None, 28, 28, 128)          147456    ['padding_from_kernel_size_6[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_14 (Gr  (None, 28, 28, 128)          256       ['conv2d_21[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_29 (Activation)  (None, 28, 28, 128)          0         ['group_normalization_14[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_22 (Conv2D)          (None, 28, 28, 512)          65536     ['activation_29[0][0]']       
+                                                                                                  
+ add_4 (Add)                 (None, 28, 28, 512)          0         ['conv2d_22[0][0]',           
+                                                                     'add_3[0][0]']               
+                                                                                                  
+ group_normalization_15 (Gr  (None, 28, 28, 512)          1024      ['add_4[0][0]']               
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_30 (Activation)  (None, 28, 28, 512)          0         ['group_normalization_15[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_23 (Conv2D)          (None, 28, 28, 128)          65536     ['activation_30[0][0]']       
+                                                                                                  
+ group_normalization_16 (Gr  (None, 28, 28, 128)          256       ['conv2d_23[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_31 (Activation)  (None, 28, 28, 128)          0         ['group_normalization_16[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_7  (None, 30, 30, 128)          0         ['activation_31[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_24 (Conv2D)          (None, 28, 28, 128)          147456    ['padding_from_kernel_size_7[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_17 (Gr  (None, 28, 28, 128)          256       ['conv2d_24[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_32 (Activation)  (None, 28, 28, 128)          0         ['group_normalization_17[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_25 (Conv2D)          (None, 28, 28, 512)          65536     ['activation_32[0][0]']       
+                                                                                                  
+ add_5 (Add)                 (None, 28, 28, 512)          0         ['conv2d_25[0][0]',           
+                                                                     'add_4[0][0]']               
+                                                                                                  
+ group_normalization_18 (Gr  (None, 28, 28, 512)          1024      ['add_5[0][0]']               
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_33 (Activation)  (None, 28, 28, 512)          0         ['group_normalization_18[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_26 (Conv2D)          (None, 28, 28, 128)          65536     ['activation_33[0][0]']       
+                                                                                                  
+ group_normalization_19 (Gr  (None, 28, 28, 128)          256       ['conv2d_26[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_34 (Activation)  (None, 28, 28, 128)          0         ['group_normalization_19[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_8  (None, 30, 30, 128)          0         ['activation_34[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_27 (Conv2D)          (None, 28, 28, 128)          147456    ['padding_from_kernel_size_8[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_20 (Gr  (None, 28, 28, 128)          256       ['conv2d_27[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_35 (Activation)  (None, 28, 28, 128)          0         ['group_normalization_20[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_28 (Conv2D)          (None, 28, 28, 512)          65536     ['activation_35[0][0]']       
+                                                                                                  
+ add_6 (Add)                 (None, 28, 28, 512)          0         ['conv2d_28[0][0]',           
+                                                                     'add_5[0][0]']               
+                                                                                                  
+ group_normalization_21 (Gr  (None, 28, 28, 512)          1024      ['add_6[0][0]']               
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_36 (Activation)  (None, 28, 28, 512)          0         ['group_normalization_21[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_30 (Conv2D)          (None, 28, 28, 256)          131072    ['activation_36[0][0]']       
+                                                                                                  
+ group_normalization_22 (Gr  (None, 28, 28, 256)          512       ['conv2d_30[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_37 (Activation)  (None, 28, 28, 256)          0         ['group_normalization_22[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_9  (None, 30, 30, 256)          0         ['activation_37[0][0]']       
+  (PaddingFromKernelSize)                                                                         
+                                                                                                  
+ conv2d_31 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_9[0
+                                                                    ][0]']                        
+                                                                                                  
+ group_normalization_23 (Gr  (None, 14, 14, 256)          512       ['conv2d_31[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_38 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_23[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_32 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_38[0][0]']       
+                                                                                                  
+ conv2d_29 (Conv2D)          (None, 14, 14, 1024)         524288    ['activation_36[0][0]']       
+                                                                                                  
+ add_7 (Add)                 (None, 14, 14, 1024)         0         ['conv2d_32[0][0]',           
+                                                                     'conv2d_29[0][0]']           
+                                                                                                  
+ group_normalization_24 (Gr  (None, 14, 14, 1024)         2048      ['add_7[0][0]']               
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_39 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_24[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_33 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_39[0][0]']       
+                                                                                                  
+ group_normalization_25 (Gr  (None, 14, 14, 256)          512       ['conv2d_33[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_40 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_25[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_40[0][0]']       
+ 0 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_34 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_10[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_26 (Gr  (None, 14, 14, 256)          512       ['conv2d_34[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_41 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_26[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_35 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_41[0][0]']       
+                                                                                                  
+ add_8 (Add)                 (None, 14, 14, 1024)         0         ['conv2d_35[0][0]',           
+                                                                     'add_7[0][0]']               
+                                                                                                  
+ group_normalization_27 (Gr  (None, 14, 14, 1024)         2048      ['add_8[0][0]']               
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_42 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_27[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_36 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_42[0][0]']       
+                                                                                                  
+ group_normalization_28 (Gr  (None, 14, 14, 256)          512       ['conv2d_36[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_43 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_28[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_43[0][0]']       
+ 1 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_37 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_11[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_29 (Gr  (None, 14, 14, 256)          512       ['conv2d_37[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_44 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_29[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_38 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_44[0][0]']       
+                                                                                                  
+ add_9 (Add)                 (None, 14, 14, 1024)         0         ['conv2d_38[0][0]',           
+                                                                     'add_8[0][0]']               
+                                                                                                  
+ group_normalization_30 (Gr  (None, 14, 14, 1024)         2048      ['add_9[0][0]']               
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_45 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_30[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_39 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_45[0][0]']       
+                                                                                                  
+ group_normalization_31 (Gr  (None, 14, 14, 256)          512       ['conv2d_39[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_46 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_31[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_46[0][0]']       
+ 2 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_40 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_12[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_32 (Gr  (None, 14, 14, 256)          512       ['conv2d_40[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_47 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_32[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_41 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_47[0][0]']       
+                                                                                                  
+ add_10 (Add)                (None, 14, 14, 1024)         0         ['conv2d_41[0][0]',           
+                                                                     'add_9[0][0]']               
+                                                                                                  
+ group_normalization_33 (Gr  (None, 14, 14, 1024)         2048      ['add_10[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_48 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_33[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_42 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_48[0][0]']       
+                                                                                                  
+ group_normalization_34 (Gr  (None, 14, 14, 256)          512       ['conv2d_42[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_49 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_34[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_49[0][0]']       
+ 3 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_43 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_13[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_35 (Gr  (None, 14, 14, 256)          512       ['conv2d_43[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_50 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_35[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_44 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_50[0][0]']       
+                                                                                                  
+ add_11 (Add)                (None, 14, 14, 1024)         0         ['conv2d_44[0][0]',           
+                                                                     'add_10[0][0]']              
+                                                                                                  
+ group_normalization_36 (Gr  (None, 14, 14, 1024)         2048      ['add_11[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_51 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_36[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_45 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_51[0][0]']       
+                                                                                                  
+ group_normalization_37 (Gr  (None, 14, 14, 256)          512       ['conv2d_45[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_52 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_37[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_52[0][0]']       
+ 4 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_46 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_14[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_38 (Gr  (None, 14, 14, 256)          512       ['conv2d_46[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_53 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_38[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_47 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_53[0][0]']       
+                                                                                                  
+ add_12 (Add)                (None, 14, 14, 1024)         0         ['conv2d_47[0][0]',           
+                                                                     'add_11[0][0]']              
+                                                                                                  
+ group_normalization_39 (Gr  (None, 14, 14, 1024)         2048      ['add_12[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_54 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_39[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_48 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_54[0][0]']       
+                                                                                                  
+ group_normalization_40 (Gr  (None, 14, 14, 256)          512       ['conv2d_48[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_55 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_40[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_55[0][0]']       
+ 5 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_49 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_15[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_41 (Gr  (None, 14, 14, 256)          512       ['conv2d_49[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_56 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_41[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_50 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_56[0][0]']       
+                                                                                                  
+ add_13 (Add)                (None, 14, 14, 1024)         0         ['conv2d_50[0][0]',           
+                                                                     'add_12[0][0]']              
+                                                                                                  
+ group_normalization_42 (Gr  (None, 14, 14, 1024)         2048      ['add_13[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_57 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_42[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_51 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_57[0][0]']       
+                                                                                                  
+ group_normalization_43 (Gr  (None, 14, 14, 256)          512       ['conv2d_51[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_58 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_43[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_58[0][0]']       
+ 6 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_52 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_16[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_44 (Gr  (None, 14, 14, 256)          512       ['conv2d_52[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_59 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_44[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_53 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_59[0][0]']       
+                                                                                                  
+ add_14 (Add)                (None, 14, 14, 1024)         0         ['conv2d_53[0][0]',           
+                                                                     'add_13[0][0]']              
+                                                                                                  
+ group_normalization_45 (Gr  (None, 14, 14, 1024)         2048      ['add_14[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_60 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_45[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_54 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_60[0][0]']       
+                                                                                                  
+ group_normalization_46 (Gr  (None, 14, 14, 256)          512       ['conv2d_54[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_61 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_46[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_61[0][0]']       
+ 7 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_55 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_17[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_47 (Gr  (None, 14, 14, 256)          512       ['conv2d_55[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_62 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_47[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_56 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_62[0][0]']       
+                                                                                                  
+ add_15 (Add)                (None, 14, 14, 1024)         0         ['conv2d_56[0][0]',           
+                                                                     'add_14[0][0]']              
+                                                                                                  
+ group_normalization_48 (Gr  (None, 14, 14, 1024)         2048      ['add_15[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_63 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_48[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_57 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_63[0][0]']       
+                                                                                                  
+ group_normalization_49 (Gr  (None, 14, 14, 256)          512       ['conv2d_57[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_64 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_49[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_64[0][0]']       
+ 8 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_58 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_18[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_50 (Gr  (None, 14, 14, 256)          512       ['conv2d_58[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_65 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_50[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_59 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_65[0][0]']       
+                                                                                                  
+ add_16 (Add)                (None, 14, 14, 1024)         0         ['conv2d_59[0][0]',           
+                                                                     'add_15[0][0]']              
+                                                                                                  
+ group_normalization_51 (Gr  (None, 14, 14, 1024)         2048      ['add_16[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_66 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_51[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_60 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_66[0][0]']       
+                                                                                                  
+ group_normalization_52 (Gr  (None, 14, 14, 256)          512       ['conv2d_60[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_67 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_52[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_1  (None, 16, 16, 256)          0         ['activation_67[0][0]']       
+ 9 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_61 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_19[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_53 (Gr  (None, 14, 14, 256)          512       ['conv2d_61[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_68 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_53[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_62 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_68[0][0]']       
+                                                                                                  
+ add_17 (Add)                (None, 14, 14, 1024)         0         ['conv2d_62[0][0]',           
+                                                                     'add_16[0][0]']              
+                                                                                                  
+ group_normalization_54 (Gr  (None, 14, 14, 1024)         2048      ['add_17[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_69 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_54[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_63 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_69[0][0]']       
+                                                                                                  
+ group_normalization_55 (Gr  (None, 14, 14, 256)          512       ['conv2d_63[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_70 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_55[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_70[0][0]']       
+ 0 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_64 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_20[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_56 (Gr  (None, 14, 14, 256)          512       ['conv2d_64[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_71 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_56[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_65 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_71[0][0]']       
+                                                                                                  
+ add_18 (Add)                (None, 14, 14, 1024)         0         ['conv2d_65[0][0]',           
+                                                                     'add_17[0][0]']              
+                                                                                                  
+ group_normalization_57 (Gr  (None, 14, 14, 1024)         2048      ['add_18[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_72 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_57[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_66 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_72[0][0]']       
+                                                                                                  
+ group_normalization_58 (Gr  (None, 14, 14, 256)          512       ['conv2d_66[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_73 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_58[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_73[0][0]']       
+ 1 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_67 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_21[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_59 (Gr  (None, 14, 14, 256)          512       ['conv2d_67[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_74 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_59[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_68 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_74[0][0]']       
+                                                                                                  
+ add_19 (Add)                (None, 14, 14, 1024)         0         ['conv2d_68[0][0]',           
+                                                                     'add_18[0][0]']              
+                                                                                                  
+ group_normalization_60 (Gr  (None, 14, 14, 1024)         2048      ['add_19[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_75 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_60[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_69 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_75[0][0]']       
+                                                                                                  
+ group_normalization_61 (Gr  (None, 14, 14, 256)          512       ['conv2d_69[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_76 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_61[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_76[0][0]']       
+ 2 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_70 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_22[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_62 (Gr  (None, 14, 14, 256)          512       ['conv2d_70[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_77 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_62[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_71 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_77[0][0]']       
+                                                                                                  
+ add_20 (Add)                (None, 14, 14, 1024)         0         ['conv2d_71[0][0]',           
+                                                                     'add_19[0][0]']              
+                                                                                                  
+ group_normalization_63 (Gr  (None, 14, 14, 1024)         2048      ['add_20[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_78 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_63[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_72 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_78[0][0]']       
+                                                                                                  
+ group_normalization_64 (Gr  (None, 14, 14, 256)          512       ['conv2d_72[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_79 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_64[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_79[0][0]']       
+ 3 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_73 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_23[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_65 (Gr  (None, 14, 14, 256)          512       ['conv2d_73[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_80 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_65[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_74 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_80[0][0]']       
+                                                                                                  
+ add_21 (Add)                (None, 14, 14, 1024)         0         ['conv2d_74[0][0]',           
+                                                                     'add_20[0][0]']              
+                                                                                                  
+ group_normalization_66 (Gr  (None, 14, 14, 1024)         2048      ['add_21[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_81 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_66[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_75 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_81[0][0]']       
+                                                                                                  
+ group_normalization_67 (Gr  (None, 14, 14, 256)          512       ['conv2d_75[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_82 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_67[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_82[0][0]']       
+ 4 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_76 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_24[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_68 (Gr  (None, 14, 14, 256)          512       ['conv2d_76[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_83 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_68[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_77 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_83[0][0]']       
+                                                                                                  
+ add_22 (Add)                (None, 14, 14, 1024)         0         ['conv2d_77[0][0]',           
+                                                                     'add_21[0][0]']              
+                                                                                                  
+ group_normalization_69 (Gr  (None, 14, 14, 1024)         2048      ['add_22[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_84 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_69[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_78 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_84[0][0]']       
+                                                                                                  
+ group_normalization_70 (Gr  (None, 14, 14, 256)          512       ['conv2d_78[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_85 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_70[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_85[0][0]']       
+ 5 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_79 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_25[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_71 (Gr  (None, 14, 14, 256)          512       ['conv2d_79[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_86 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_71[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_80 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_86[0][0]']       
+                                                                                                  
+ add_23 (Add)                (None, 14, 14, 1024)         0         ['conv2d_80[0][0]',           
+                                                                     'add_22[0][0]']              
+                                                                                                  
+ group_normalization_72 (Gr  (None, 14, 14, 1024)         2048      ['add_23[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_87 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_72[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_81 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_87[0][0]']       
+                                                                                                  
+ group_normalization_73 (Gr  (None, 14, 14, 256)          512       ['conv2d_81[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_88 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_73[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_88[0][0]']       
+ 6 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_82 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_26[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_74 (Gr  (None, 14, 14, 256)          512       ['conv2d_82[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_89 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_74[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_83 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_89[0][0]']       
+                                                                                                  
+ add_24 (Add)                (None, 14, 14, 1024)         0         ['conv2d_83[0][0]',           
+                                                                     'add_23[0][0]']              
+                                                                                                  
+ group_normalization_75 (Gr  (None, 14, 14, 1024)         2048      ['add_24[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_90 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_75[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_84 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_90[0][0]']       
+                                                                                                  
+ group_normalization_76 (Gr  (None, 14, 14, 256)          512       ['conv2d_84[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_91 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_76[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_91[0][0]']       
+ 7 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_85 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_27[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_77 (Gr  (None, 14, 14, 256)          512       ['conv2d_85[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_92 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_77[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_86 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_92[0][0]']       
+                                                                                                  
+ add_25 (Add)                (None, 14, 14, 1024)         0         ['conv2d_86[0][0]',           
+                                                                     'add_24[0][0]']              
+                                                                                                  
+ group_normalization_78 (Gr  (None, 14, 14, 1024)         2048      ['add_25[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_93 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_78[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_87 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_93[0][0]']       
+                                                                                                  
+ group_normalization_79 (Gr  (None, 14, 14, 256)          512       ['conv2d_87[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_94 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_79[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_94[0][0]']       
+ 8 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_88 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_28[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_80 (Gr  (None, 14, 14, 256)          512       ['conv2d_88[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_95 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_80[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_89 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_95[0][0]']       
+                                                                                                  
+ add_26 (Add)                (None, 14, 14, 1024)         0         ['conv2d_89[0][0]',           
+                                                                     'add_25[0][0]']              
+                                                                                                  
+ group_normalization_81 (Gr  (None, 14, 14, 1024)         2048      ['add_26[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_96 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_81[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_90 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_96[0][0]']       
+                                                                                                  
+ group_normalization_82 (Gr  (None, 14, 14, 256)          512       ['conv2d_90[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_97 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_82[0][0]
+                                                                    ']                            
+                                                                                                  
+ padding_from_kernel_size_2  (None, 16, 16, 256)          0         ['activation_97[0][0]']       
+ 9 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_91 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_29[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_83 (Gr  (None, 14, 14, 256)          512       ['conv2d_91[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_98 (Activation)  (None, 14, 14, 256)          0         ['group_normalization_83[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_92 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_98[0][0]']       
+                                                                                                  
+ add_27 (Add)                (None, 14, 14, 1024)         0         ['conv2d_92[0][0]',           
+                                                                     'add_26[0][0]']              
+                                                                                                  
+ group_normalization_84 (Gr  (None, 14, 14, 1024)         2048      ['add_27[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_99 (Activation)  (None, 14, 14, 1024)         0         ['group_normalization_84[0][0]
+                                                                    ']                            
+                                                                                                  
+ conv2d_93 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_99[0][0]']       
+                                                                                                  
+ group_normalization_85 (Gr  (None, 14, 14, 256)          512       ['conv2d_93[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_100 (Activation  (None, 14, 14, 256)          0         ['group_normalization_85[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ padding_from_kernel_size_3  (None, 16, 16, 256)          0         ['activation_100[0][0]']      
+ 0 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_94 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_30[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_86 (Gr  (None, 14, 14, 256)          512       ['conv2d_94[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_101 (Activation  (None, 14, 14, 256)          0         ['group_normalization_86[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_95 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_101[0][0]']      
+                                                                                                  
+ add_28 (Add)                (None, 14, 14, 1024)         0         ['conv2d_95[0][0]',           
+                                                                     'add_27[0][0]']              
+                                                                                                  
+ group_normalization_87 (Gr  (None, 14, 14, 1024)         2048      ['add_28[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_102 (Activation  (None, 14, 14, 1024)         0         ['group_normalization_87[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_96 (Conv2D)          (None, 14, 14, 256)          262144    ['activation_102[0][0]']      
+                                                                                                  
+ group_normalization_88 (Gr  (None, 14, 14, 256)          512       ['conv2d_96[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_103 (Activation  (None, 14, 14, 256)          0         ['group_normalization_88[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ padding_from_kernel_size_3  (None, 16, 16, 256)          0         ['activation_103[0][0]']      
+ 1 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_97 (Conv2D)          (None, 14, 14, 256)          589824    ['padding_from_kernel_size_31[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_89 (Gr  (None, 14, 14, 256)          512       ['conv2d_97[0][0]']           
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_104 (Activation  (None, 14, 14, 256)          0         ['group_normalization_89[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_98 (Conv2D)          (None, 14, 14, 1024)         262144    ['activation_104[0][0]']      
+                                                                                                  
+ add_29 (Add)                (None, 14, 14, 1024)         0         ['conv2d_98[0][0]',           
+                                                                     'add_28[0][0]']              
+                                                                                                  
+ group_normalization_90 (Gr  (None, 14, 14, 1024)         2048      ['add_29[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_105 (Activation  (None, 14, 14, 1024)         0         ['group_normalization_90[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_100 (Conv2D)         (None, 14, 14, 512)          524288    ['activation_105[0][0]']      
+                                                                                                  
+ group_normalization_91 (Gr  (None, 14, 14, 512)          1024      ['conv2d_100[0][0]']          
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_106 (Activation  (None, 14, 14, 512)          0         ['group_normalization_91[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ padding_from_kernel_size_3  (None, 16, 16, 512)          0         ['activation_106[0][0]']      
+ 2 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_101 (Conv2D)         (None, 7, 7, 512)            2359296   ['padding_from_kernel_size_32[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_92 (Gr  (None, 7, 7, 512)            1024      ['conv2d_101[0][0]']          
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_107 (Activation  (None, 7, 7, 512)            0         ['group_normalization_92[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_102 (Conv2D)         (None, 7, 7, 2048)           1048576   ['activation_107[0][0]']      
+                                                                                                  
+ conv2d_99 (Conv2D)          (None, 7, 7, 2048)           2097152   ['activation_105[0][0]']      
+                                                                                                  
+ add_30 (Add)                (None, 7, 7, 2048)           0         ['conv2d_102[0][0]',          
+                                                                     'conv2d_99[0][0]']           
+                                                                                                  
+ group_normalization_93 (Gr  (None, 7, 7, 2048)           4096      ['add_30[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_108 (Activation  (None, 7, 7, 2048)           0         ['group_normalization_93[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_103 (Conv2D)         (None, 7, 7, 512)            1048576   ['activation_108[0][0]']      
+                                                                                                  
+ group_normalization_94 (Gr  (None, 7, 7, 512)            1024      ['conv2d_103[0][0]']          
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_109 (Activation  (None, 7, 7, 512)            0         ['group_normalization_94[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ padding_from_kernel_size_3  (None, 9, 9, 512)            0         ['activation_109[0][0]']      
+ 3 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_104 (Conv2D)         (None, 7, 7, 512)            2359296   ['padding_from_kernel_size_33[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_95 (Gr  (None, 7, 7, 512)            1024      ['conv2d_104[0][0]']          
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_110 (Activation  (None, 7, 7, 512)            0         ['group_normalization_95[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_105 (Conv2D)         (None, 7, 7, 2048)           1048576   ['activation_110[0][0]']      
+                                                                                                  
+ add_31 (Add)                (None, 7, 7, 2048)           0         ['conv2d_105[0][0]',          
+                                                                     'add_30[0][0]']              
+                                                                                                  
+ group_normalization_96 (Gr  (None, 7, 7, 2048)           4096      ['add_31[0][0]']              
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_111 (Activation  (None, 7, 7, 2048)           0         ['group_normalization_96[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_106 (Conv2D)         (None, 7, 7, 512)            1048576   ['activation_111[0][0]']      
+                                                                                                  
+ group_normalization_97 (Gr  (None, 7, 7, 512)            1024      ['conv2d_106[0][0]']          
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_112 (Activation  (None, 7, 7, 512)            0         ['group_normalization_97[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ padding_from_kernel_size_3  (None, 9, 9, 512)            0         ['activation_112[0][0]']      
+ 4 (PaddingFromKernelSize)                                                                        
+                                                                                                  
+ conv2d_107 (Conv2D)         (None, 7, 7, 512)            2359296   ['padding_from_kernel_size_34[
+                                                                    0][0]']                       
+                                                                                                  
+ group_normalization_98 (Gr  (None, 7, 7, 512)            1024      ['conv2d_107[0][0]']          
+ oupNormalization)                                                                                
+                                                                                                  
+ activation_113 (Activation  (None, 7, 7, 512)            0         ['group_normalization_98[0][0]
+ )                                                                  ']                            
+                                                                                                  
+ conv2d_108 (Conv2D)         (None, 7, 7, 2048)           1048576   ['activation_113[0][0]']      
+                                                                                                  
+ add_32 (Add)                (None, 7, 7, 2048)           0         ['conv2d_108[0][0]',          
+                                                                     'add_31[0][0]']              
+                                                                                                  
+ activation_114 (Activation  (None, 7, 7, 2048)           0         ['add_32[0][0]']              
+ )                                                                                                
+                                                                                                  
+ group_normalization_99 (Gr  (None, 7, 7, 2048)           4096      ['activation_114[0][0]']      
+ oupNormalization)                                                                                
+                                                                                                  
+ global_average_pooling2d (  (None, 2048)                 0         ['group_normalization_99[0][0]
+ GlobalAveragePooling2D)                                            ']                            
+                                                                                                  
+ predictions (Dense)         (None, 1000)                 2049000   ['global_average_pooling2d[0][
+                                                                    0]']                          
+                                                                                                  
+ activation_115 (Activation  (None, 1000)                 0         ['predictions[0][0]']         
+ )                                                                                                
+                                                                                                  
+==================================================================================================
+Total params: 44541480 (169.91 MB)
+Trainable params: 44541480 (169.91 MB)
+Non-trainable params: 0 (0.00 Byte)
+__________________________________________________________________________________________________

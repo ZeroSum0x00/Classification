@@ -1,0 +1,1267 @@
+Model: "Res2Net50_backbone"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_6 (InputLayer)        [(None, 640, 640, 3)]        0         []                            
+                                                                                                  
+ stem.block1.conv (Conv2D)   (None, 320, 320, 32)         864       ['input_6[0][0]']             
+                                                                                                  
+ stem.block1.norm (BatchNor  (None, 320, 320, 32)         128       ['stem.block1.conv[0][0]']    
+ malization)                                                                                      
+                                                                                                  
+ stem.block1.activ (Activat  (None, 320, 320, 32)         0         ['stem.block1.norm[0][0]']    
+ ion)                                                                                             
+                                                                                                  
+ stem.block2.conv (Conv2D)   (None, 320, 320, 32)         9216      ['stem.block1.activ[0][0]']   
+                                                                                                  
+ stem.block2.norm (BatchNor  (None, 320, 320, 32)         128       ['stem.block2.conv[0][0]']    
+ malization)                                                                                      
+                                                                                                  
+ stem.block2.activ (Activat  (None, 320, 320, 32)         0         ['stem.block2.norm[0][0]']    
+ ion)                                                                                             
+                                                                                                  
+ stem.block3.conv (Conv2D)   (None, 320, 320, 64)         18432     ['stem.block2.activ[0][0]']   
+                                                                                                  
+ stem.block3.norm (BatchNor  (None, 320, 320, 64)         256       ['stem.block3.conv[0][0]']    
+ malization)                                                                                      
+                                                                                                  
+ stem.block3.activ (Activat  (None, 320, 320, 64)         0         ['stem.block3.norm[0][0]']    
+ ion)                                                                                             
+                                                                                                  
+ stem.block3.pool (MaxPooli  (None, 160, 160, 64)         0         ['stem.block3.activ[0][0]']   
+ ng2D)                                                                                            
+                                                                                                  
+ stage1.block1.pre_conv (Co  (None, 160, 160, 104)        6656      ['stem.block3.pool[0][0]']    
+ nv2D)                                                                                            
+                                                                                                  
+ stage1.block1.pre_norm (Ba  (None, 160, 160, 104)        416       ['stage1.block1.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage1.block1.pre_activ (A  (None, 160, 160, 104)        0         ['stage1.block1.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_182 (TFOpLambda)   [(None, 160, 160, 26),       0         ['stage1.block1.pre_activ[0][0
+                              (None, 160, 160, 26),                 ]']                           
+                              (None, 160, 160, 26),                                               
+                              (None, 160, 160, 26)]                                               
+                                                                                                  
+ stage1.block1.layer0.conv   (None, 160, 160, 26)         6084      ['tf.split_182[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage1.block1.layer1.conv   (None, 160, 160, 26)         6084      ['tf.split_182[0][1]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage1.block1.layer0.norm   (None, 160, 160, 26)         104       ['stage1.block1.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage1.block1.layer1.norm   (None, 160, 160, 26)         104       ['stage1.block1.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage1.block1.layer2.conv   (None, 160, 160, 26)         6084      ['tf.split_182[0][2]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage1.block1.layer0.activ  (None, 160, 160, 26)         0         ['stage1.block1.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage1.block1.layer1.activ  (None, 160, 160, 26)         0         ['stage1.block1.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage1.block1.layer2.norm   (None, 160, 160, 26)         104       ['stage1.block1.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_546 (Concatena  (None, 160, 160, 52)         0         ['stage1.block1.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage1.block1.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage1.block1.layer2.activ  (None, 160, 160, 26)         0         ['stage1.block1.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_547 (Concatena  (None, 160, 160, 78)         0         ['concatenate_546[0][0]',     
+ te)                                                                 'stage1.block1.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage1.block1.scale.pool (  (None, 160, 160, 26)         0         ['tf.split_182[0][3]']        
+ AveragePooling2D)                                                                                
+                                                                                                  
+ concatenate_548 (Concatena  (None, 160, 160, 104)        0         ['concatenate_547[0][0]',     
+ te)                                                                 'stage1.block1.scale.pool[0][
+                                                                    0]']                          
+                                                                                                  
+ stage1.block1.down.pool (A  (None, 160, 160, 64)         0         ['stem.block3.pool[0][0]']    
+ veragePooling2D)                                                                                 
+                                                                                                  
+ stage1.block1.post_conv (C  (None, 160, 160, 256)        26624     ['concatenate_548[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage1.block1.down.conv (C  (None, 160, 160, 256)        16384     ['stage1.block1.down.pool[0][0
+ onv2D)                                                             ]']                           
+                                                                                                  
+ stage1.block1.post_norm (B  (None, 160, 160, 256)        1024      ['stage1.block1.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ stage1.block1.down.norm (B  (None, 160, 160, 256)        1024      ['stage1.block1.down.conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_182 (Add)               (None, 160, 160, 256)        0         ['stage1.block1.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage1.block1.down.norm[0][0
+                                                                    ]']                           
+                                                                                                  
+ stage1.block1.post_activ (  (None, 160, 160, 256)        0         ['add_182[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage1.block2.pre_conv (Co  (None, 160, 160, 104)        26624     ['stage1.block1.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage1.block2.pre_norm (Ba  (None, 160, 160, 104)        416       ['stage1.block2.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage1.block2.pre_activ (A  (None, 160, 160, 104)        0         ['stage1.block2.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_183 (TFOpLambda)   [(None, 160, 160, 26),       0         ['stage1.block2.pre_activ[0][0
+                              (None, 160, 160, 26),                 ]']                           
+                              (None, 160, 160, 26),                                               
+                              (None, 160, 160, 26)]                                               
+                                                                                                  
+ stage1.block2.layer0.conv   (None, 160, 160, 26)         6084      ['tf.split_183[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage1.block2.layer0.norm   (None, 160, 160, 26)         104       ['stage1.block2.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage1.block2.layer0.activ  (None, 160, 160, 26)         0         ['stage1.block2.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_324 (  (None, 160, 160, 26)         0         ['stage1.block2.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_183[0][1]']        
+                                                                                                  
+ stage1.block2.layer1.conv   (None, 160, 160, 26)         6084      ['tf.__operators__.add_324[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage1.block2.layer1.norm   (None, 160, 160, 26)         104       ['stage1.block2.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage1.block2.layer1.activ  (None, 160, 160, 26)         0         ['stage1.block2.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_325 (  (None, 160, 160, 26)         0         ['stage1.block2.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_183[0][2]']        
+                                                                                                  
+ stage1.block2.layer2.conv   (None, 160, 160, 26)         6084      ['tf.__operators__.add_325[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage1.block2.layer2.norm   (None, 160, 160, 26)         104       ['stage1.block2.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_549 (Concatena  (None, 160, 160, 52)         0         ['stage1.block2.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage1.block2.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage1.block2.layer2.activ  (None, 160, 160, 26)         0         ['stage1.block2.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_550 (Concatena  (None, 160, 160, 78)         0         ['concatenate_549[0][0]',     
+ te)                                                                 'stage1.block2.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_551 (Concatena  (None, 160, 160, 104)        0         ['concatenate_550[0][0]',     
+ te)                                                                 'tf.split_183[0][3]']        
+                                                                                                  
+ stage1.block2.post_conv (C  (None, 160, 160, 256)        26624     ['concatenate_551[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage1.block2.post_norm (B  (None, 160, 160, 256)        1024      ['stage1.block2.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_183 (Add)               (None, 160, 160, 256)        0         ['stage1.block2.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage1.block1.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage1.block2.post_activ (  (None, 160, 160, 256)        0         ['add_183[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage1.block3.pre_conv (Co  (None, 160, 160, 104)        26624     ['stage1.block2.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage1.block3.pre_norm (Ba  (None, 160, 160, 104)        416       ['stage1.block3.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage1.block3.pre_activ (A  (None, 160, 160, 104)        0         ['stage1.block3.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_184 (TFOpLambda)   [(None, 160, 160, 26),       0         ['stage1.block3.pre_activ[0][0
+                              (None, 160, 160, 26),                 ]']                           
+                              (None, 160, 160, 26),                                               
+                              (None, 160, 160, 26)]                                               
+                                                                                                  
+ stage1.block3.layer0.conv   (None, 160, 160, 26)         6084      ['tf.split_184[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage1.block3.layer0.norm   (None, 160, 160, 26)         104       ['stage1.block3.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage1.block3.layer0.activ  (None, 160, 160, 26)         0         ['stage1.block3.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_326 (  (None, 160, 160, 26)         0         ['stage1.block3.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_184[0][1]']        
+                                                                                                  
+ stage1.block3.layer1.conv   (None, 160, 160, 26)         6084      ['tf.__operators__.add_326[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage1.block3.layer1.norm   (None, 160, 160, 26)         104       ['stage1.block3.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage1.block3.layer1.activ  (None, 160, 160, 26)         0         ['stage1.block3.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_327 (  (None, 160, 160, 26)         0         ['stage1.block3.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_184[0][2]']        
+                                                                                                  
+ stage1.block3.layer2.conv   (None, 160, 160, 26)         6084      ['tf.__operators__.add_327[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage1.block3.layer2.norm   (None, 160, 160, 26)         104       ['stage1.block3.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_552 (Concatena  (None, 160, 160, 52)         0         ['stage1.block3.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage1.block3.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage1.block3.layer2.activ  (None, 160, 160, 26)         0         ['stage1.block3.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_553 (Concatena  (None, 160, 160, 78)         0         ['concatenate_552[0][0]',     
+ te)                                                                 'stage1.block3.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_554 (Concatena  (None, 160, 160, 104)        0         ['concatenate_553[0][0]',     
+ te)                                                                 'tf.split_184[0][3]']        
+                                                                                                  
+ stage1.block3.post_conv (C  (None, 160, 160, 256)        26624     ['concatenate_554[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage1.block3.post_norm (B  (None, 160, 160, 256)        1024      ['stage1.block3.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_184 (Add)               (None, 160, 160, 256)        0         ['stage1.block3.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage1.block2.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage1.block3.post_activ (  (None, 160, 160, 256)        0         ['add_184[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage2.block1.pre_conv (Co  (None, 160, 160, 208)        53248     ['stage1.block3.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage2.block1.pre_norm (Ba  (None, 160, 160, 208)        832       ['stage2.block1.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage2.block1.pre_activ (A  (None, 160, 160, 208)        0         ['stage2.block1.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_185 (TFOpLambda)   [(None, 160, 160, 52),       0         ['stage2.block1.pre_activ[0][0
+                              (None, 160, 160, 52),                 ]']                           
+                              (None, 160, 160, 52),                                               
+                              (None, 160, 160, 52)]                                               
+                                                                                                  
+ stage2.block1.layer0.conv   (None, 80, 80, 52)           24336     ['tf.split_185[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage2.block1.layer1.conv   (None, 80, 80, 52)           24336     ['tf.split_185[0][1]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage2.block1.layer0.norm   (None, 80, 80, 52)           208       ['stage2.block1.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block1.layer1.norm   (None, 80, 80, 52)           208       ['stage2.block1.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block1.layer2.conv   (None, 80, 80, 52)           24336     ['tf.split_185[0][2]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage2.block1.layer0.activ  (None, 80, 80, 52)           0         ['stage2.block1.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage2.block1.layer1.activ  (None, 80, 80, 52)           0         ['stage2.block1.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage2.block1.layer2.norm   (None, 80, 80, 52)           208       ['stage2.block1.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_555 (Concatena  (None, 80, 80, 104)          0         ['stage2.block1.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage2.block1.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage2.block1.layer2.activ  (None, 80, 80, 52)           0         ['stage2.block1.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_556 (Concatena  (None, 80, 80, 156)          0         ['concatenate_555[0][0]',     
+ te)                                                                 'stage2.block1.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage2.block1.scale.pool (  (None, 80, 80, 52)           0         ['tf.split_185[0][3]']        
+ AveragePooling2D)                                                                                
+                                                                                                  
+ concatenate_557 (Concatena  (None, 80, 80, 208)          0         ['concatenate_556[0][0]',     
+ te)                                                                 'stage2.block1.scale.pool[0][
+                                                                    0]']                          
+                                                                                                  
+ stage2.block1.down.pool (A  (None, 80, 80, 256)          0         ['stage1.block3.post_activ[0][
+ veragePooling2D)                                                   0]']                          
+                                                                                                  
+ stage2.block1.post_conv (C  (None, 80, 80, 512)          106496    ['concatenate_557[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage2.block1.down.conv (C  (None, 80, 80, 512)          131072    ['stage2.block1.down.pool[0][0
+ onv2D)                                                             ]']                           
+                                                                                                  
+ stage2.block1.post_norm (B  (None, 80, 80, 512)          2048      ['stage2.block1.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ stage2.block1.down.norm (B  (None, 80, 80, 512)          2048      ['stage2.block1.down.conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_185 (Add)               (None, 80, 80, 512)          0         ['stage2.block1.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage2.block1.down.norm[0][0
+                                                                    ]']                           
+                                                                                                  
+ stage2.block1.post_activ (  (None, 80, 80, 512)          0         ['add_185[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage2.block2.pre_conv (Co  (None, 80, 80, 208)          106496    ['stage2.block1.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage2.block2.pre_norm (Ba  (None, 80, 80, 208)          832       ['stage2.block2.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage2.block2.pre_activ (A  (None, 80, 80, 208)          0         ['stage2.block2.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_186 (TFOpLambda)   [(None, 80, 80, 52),         0         ['stage2.block2.pre_activ[0][0
+                              (None, 80, 80, 52),                   ]']                           
+                              (None, 80, 80, 52),                                                 
+                              (None, 80, 80, 52)]                                                 
+                                                                                                  
+ stage2.block2.layer0.conv   (None, 80, 80, 52)           24336     ['tf.split_186[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage2.block2.layer0.norm   (None, 80, 80, 52)           208       ['stage2.block2.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block2.layer0.activ  (None, 80, 80, 52)           0         ['stage2.block2.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_328 (  (None, 80, 80, 52)           0         ['stage2.block2.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_186[0][1]']        
+                                                                                                  
+ stage2.block2.layer1.conv   (None, 80, 80, 52)           24336     ['tf.__operators__.add_328[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage2.block2.layer1.norm   (None, 80, 80, 52)           208       ['stage2.block2.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block2.layer1.activ  (None, 80, 80, 52)           0         ['stage2.block2.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_329 (  (None, 80, 80, 52)           0         ['stage2.block2.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_186[0][2]']        
+                                                                                                  
+ stage2.block2.layer2.conv   (None, 80, 80, 52)           24336     ['tf.__operators__.add_329[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage2.block2.layer2.norm   (None, 80, 80, 52)           208       ['stage2.block2.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_558 (Concatena  (None, 80, 80, 104)          0         ['stage2.block2.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage2.block2.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage2.block2.layer2.activ  (None, 80, 80, 52)           0         ['stage2.block2.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_559 (Concatena  (None, 80, 80, 156)          0         ['concatenate_558[0][0]',     
+ te)                                                                 'stage2.block2.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_560 (Concatena  (None, 80, 80, 208)          0         ['concatenate_559[0][0]',     
+ te)                                                                 'tf.split_186[0][3]']        
+                                                                                                  
+ stage2.block2.post_conv (C  (None, 80, 80, 512)          106496    ['concatenate_560[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage2.block2.post_norm (B  (None, 80, 80, 512)          2048      ['stage2.block2.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_186 (Add)               (None, 80, 80, 512)          0         ['stage2.block2.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage2.block1.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage2.block2.post_activ (  (None, 80, 80, 512)          0         ['add_186[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage2.block3.pre_conv (Co  (None, 80, 80, 208)          106496    ['stage2.block2.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage2.block3.pre_norm (Ba  (None, 80, 80, 208)          832       ['stage2.block3.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage2.block3.pre_activ (A  (None, 80, 80, 208)          0         ['stage2.block3.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_187 (TFOpLambda)   [(None, 80, 80, 52),         0         ['stage2.block3.pre_activ[0][0
+                              (None, 80, 80, 52),                   ]']                           
+                              (None, 80, 80, 52),                                                 
+                              (None, 80, 80, 52)]                                                 
+                                                                                                  
+ stage2.block3.layer0.conv   (None, 80, 80, 52)           24336     ['tf.split_187[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage2.block3.layer0.norm   (None, 80, 80, 52)           208       ['stage2.block3.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block3.layer0.activ  (None, 80, 80, 52)           0         ['stage2.block3.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_330 (  (None, 80, 80, 52)           0         ['stage2.block3.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_187[0][1]']        
+                                                                                                  
+ stage2.block3.layer1.conv   (None, 80, 80, 52)           24336     ['tf.__operators__.add_330[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage2.block3.layer1.norm   (None, 80, 80, 52)           208       ['stage2.block3.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block3.layer1.activ  (None, 80, 80, 52)           0         ['stage2.block3.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_331 (  (None, 80, 80, 52)           0         ['stage2.block3.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_187[0][2]']        
+                                                                                                  
+ stage2.block3.layer2.conv   (None, 80, 80, 52)           24336     ['tf.__operators__.add_331[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage2.block3.layer2.norm   (None, 80, 80, 52)           208       ['stage2.block3.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_561 (Concatena  (None, 80, 80, 104)          0         ['stage2.block3.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage2.block3.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage2.block3.layer2.activ  (None, 80, 80, 52)           0         ['stage2.block3.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_562 (Concatena  (None, 80, 80, 156)          0         ['concatenate_561[0][0]',     
+ te)                                                                 'stage2.block3.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_563 (Concatena  (None, 80, 80, 208)          0         ['concatenate_562[0][0]',     
+ te)                                                                 'tf.split_187[0][3]']        
+                                                                                                  
+ stage2.block3.post_conv (C  (None, 80, 80, 512)          106496    ['concatenate_563[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage2.block3.post_norm (B  (None, 80, 80, 512)          2048      ['stage2.block3.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_187 (Add)               (None, 80, 80, 512)          0         ['stage2.block3.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage2.block2.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage2.block3.post_activ (  (None, 80, 80, 512)          0         ['add_187[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage2.block4.pre_conv (Co  (None, 80, 80, 208)          106496    ['stage2.block3.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage2.block4.pre_norm (Ba  (None, 80, 80, 208)          832       ['stage2.block4.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage2.block4.pre_activ (A  (None, 80, 80, 208)          0         ['stage2.block4.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_188 (TFOpLambda)   [(None, 80, 80, 52),         0         ['stage2.block4.pre_activ[0][0
+                              (None, 80, 80, 52),                   ]']                           
+                              (None, 80, 80, 52),                                                 
+                              (None, 80, 80, 52)]                                                 
+                                                                                                  
+ stage2.block4.layer0.conv   (None, 80, 80, 52)           24336     ['tf.split_188[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage2.block4.layer0.norm   (None, 80, 80, 52)           208       ['stage2.block4.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block4.layer0.activ  (None, 80, 80, 52)           0         ['stage2.block4.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_332 (  (None, 80, 80, 52)           0         ['stage2.block4.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_188[0][1]']        
+                                                                                                  
+ stage2.block4.layer1.conv   (None, 80, 80, 52)           24336     ['tf.__operators__.add_332[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage2.block4.layer1.norm   (None, 80, 80, 52)           208       ['stage2.block4.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage2.block4.layer1.activ  (None, 80, 80, 52)           0         ['stage2.block4.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_333 (  (None, 80, 80, 52)           0         ['stage2.block4.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_188[0][2]']        
+                                                                                                  
+ stage2.block4.layer2.conv   (None, 80, 80, 52)           24336     ['tf.__operators__.add_333[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage2.block4.layer2.norm   (None, 80, 80, 52)           208       ['stage2.block4.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_564 (Concatena  (None, 80, 80, 104)          0         ['stage2.block4.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage2.block4.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage2.block4.layer2.activ  (None, 80, 80, 52)           0         ['stage2.block4.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_565 (Concatena  (None, 80, 80, 156)          0         ['concatenate_564[0][0]',     
+ te)                                                                 'stage2.block4.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_566 (Concatena  (None, 80, 80, 208)          0         ['concatenate_565[0][0]',     
+ te)                                                                 'tf.split_188[0][3]']        
+                                                                                                  
+ stage2.block4.post_conv (C  (None, 80, 80, 512)          106496    ['concatenate_566[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage2.block4.post_norm (B  (None, 80, 80, 512)          2048      ['stage2.block4.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_188 (Add)               (None, 80, 80, 512)          0         ['stage2.block4.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage2.block3.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage2.block4.post_activ (  (None, 80, 80, 512)          0         ['add_188[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage3.block1.pre_conv (Co  (None, 80, 80, 416)          212992    ['stage2.block4.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage3.block1.pre_norm (Ba  (None, 80, 80, 416)          1664      ['stage3.block1.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage3.block1.pre_activ (A  (None, 80, 80, 416)          0         ['stage3.block1.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_189 (TFOpLambda)   [(None, 80, 80, 104),        0         ['stage3.block1.pre_activ[0][0
+                              (None, 80, 80, 104),                  ]']                           
+                              (None, 80, 80, 104),                                                
+                              (None, 80, 80, 104)]                                                
+                                                                                                  
+ stage3.block1.layer0.conv   (None, 40, 40, 104)          97344     ['tf.split_189[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block1.layer1.conv   (None, 40, 40, 104)          97344     ['tf.split_189[0][1]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block1.layer0.norm   (None, 40, 40, 104)          416       ['stage3.block1.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block1.layer1.norm   (None, 40, 40, 104)          416       ['stage3.block1.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block1.layer2.conv   (None, 40, 40, 104)          97344     ['tf.split_189[0][2]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block1.layer0.activ  (None, 40, 40, 104)          0         ['stage3.block1.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage3.block1.layer1.activ  (None, 40, 40, 104)          0         ['stage3.block1.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage3.block1.layer2.norm   (None, 40, 40, 104)          416       ['stage3.block1.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_567 (Concatena  (None, 40, 40, 208)          0         ['stage3.block1.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage3.block1.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage3.block1.layer2.activ  (None, 40, 40, 104)          0         ['stage3.block1.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_568 (Concatena  (None, 40, 40, 312)          0         ['concatenate_567[0][0]',     
+ te)                                                                 'stage3.block1.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage3.block1.scale.pool (  (None, 40, 40, 104)          0         ['tf.split_189[0][3]']        
+ AveragePooling2D)                                                                                
+                                                                                                  
+ concatenate_569 (Concatena  (None, 40, 40, 416)          0         ['concatenate_568[0][0]',     
+ te)                                                                 'stage3.block1.scale.pool[0][
+                                                                    0]']                          
+                                                                                                  
+ stage3.block1.down.pool (A  (None, 40, 40, 512)          0         ['stage2.block4.post_activ[0][
+ veragePooling2D)                                                   0]']                          
+                                                                                                  
+ stage3.block1.post_conv (C  (None, 40, 40, 1024)         425984    ['concatenate_569[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage3.block1.down.conv (C  (None, 40, 40, 1024)         524288    ['stage3.block1.down.pool[0][0
+ onv2D)                                                             ]']                           
+                                                                                                  
+ stage3.block1.post_norm (B  (None, 40, 40, 1024)         4096      ['stage3.block1.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ stage3.block1.down.norm (B  (None, 40, 40, 1024)         4096      ['stage3.block1.down.conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_189 (Add)               (None, 40, 40, 1024)         0         ['stage3.block1.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage3.block1.down.norm[0][0
+                                                                    ]']                           
+                                                                                                  
+ stage3.block1.post_activ (  (None, 40, 40, 1024)         0         ['add_189[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage3.block2.pre_conv (Co  (None, 40, 40, 416)          425984    ['stage3.block1.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage3.block2.pre_norm (Ba  (None, 40, 40, 416)          1664      ['stage3.block2.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage3.block2.pre_activ (A  (None, 40, 40, 416)          0         ['stage3.block2.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_190 (TFOpLambda)   [(None, 40, 40, 104),        0         ['stage3.block2.pre_activ[0][0
+                              (None, 40, 40, 104),                  ]']                           
+                              (None, 40, 40, 104),                                                
+                              (None, 40, 40, 104)]                                                
+                                                                                                  
+ stage3.block2.layer0.conv   (None, 40, 40, 104)          97344     ['tf.split_190[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block2.layer0.norm   (None, 40, 40, 104)          416       ['stage3.block2.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block2.layer0.activ  (None, 40, 40, 104)          0         ['stage3.block2.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_334 (  (None, 40, 40, 104)          0         ['stage3.block2.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_190[0][1]']        
+                                                                                                  
+ stage3.block2.layer1.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_334[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block2.layer1.norm   (None, 40, 40, 104)          416       ['stage3.block2.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block2.layer1.activ  (None, 40, 40, 104)          0         ['stage3.block2.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_335 (  (None, 40, 40, 104)          0         ['stage3.block2.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_190[0][2]']        
+                                                                                                  
+ stage3.block2.layer2.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_335[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block2.layer2.norm   (None, 40, 40, 104)          416       ['stage3.block2.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_570 (Concatena  (None, 40, 40, 208)          0         ['stage3.block2.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage3.block2.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage3.block2.layer2.activ  (None, 40, 40, 104)          0         ['stage3.block2.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_571 (Concatena  (None, 40, 40, 312)          0         ['concatenate_570[0][0]',     
+ te)                                                                 'stage3.block2.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_572 (Concatena  (None, 40, 40, 416)          0         ['concatenate_571[0][0]',     
+ te)                                                                 'tf.split_190[0][3]']        
+                                                                                                  
+ stage3.block2.post_conv (C  (None, 40, 40, 1024)         425984    ['concatenate_572[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage3.block2.post_norm (B  (None, 40, 40, 1024)         4096      ['stage3.block2.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_190 (Add)               (None, 40, 40, 1024)         0         ['stage3.block2.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage3.block1.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage3.block2.post_activ (  (None, 40, 40, 1024)         0         ['add_190[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage3.block3.pre_conv (Co  (None, 40, 40, 416)          425984    ['stage3.block2.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage3.block3.pre_norm (Ba  (None, 40, 40, 416)          1664      ['stage3.block3.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage3.block3.pre_activ (A  (None, 40, 40, 416)          0         ['stage3.block3.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_191 (TFOpLambda)   [(None, 40, 40, 104),        0         ['stage3.block3.pre_activ[0][0
+                              (None, 40, 40, 104),                  ]']                           
+                              (None, 40, 40, 104),                                                
+                              (None, 40, 40, 104)]                                                
+                                                                                                  
+ stage3.block3.layer0.conv   (None, 40, 40, 104)          97344     ['tf.split_191[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block3.layer0.norm   (None, 40, 40, 104)          416       ['stage3.block3.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block3.layer0.activ  (None, 40, 40, 104)          0         ['stage3.block3.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_336 (  (None, 40, 40, 104)          0         ['stage3.block3.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_191[0][1]']        
+                                                                                                  
+ stage3.block3.layer1.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_336[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block3.layer1.norm   (None, 40, 40, 104)          416       ['stage3.block3.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block3.layer1.activ  (None, 40, 40, 104)          0         ['stage3.block3.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_337 (  (None, 40, 40, 104)          0         ['stage3.block3.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_191[0][2]']        
+                                                                                                  
+ stage3.block3.layer2.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_337[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block3.layer2.norm   (None, 40, 40, 104)          416       ['stage3.block3.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_573 (Concatena  (None, 40, 40, 208)          0         ['stage3.block3.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage3.block3.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage3.block3.layer2.activ  (None, 40, 40, 104)          0         ['stage3.block3.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_574 (Concatena  (None, 40, 40, 312)          0         ['concatenate_573[0][0]',     
+ te)                                                                 'stage3.block3.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_575 (Concatena  (None, 40, 40, 416)          0         ['concatenate_574[0][0]',     
+ te)                                                                 'tf.split_191[0][3]']        
+                                                                                                  
+ stage3.block3.post_conv (C  (None, 40, 40, 1024)         425984    ['concatenate_575[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage3.block3.post_norm (B  (None, 40, 40, 1024)         4096      ['stage3.block3.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_191 (Add)               (None, 40, 40, 1024)         0         ['stage3.block3.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage3.block2.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage3.block3.post_activ (  (None, 40, 40, 1024)         0         ['add_191[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage3.block4.pre_conv (Co  (None, 40, 40, 416)          425984    ['stage3.block3.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage3.block4.pre_norm (Ba  (None, 40, 40, 416)          1664      ['stage3.block4.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage3.block4.pre_activ (A  (None, 40, 40, 416)          0         ['stage3.block4.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_192 (TFOpLambda)   [(None, 40, 40, 104),        0         ['stage3.block4.pre_activ[0][0
+                              (None, 40, 40, 104),                  ]']                           
+                              (None, 40, 40, 104),                                                
+                              (None, 40, 40, 104)]                                                
+                                                                                                  
+ stage3.block4.layer0.conv   (None, 40, 40, 104)          97344     ['tf.split_192[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block4.layer0.norm   (None, 40, 40, 104)          416       ['stage3.block4.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block4.layer0.activ  (None, 40, 40, 104)          0         ['stage3.block4.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_338 (  (None, 40, 40, 104)          0         ['stage3.block4.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_192[0][1]']        
+                                                                                                  
+ stage3.block4.layer1.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_338[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block4.layer1.norm   (None, 40, 40, 104)          416       ['stage3.block4.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block4.layer1.activ  (None, 40, 40, 104)          0         ['stage3.block4.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_339 (  (None, 40, 40, 104)          0         ['stage3.block4.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_192[0][2]']        
+                                                                                                  
+ stage3.block4.layer2.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_339[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block4.layer2.norm   (None, 40, 40, 104)          416       ['stage3.block4.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_576 (Concatena  (None, 40, 40, 208)          0         ['stage3.block4.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage3.block4.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage3.block4.layer2.activ  (None, 40, 40, 104)          0         ['stage3.block4.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_577 (Concatena  (None, 40, 40, 312)          0         ['concatenate_576[0][0]',     
+ te)                                                                 'stage3.block4.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_578 (Concatena  (None, 40, 40, 416)          0         ['concatenate_577[0][0]',     
+ te)                                                                 'tf.split_192[0][3]']        
+                                                                                                  
+ stage3.block4.post_conv (C  (None, 40, 40, 1024)         425984    ['concatenate_578[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage3.block4.post_norm (B  (None, 40, 40, 1024)         4096      ['stage3.block4.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_192 (Add)               (None, 40, 40, 1024)         0         ['stage3.block4.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage3.block3.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage3.block4.post_activ (  (None, 40, 40, 1024)         0         ['add_192[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage3.block5.pre_conv (Co  (None, 40, 40, 416)          425984    ['stage3.block4.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage3.block5.pre_norm (Ba  (None, 40, 40, 416)          1664      ['stage3.block5.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage3.block5.pre_activ (A  (None, 40, 40, 416)          0         ['stage3.block5.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_193 (TFOpLambda)   [(None, 40, 40, 104),        0         ['stage3.block5.pre_activ[0][0
+                              (None, 40, 40, 104),                  ]']                           
+                              (None, 40, 40, 104),                                                
+                              (None, 40, 40, 104)]                                                
+                                                                                                  
+ stage3.block5.layer0.conv   (None, 40, 40, 104)          97344     ['tf.split_193[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block5.layer0.norm   (None, 40, 40, 104)          416       ['stage3.block5.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block5.layer0.activ  (None, 40, 40, 104)          0         ['stage3.block5.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_340 (  (None, 40, 40, 104)          0         ['stage3.block5.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_193[0][1]']        
+                                                                                                  
+ stage3.block5.layer1.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_340[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block5.layer1.norm   (None, 40, 40, 104)          416       ['stage3.block5.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block5.layer1.activ  (None, 40, 40, 104)          0         ['stage3.block5.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_341 (  (None, 40, 40, 104)          0         ['stage3.block5.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_193[0][2]']        
+                                                                                                  
+ stage3.block5.layer2.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_341[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block5.layer2.norm   (None, 40, 40, 104)          416       ['stage3.block5.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_579 (Concatena  (None, 40, 40, 208)          0         ['stage3.block5.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage3.block5.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage3.block5.layer2.activ  (None, 40, 40, 104)          0         ['stage3.block5.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_580 (Concatena  (None, 40, 40, 312)          0         ['concatenate_579[0][0]',     
+ te)                                                                 'stage3.block5.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_581 (Concatena  (None, 40, 40, 416)          0         ['concatenate_580[0][0]',     
+ te)                                                                 'tf.split_193[0][3]']        
+                                                                                                  
+ stage3.block5.post_conv (C  (None, 40, 40, 1024)         425984    ['concatenate_581[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage3.block5.post_norm (B  (None, 40, 40, 1024)         4096      ['stage3.block5.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_193 (Add)               (None, 40, 40, 1024)         0         ['stage3.block5.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage3.block4.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage3.block5.post_activ (  (None, 40, 40, 1024)         0         ['add_193[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage3.block6.pre_conv (Co  (None, 40, 40, 416)          425984    ['stage3.block5.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage3.block6.pre_norm (Ba  (None, 40, 40, 416)          1664      ['stage3.block6.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage3.block6.pre_activ (A  (None, 40, 40, 416)          0         ['stage3.block6.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_194 (TFOpLambda)   [(None, 40, 40, 104),        0         ['stage3.block6.pre_activ[0][0
+                              (None, 40, 40, 104),                  ]']                           
+                              (None, 40, 40, 104),                                                
+                              (None, 40, 40, 104)]                                                
+                                                                                                  
+ stage3.block6.layer0.conv   (None, 40, 40, 104)          97344     ['tf.split_194[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage3.block6.layer0.norm   (None, 40, 40, 104)          416       ['stage3.block6.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block6.layer0.activ  (None, 40, 40, 104)          0         ['stage3.block6.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_342 (  (None, 40, 40, 104)          0         ['stage3.block6.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_194[0][1]']        
+                                                                                                  
+ stage3.block6.layer1.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_342[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block6.layer1.norm   (None, 40, 40, 104)          416       ['stage3.block6.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage3.block6.layer1.activ  (None, 40, 40, 104)          0         ['stage3.block6.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_343 (  (None, 40, 40, 104)          0         ['stage3.block6.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_194[0][2]']        
+                                                                                                  
+ stage3.block6.layer2.conv   (None, 40, 40, 104)          97344     ['tf.__operators__.add_343[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage3.block6.layer2.norm   (None, 40, 40, 104)          416       ['stage3.block6.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_582 (Concatena  (None, 40, 40, 208)          0         ['stage3.block6.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage3.block6.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage3.block6.layer2.activ  (None, 40, 40, 104)          0         ['stage3.block6.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_583 (Concatena  (None, 40, 40, 312)          0         ['concatenate_582[0][0]',     
+ te)                                                                 'stage3.block6.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_584 (Concatena  (None, 40, 40, 416)          0         ['concatenate_583[0][0]',     
+ te)                                                                 'tf.split_194[0][3]']        
+                                                                                                  
+ stage3.block6.post_conv (C  (None, 40, 40, 1024)         425984    ['concatenate_584[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage3.block6.post_norm (B  (None, 40, 40, 1024)         4096      ['stage3.block6.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_194 (Add)               (None, 40, 40, 1024)         0         ['stage3.block6.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage3.block5.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage3.block6.post_activ (  (None, 40, 40, 1024)         0         ['add_194[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage4.block1.pre_conv (Co  (None, 40, 40, 832)          851968    ['stage3.block6.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage4.block1.pre_norm (Ba  (None, 40, 40, 832)          3328      ['stage4.block1.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage4.block1.pre_activ (A  (None, 40, 40, 832)          0         ['stage4.block1.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_195 (TFOpLambda)   [(None, 40, 40, 208),        0         ['stage4.block1.pre_activ[0][0
+                              (None, 40, 40, 208),                  ]']                           
+                              (None, 40, 40, 208),                                                
+                              (None, 40, 40, 208)]                                                
+                                                                                                  
+ stage4.block1.layer0.conv   (None, 40, 40, 208)          389376    ['tf.split_195[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage4.block1.layer1.conv   (None, 40, 40, 208)          389376    ['tf.split_195[0][1]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage4.block1.layer0.norm   (None, 40, 40, 208)          832       ['stage4.block1.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage4.block1.layer1.norm   (None, 40, 40, 208)          832       ['stage4.block1.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage4.block1.layer2.conv   (None, 40, 40, 208)          389376    ['tf.split_195[0][2]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage4.block1.layer0.activ  (None, 40, 40, 208)          0         ['stage4.block1.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage4.block1.layer1.activ  (None, 40, 40, 208)          0         ['stage4.block1.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ stage4.block1.layer2.norm   (None, 40, 40, 208)          832       ['stage4.block1.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_585 (Concatena  (None, 40, 40, 416)          0         ['stage4.block1.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage4.block1.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage4.block1.layer2.activ  (None, 40, 40, 208)          0         ['stage4.block1.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_586 (Concatena  (None, 40, 40, 624)          0         ['concatenate_585[0][0]',     
+ te)                                                                 'stage4.block1.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage4.block1.scale.pool (  (None, 40, 40, 208)          0         ['tf.split_195[0][3]']        
+ AveragePooling2D)                                                                                
+                                                                                                  
+ concatenate_587 (Concatena  (None, 40, 40, 832)          0         ['concatenate_586[0][0]',     
+ te)                                                                 'stage4.block1.scale.pool[0][
+                                                                    0]']                          
+                                                                                                  
+ stage4.block1.down.pool (A  (None, 40, 40, 1024)         0         ['stage3.block6.post_activ[0][
+ veragePooling2D)                                                   0]']                          
+                                                                                                  
+ stage4.block1.post_conv (C  (None, 40, 40, 2048)         1703936   ['concatenate_587[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage4.block1.down.conv (C  (None, 40, 40, 2048)         2097152   ['stage4.block1.down.pool[0][0
+ onv2D)                                                             ]']                           
+                                                                                                  
+ stage4.block1.post_norm (B  (None, 40, 40, 2048)         8192      ['stage4.block1.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ stage4.block1.down.norm (B  (None, 40, 40, 2048)         8192      ['stage4.block1.down.conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_195 (Add)               (None, 40, 40, 2048)         0         ['stage4.block1.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage4.block1.down.norm[0][0
+                                                                    ]']                           
+                                                                                                  
+ stage4.block1.post_activ (  (None, 40, 40, 2048)         0         ['add_195[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage4.block2.pre_conv (Co  (None, 40, 40, 832)          1703936   ['stage4.block1.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage4.block2.pre_norm (Ba  (None, 40, 40, 832)          3328      ['stage4.block2.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage4.block2.pre_activ (A  (None, 40, 40, 832)          0         ['stage4.block2.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_196 (TFOpLambda)   [(None, 40, 40, 208),        0         ['stage4.block2.pre_activ[0][0
+                              (None, 40, 40, 208),                  ]']                           
+                              (None, 40, 40, 208),                                                
+                              (None, 40, 40, 208)]                                                
+                                                                                                  
+ stage4.block2.layer0.conv   (None, 40, 40, 208)          389376    ['tf.split_196[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage4.block2.layer0.norm   (None, 40, 40, 208)          832       ['stage4.block2.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage4.block2.layer0.activ  (None, 40, 40, 208)          0         ['stage4.block2.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_344 (  (None, 40, 40, 208)          0         ['stage4.block2.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_196[0][1]']        
+                                                                                                  
+ stage4.block2.layer1.conv   (None, 40, 40, 208)          389376    ['tf.__operators__.add_344[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage4.block2.layer1.norm   (None, 40, 40, 208)          832       ['stage4.block2.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage4.block2.layer1.activ  (None, 40, 40, 208)          0         ['stage4.block2.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_345 (  (None, 40, 40, 208)          0         ['stage4.block2.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_196[0][2]']        
+                                                                                                  
+ stage4.block2.layer2.conv   (None, 40, 40, 208)          389376    ['tf.__operators__.add_345[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage4.block2.layer2.norm   (None, 40, 40, 208)          832       ['stage4.block2.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_588 (Concatena  (None, 40, 40, 416)          0         ['stage4.block2.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage4.block2.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage4.block2.layer2.activ  (None, 40, 40, 208)          0         ['stage4.block2.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_589 (Concatena  (None, 40, 40, 624)          0         ['concatenate_588[0][0]',     
+ te)                                                                 'stage4.block2.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_590 (Concatena  (None, 40, 40, 832)          0         ['concatenate_589[0][0]',     
+ te)                                                                 'tf.split_196[0][3]']        
+                                                                                                  
+ stage4.block2.post_conv (C  (None, 40, 40, 2048)         1703936   ['concatenate_590[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage4.block2.post_norm (B  (None, 40, 40, 2048)         8192      ['stage4.block2.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_196 (Add)               (None, 40, 40, 2048)         0         ['stage4.block2.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage4.block1.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage4.block2.post_activ (  (None, 40, 40, 2048)         0         ['add_196[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ stage4.block3.pre_conv (Co  (None, 40, 40, 832)          1703936   ['stage4.block2.post_activ[0][
+ nv2D)                                                              0]']                          
+                                                                                                  
+ stage4.block3.pre_norm (Ba  (None, 40, 40, 832)          3328      ['stage4.block3.pre_conv[0][0]
+ tchNormalization)                                                  ']                            
+                                                                                                  
+ stage4.block3.pre_activ (A  (None, 40, 40, 832)          0         ['stage4.block3.pre_norm[0][0]
+ ctivation)                                                         ']                            
+                                                                                                  
+ tf.split_197 (TFOpLambda)   [(None, 40, 40, 208),        0         ['stage4.block3.pre_activ[0][0
+                              (None, 40, 40, 208),                  ]']                           
+                              (None, 40, 40, 208),                                                
+                              (None, 40, 40, 208)]                                                
+                                                                                                  
+ stage4.block3.layer0.conv   (None, 40, 40, 208)          389376    ['tf.split_197[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ stage4.block3.layer0.norm   (None, 40, 40, 208)          832       ['stage4.block3.layer0.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage4.block3.layer0.activ  (None, 40, 40, 208)          0         ['stage4.block3.layer0.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_346 (  (None, 40, 40, 208)          0         ['stage4.block3.layer0.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_197[0][1]']        
+                                                                                                  
+ stage4.block3.layer1.conv   (None, 40, 40, 208)          389376    ['tf.__operators__.add_346[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage4.block3.layer1.norm   (None, 40, 40, 208)          832       ['stage4.block3.layer1.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ stage4.block3.layer1.activ  (None, 40, 40, 208)          0         ['stage4.block3.layer1.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ tf.__operators__.add_347 (  (None, 40, 40, 208)          0         ['stage4.block3.layer1.activ[0
+ TFOpLambda)                                                        ][0]',                        
+                                                                     'tf.split_197[0][2]']        
+                                                                                                  
+ stage4.block3.layer2.conv   (None, 40, 40, 208)          389376    ['tf.__operators__.add_347[0][
+ (Conv2D)                                                           0]']                          
+                                                                                                  
+ stage4.block3.layer2.norm   (None, 40, 40, 208)          832       ['stage4.block3.layer2.conv[0]
+ (BatchNormalization)                                               [0]']                         
+                                                                                                  
+ concatenate_591 (Concatena  (None, 40, 40, 416)          0         ['stage4.block3.layer0.activ[0
+ te)                                                                ][0]',                        
+                                                                     'stage4.block3.layer1.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ stage4.block3.layer2.activ  (None, 40, 40, 208)          0         ['stage4.block3.layer2.norm[0]
+  (Activation)                                                      [0]']                         
+                                                                                                  
+ concatenate_592 (Concatena  (None, 40, 40, 624)          0         ['concatenate_591[0][0]',     
+ te)                                                                 'stage4.block3.layer2.activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ concatenate_593 (Concatena  (None, 40, 40, 832)          0         ['concatenate_592[0][0]',     
+ te)                                                                 'tf.split_197[0][3]']        
+                                                                                                  
+ stage4.block3.post_conv (C  (None, 40, 40, 2048)         1703936   ['concatenate_593[0][0]']     
+ onv2D)                                                                                           
+                                                                                                  
+ stage4.block3.post_norm (B  (None, 40, 40, 2048)         8192      ['stage4.block3.post_conv[0][0
+ atchNormalization)                                                 ]']                           
+                                                                                                  
+ add_197 (Add)               (None, 40, 40, 2048)         0         ['stage4.block3.post_norm[0][0
+                                                                    ]',                           
+                                                                     'stage4.block2.post_activ[0][
+                                                                    0]']                          
+                                                                                                  
+ stage4.block3.post_activ (  (None, 40, 40, 2048)         0         ['add_197[0][0]']             
+ Activation)                                                                                      
+                                                                                                  
+ avg_pool (AveragePooling2D  (None, 1, 1, 2048)           0         ['stage4.block3.post_activ[0][
+ )                                                                  0]']                          
+                                                                                                  
+ flatten (Flatten)           (None, 2048)                 0         ['avg_pool[0][0]']            
+                                                                                                  
+ predictions (Dense)         (None, 1000)                 2049000   ['flatten[0][0]']             
+                                                                                                  
+ activation_5 (Activation)   (None, 1000)                 0         ['predictions[0][0]']         
+                                                                                                  
+==================================================================================================
+Total params: 25777972 (98.34 MB)
+Trainable params: 25718352 (98.11 MB)
+Non-trainable params: 59620 (232.89 KB)
+__________________________________________________________________________________________________

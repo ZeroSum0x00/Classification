@@ -1,0 +1,71 @@
+Model: "DarkNet-ELAN-huge_backbone"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_4 (InputLayer)        [(None, 256, 256, 3)]        0         []                            
+                                                                                                  
+ stem.block1 (ReOrg)         (None, 128, 128, 12)         0         ['input_4[0][0]']             
+                                                                                                  
+ stem.block2 (ConvolutionBl  (None, 128, 128, 80)         8960      ['stem.block1[0][0]']         
+ ock)                                                                                             
+                                                                                                  
+ stage1.block1 (DownC)       (None, 64, 64, 160)          71360     ['stem.block2[0][0]']         
+                                                                                                  
+ stage1.block2 (ScaleUpConc  (None, 64, 64, 160)          295552    ['stage1.block1[0][0]']       
+ atBlock)                                                                                         
+                                                                                                  
+ stage1.block3 (ScaleUpConc  (None, 64, 64, 160)          295552    ['stage1.block2[0][0]']       
+ atBlock)                                                                                         
+                                                                                                  
+ stage1.residual (Shortcut)  (None, 64, 64, 160)          0         ['stage1.block2[0][0]',       
+                                                                     'stage1.block3[0][0]']       
+                                                                                                  
+ stage2.block1 (DownC)       (None, 32, 32, 320)          283520    ['stage1.residual[0][0]']     
+                                                                                                  
+ stage2.block2 (ScaleUpConc  (None, 32, 32, 320)          1176832   ['stage2.block1[0][0]']       
+ atBlock)                                                                                         
+                                                                                                  
+ stage2.block3 (ScaleUpConc  (None, 32, 32, 320)          1176832   ['stage2.block2[0][0]']       
+ atBlock)                                                                                         
+                                                                                                  
+ stage2.residual (Shortcut)  (None, 32, 32, 320)          0         ['stage2.block2[0][0]',       
+                                                                     'stage2.block3[0][0]']       
+                                                                                                  
+ stage3.block1 (DownC)       (None, 16, 16, 640)          1130240   ['stage2.residual[0][0]']     
+                                                                                                  
+ stage3.block2 (ScaleUpConc  (None, 16, 16, 640)          4696576   ['stage3.block1[0][0]']       
+ atBlock)                                                                                         
+                                                                                                  
+ stage3.block3 (ScaleUpConc  (None, 16, 16, 640)          4696576   ['stage3.block2[0][0]']       
+ atBlock)                                                                                         
+                                                                                                  
+ stage3.residual (Shortcut)  (None, 16, 16, 640)          0         ['stage3.block2[0][0]',       
+                                                                     'stage3.block3[0][0]']       
+                                                                                                  
+ stage4.block1 (DownC)       (None, 8, 8, 960)            3488000   ['stage3.residual[0][0]']     
+                                                                                                  
+ stage4.block2 (ScaleUpConc  (None, 8, 8, 960)            1055923   ['stage4.block1[0][0]']       
+ atBlock)                                                 2                                       
+                                                                                                  
+ stage4.block3 (ScaleUpConc  (None, 8, 8, 960)            1055923   ['stage4.block2[0][0]']       
+ atBlock)                                                 2                                       
+                                                                                                  
+ stage4.residual (Shortcut)  (None, 8, 8, 960)            0         ['stage4.block2[0][0]',       
+                                                                     'stage4.block3[0][0]']       
+                                                                                                  
+ stage5.block1 (DownC)       (None, 4, 4, 1280)           7074560   ['stage4.residual[0][0]']     
+                                                                                                  
+ stage5.block2 (ScaleUpConc  (None, 4, 4, 1280)           1876480   ['stage5.block1[0][0]']       
+ atBlock)                                                 0                                       
+                                                                                                  
+ stage5.block3 (ScaleUpConc  (None, 4, 4, 1280)           1876480   ['stage5.block2[0][0]']       
+ atBlock)                                                 0                                       
+                                                                                                  
+ stage5.residual (Shortcut)  (None, 4, 4, 1280)           0         ['stage5.block2[0][0]',       
+                                                                     'stage5.block3[0][0]']       
+                                                                                                  
+==================================================================================================
+Total params: 83042624 (316.78 MB)
+Trainable params: 82974976 (316.52 MB)
+Non-trainable params: 67648 (264.25 KB)
+__________________________________________________________________________________________________

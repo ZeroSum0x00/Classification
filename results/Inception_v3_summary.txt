@@ -1,0 +1,867 @@
+Model: "Inception-v3"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_10 (InputLayer)       [(None, 224, 224, 3)]        0         []                            
+                                                                                                  
+ stem1_conv (Conv2D)         (None, 111, 111, 32)         864       ['input_10[0][0]']            
+                                                                                                  
+ stem1_bn (BatchNormalizati  (None, 111, 111, 32)         128       ['stem1_conv[0][0]']          
+ on)                                                                                              
+                                                                                                  
+ stem1_activ (Activation)    (None, 111, 111, 32)         0         ['stem1_bn[0][0]']            
+                                                                                                  
+ stem2_conv (Conv2D)         (None, 109, 109, 32)         9216      ['stem1_activ[0][0]']         
+                                                                                                  
+ stem2_bn (BatchNormalizati  (None, 109, 109, 32)         128       ['stem2_conv[0][0]']          
+ on)                                                                                              
+                                                                                                  
+ stem2_activ (Activation)    (None, 109, 109, 32)         0         ['stem2_bn[0][0]']            
+                                                                                                  
+ stem3_conv (Conv2D)         (None, 109, 109, 64)         18432     ['stem2_activ[0][0]']         
+                                                                                                  
+ stem3_bn (BatchNormalizati  (None, 109, 109, 64)         256       ['stem3_conv[0][0]']          
+ on)                                                                                              
+                                                                                                  
+ stem3_activ (Activation)    (None, 109, 109, 64)         0         ['stem3_bn[0][0]']            
+                                                                                                  
+ stem_pooling1 (MaxPooling2  (None, 54, 54, 64)           0         ['stem3_activ[0][0]']         
+ D)                                                                                               
+                                                                                                  
+ stem4_conv (Conv2D)         (None, 54, 54, 80)           5120      ['stem_pooling1[0][0]']       
+                                                                                                  
+ stem4_bn (BatchNormalizati  (None, 54, 54, 80)           320       ['stem4_conv[0][0]']          
+ on)                                                                                              
+                                                                                                  
+ stem4_activ (Activation)    (None, 54, 54, 80)           0         ['stem4_bn[0][0]']            
+                                                                                                  
+ stem5_conv (Conv2D)         (None, 52, 52, 192)          138240    ['stem4_activ[0][0]']         
+                                                                                                  
+ stem5_bn (BatchNormalizati  (None, 52, 52, 192)          768       ['stem5_conv[0][0]']          
+ on)                                                                                              
+                                                                                                  
+ stem5_activ (Activation)    (None, 52, 52, 192)          0         ['stem5_bn[0][0]']            
+                                                                                                  
+ stem_pooling2 (MaxPooling2  (None, 25, 25, 192)          0         ['stem5_activ[0][0]']         
+ D)                                                                                               
+                                                                                                  
+ mixed0_b31_conv (Conv2D)    (None, 25, 25, 64)           12288     ['stem_pooling2[0][0]']       
+                                                                                                  
+ mixed0_b31_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed0_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed0_b31_activ (Activati  (None, 25, 25, 64)           0         ['mixed0_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed0_b21_conv (Conv2D)    (None, 25, 25, 48)           9216      ['stem_pooling2[0][0]']       
+                                                                                                  
+ mixed0_b32_conv (Conv2D)    (None, 25, 25, 96)           55296     ['mixed0_b31_activ[0][0]']    
+                                                                                                  
+ mixed0_b21_bn (BatchNormal  (None, 25, 25, 48)           192       ['mixed0_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed0_b32_bn (BatchNormal  (None, 25, 25, 96)           384       ['mixed0_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed0_b21_activ (Activati  (None, 25, 25, 48)           0         ['mixed0_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed0_b32_activ (Activati  (None, 25, 25, 96)           0         ['mixed0_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed0_b41 (AveragePooling  (None, 25, 25, 192)          0         ['stem_pooling2[0][0]']       
+ 2D)                                                                                              
+                                                                                                  
+ mixed0_b11_conv (Conv2D)    (None, 25, 25, 64)           12288     ['stem_pooling2[0][0]']       
+                                                                                                  
+ mixed0_b22_conv (Conv2D)    (None, 25, 25, 64)           76800     ['mixed0_b21_activ[0][0]']    
+                                                                                                  
+ mixed0_b33_conv (Conv2D)    (None, 25, 25, 96)           82944     ['mixed0_b32_activ[0][0]']    
+                                                                                                  
+ mixed0_b42_conv (Conv2D)    (None, 25, 25, 32)           6144      ['mixed0_b41[0][0]']          
+                                                                                                  
+ mixed0_b11_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed0_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed0_b22_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed0_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed0_b33_bn (BatchNormal  (None, 25, 25, 96)           384       ['mixed0_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed0_b42_bn (BatchNormal  (None, 25, 25, 32)           128       ['mixed0_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed0_b11_activ (Activati  (None, 25, 25, 64)           0         ['mixed0_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed0_b22_activ (Activati  (None, 25, 25, 64)           0         ['mixed0_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed0_b33_activ (Activati  (None, 25, 25, 96)           0         ['mixed0_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed0_b42_activ (Activati  (None, 25, 25, 32)           0         ['mixed0_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed0 (Concatenate)        (None, 25, 25, 256)          0         ['mixed0_b11_activ[0][0]',    
+                                                                     'mixed0_b22_activ[0][0]',    
+                                                                     'mixed0_b33_activ[0][0]',    
+                                                                     'mixed0_b42_activ[0][0]']    
+                                                                                                  
+ mixed1_b31_conv (Conv2D)    (None, 25, 25, 64)           16384     ['mixed0[0][0]']              
+                                                                                                  
+ mixed1_b31_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed1_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed1_b31_activ (Activati  (None, 25, 25, 64)           0         ['mixed1_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed1_b21_conv (Conv2D)    (None, 25, 25, 48)           12288     ['mixed0[0][0]']              
+                                                                                                  
+ mixed1_b32_conv (Conv2D)    (None, 25, 25, 96)           55296     ['mixed1_b31_activ[0][0]']    
+                                                                                                  
+ mixed1_b21_bn (BatchNormal  (None, 25, 25, 48)           192       ['mixed1_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed1_b32_bn (BatchNormal  (None, 25, 25, 96)           384       ['mixed1_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed1_b21_activ (Activati  (None, 25, 25, 48)           0         ['mixed1_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed1_b32_activ (Activati  (None, 25, 25, 96)           0         ['mixed1_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed1_b41 (AveragePooling  (None, 25, 25, 256)          0         ['mixed0[0][0]']              
+ 2D)                                                                                              
+                                                                                                  
+ mixed1_b11_conv (Conv2D)    (None, 25, 25, 64)           16384     ['mixed0[0][0]']              
+                                                                                                  
+ mixed1_b22_conv (Conv2D)    (None, 25, 25, 64)           76800     ['mixed1_b21_activ[0][0]']    
+                                                                                                  
+ mixed1_b33_conv (Conv2D)    (None, 25, 25, 96)           82944     ['mixed1_b32_activ[0][0]']    
+                                                                                                  
+ mixed1_b42_conv (Conv2D)    (None, 25, 25, 64)           16384     ['mixed1_b41[0][0]']          
+                                                                                                  
+ mixed1_b11_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed1_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed1_b22_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed1_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed1_b33_bn (BatchNormal  (None, 25, 25, 96)           384       ['mixed1_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed1_b42_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed1_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed1_b11_activ (Activati  (None, 25, 25, 64)           0         ['mixed1_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed1_b22_activ (Activati  (None, 25, 25, 64)           0         ['mixed1_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed1_b33_activ (Activati  (None, 25, 25, 96)           0         ['mixed1_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed1_b42_activ (Activati  (None, 25, 25, 64)           0         ['mixed1_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed1 (Concatenate)        (None, 25, 25, 288)          0         ['mixed1_b11_activ[0][0]',    
+                                                                     'mixed1_b22_activ[0][0]',    
+                                                                     'mixed1_b33_activ[0][0]',    
+                                                                     'mixed1_b42_activ[0][0]']    
+                                                                                                  
+ mixed2_b31_conv (Conv2D)    (None, 25, 25, 64)           18432     ['mixed1[0][0]']              
+                                                                                                  
+ mixed2_b31_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed2_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed2_b31_activ (Activati  (None, 25, 25, 64)           0         ['mixed2_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed2_b21_conv (Conv2D)    (None, 25, 25, 48)           13824     ['mixed1[0][0]']              
+                                                                                                  
+ mixed2_b32_conv (Conv2D)    (None, 25, 25, 96)           55296     ['mixed2_b31_activ[0][0]']    
+                                                                                                  
+ mixed2_b21_bn (BatchNormal  (None, 25, 25, 48)           192       ['mixed2_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed2_b32_bn (BatchNormal  (None, 25, 25, 96)           384       ['mixed2_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed2_b21_activ (Activati  (None, 25, 25, 48)           0         ['mixed2_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed2_b32_activ (Activati  (None, 25, 25, 96)           0         ['mixed2_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed2_b41 (AveragePooling  (None, 25, 25, 288)          0         ['mixed1[0][0]']              
+ 2D)                                                                                              
+                                                                                                  
+ mixed2_b11_conv (Conv2D)    (None, 25, 25, 64)           18432     ['mixed1[0][0]']              
+                                                                                                  
+ mixed2_b22_conv (Conv2D)    (None, 25, 25, 64)           76800     ['mixed2_b21_activ[0][0]']    
+                                                                                                  
+ mixed2_b33_conv (Conv2D)    (None, 25, 25, 96)           82944     ['mixed2_b32_activ[0][0]']    
+                                                                                                  
+ mixed2_b42_conv (Conv2D)    (None, 25, 25, 64)           18432     ['mixed2_b41[0][0]']          
+                                                                                                  
+ mixed2_b11_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed2_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed2_b22_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed2_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed2_b33_bn (BatchNormal  (None, 25, 25, 96)           384       ['mixed2_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed2_b42_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed2_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed2_b11_activ (Activati  (None, 25, 25, 64)           0         ['mixed2_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed2_b22_activ (Activati  (None, 25, 25, 64)           0         ['mixed2_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed2_b33_activ (Activati  (None, 25, 25, 96)           0         ['mixed2_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed2_b42_activ (Activati  (None, 25, 25, 64)           0         ['mixed2_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed2 (Concatenate)        (None, 25, 25, 288)          0         ['mixed2_b11_activ[0][0]',    
+                                                                     'mixed2_b22_activ[0][0]',    
+                                                                     'mixed2_b33_activ[0][0]',    
+                                                                     'mixed2_b42_activ[0][0]']    
+                                                                                                  
+ mixed3_b21_conv (Conv2D)    (None, 25, 25, 64)           18432     ['mixed2[0][0]']              
+                                                                                                  
+ mixed3_b21_bn (BatchNormal  (None, 25, 25, 64)           256       ['mixed3_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed3_b21_activ (Activati  (None, 25, 25, 64)           0         ['mixed3_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed3_b22_conv (Conv2D)    (None, 25, 25, 96)           55296     ['mixed3_b21_activ[0][0]']    
+                                                                                                  
+ mixed3_b22_bn (BatchNormal  (None, 25, 25, 96)           384       ['mixed3_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed3_b22_activ (Activati  (None, 25, 25, 96)           0         ['mixed3_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed3_b11_conv (Conv2D)    (None, 12, 12, 384)          995328    ['mixed2[0][0]']              
+                                                                                                  
+ mixed3_b23_conv (Conv2D)    (None, 12, 12, 96)           82944     ['mixed3_b22_activ[0][0]']    
+                                                                                                  
+ mixed3_b11_bn (BatchNormal  (None, 12, 12, 384)          1536      ['mixed3_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed3_b23_bn (BatchNormal  (None, 12, 12, 96)           384       ['mixed3_b23_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed3_b11_activ (Activati  (None, 12, 12, 384)          0         ['mixed3_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed3_b23_activ (Activati  (None, 12, 12, 96)           0         ['mixed3_b23_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed3_b31 (MaxPooling2D)   (None, 12, 12, 288)          0         ['mixed2[0][0]']              
+                                                                                                  
+ mixed3 (Concatenate)        (None, 12, 12, 768)          0         ['mixed3_b11_activ[0][0]',    
+                                                                     'mixed3_b23_activ[0][0]',    
+                                                                     'mixed3_b31[0][0]']          
+                                                                                                  
+ mixed4_b31_conv (Conv2D)    (None, 12, 12, 128)          98304     ['mixed3[0][0]']              
+                                                                                                  
+ mixed4_b31_bn (BatchNormal  (None, 12, 12, 128)          512       ['mixed4_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b31_activ (Activati  (None, 12, 12, 128)          0         ['mixed4_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b32_conv (Conv2D)    (None, 12, 12, 128)          114688    ['mixed4_b31_activ[0][0]']    
+                                                                                                  
+ mixed4_b32_bn (BatchNormal  (None, 12, 12, 128)          512       ['mixed4_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b32_activ (Activati  (None, 12, 12, 128)          0         ['mixed4_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b21_conv (Conv2D)    (None, 12, 12, 128)          98304     ['mixed3[0][0]']              
+                                                                                                  
+ mixed4_b33_conv (Conv2D)    (None, 12, 12, 128)          114688    ['mixed4_b32_activ[0][0]']    
+                                                                                                  
+ mixed4_b21_bn (BatchNormal  (None, 12, 12, 128)          512       ['mixed4_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b33_bn (BatchNormal  (None, 12, 12, 128)          512       ['mixed4_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b21_activ (Activati  (None, 12, 12, 128)          0         ['mixed4_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b33_activ (Activati  (None, 12, 12, 128)          0         ['mixed4_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b22_conv (Conv2D)    (None, 12, 12, 128)          114688    ['mixed4_b21_activ[0][0]']    
+                                                                                                  
+ mixed4_b34_conv (Conv2D)    (None, 12, 12, 128)          114688    ['mixed4_b33_activ[0][0]']    
+                                                                                                  
+ mixed4_b22_bn (BatchNormal  (None, 12, 12, 128)          512       ['mixed4_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b34_bn (BatchNormal  (None, 12, 12, 128)          512       ['mixed4_b34_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b22_activ (Activati  (None, 12, 12, 128)          0         ['mixed4_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b34_activ (Activati  (None, 12, 12, 128)          0         ['mixed4_b34_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b41 (AveragePooling  (None, 12, 12, 768)          0         ['mixed3[0][0]']              
+ 2D)                                                                                              
+                                                                                                  
+ mixed4_b11_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed3[0][0]']              
+                                                                                                  
+ mixed4_b23_conv (Conv2D)    (None, 12, 12, 192)          172032    ['mixed4_b22_activ[0][0]']    
+                                                                                                  
+ mixed4_b35_conv (Conv2D)    (None, 12, 12, 192)          172032    ['mixed4_b34_activ[0][0]']    
+                                                                                                  
+ mixed4_b42_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed4_b41[0][0]']          
+                                                                                                  
+ mixed4_b11_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed4_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b23_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed4_b23_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b35_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed4_b35_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b42_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed4_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed4_b11_activ (Activati  (None, 12, 12, 192)          0         ['mixed4_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b23_activ (Activati  (None, 12, 12, 192)          0         ['mixed4_b23_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b35_activ (Activati  (None, 12, 12, 192)          0         ['mixed4_b35_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4_b42_activ (Activati  (None, 12, 12, 192)          0         ['mixed4_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed4 (Concatenate)        (None, 12, 12, 768)          0         ['mixed4_b11_activ[0][0]',    
+                                                                     'mixed4_b23_activ[0][0]',    
+                                                                     'mixed4_b35_activ[0][0]',    
+                                                                     'mixed4_b42_activ[0][0]']    
+                                                                                                  
+ mixed5_b31_conv (Conv2D)    (None, 12, 12, 160)          122880    ['mixed4[0][0]']              
+                                                                                                  
+ mixed5_b31_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed5_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b31_activ (Activati  (None, 12, 12, 160)          0         ['mixed5_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b32_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed5_b31_activ[0][0]']    
+                                                                                                  
+ mixed5_b32_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed5_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b32_activ (Activati  (None, 12, 12, 160)          0         ['mixed5_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b21_conv (Conv2D)    (None, 12, 12, 160)          122880    ['mixed4[0][0]']              
+                                                                                                  
+ mixed5_b33_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed5_b32_activ[0][0]']    
+                                                                                                  
+ mixed5_b21_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed5_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b33_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed5_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b21_activ (Activati  (None, 12, 12, 160)          0         ['mixed5_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b33_activ (Activati  (None, 12, 12, 160)          0         ['mixed5_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b22_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed5_b21_activ[0][0]']    
+                                                                                                  
+ mixed5_b34_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed5_b33_activ[0][0]']    
+                                                                                                  
+ mixed5_b22_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed5_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b34_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed5_b34_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b22_activ (Activati  (None, 12, 12, 160)          0         ['mixed5_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b34_activ (Activati  (None, 12, 12, 160)          0         ['mixed5_b34_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b41 (AveragePooling  (None, 12, 12, 768)          0         ['mixed4[0][0]']              
+ 2D)                                                                                              
+                                                                                                  
+ mixed5_b11_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed4[0][0]']              
+                                                                                                  
+ mixed5_b23_conv (Conv2D)    (None, 12, 12, 192)          215040    ['mixed5_b22_activ[0][0]']    
+                                                                                                  
+ mixed5_b35_conv (Conv2D)    (None, 12, 12, 192)          215040    ['mixed5_b34_activ[0][0]']    
+                                                                                                  
+ mixed5_b42_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed5_b41[0][0]']          
+                                                                                                  
+ mixed5_b11_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed5_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b23_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed5_b23_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b35_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed5_b35_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b42_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed5_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed5_b11_activ (Activati  (None, 12, 12, 192)          0         ['mixed5_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b23_activ (Activati  (None, 12, 12, 192)          0         ['mixed5_b23_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b35_activ (Activati  (None, 12, 12, 192)          0         ['mixed5_b35_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5_b42_activ (Activati  (None, 12, 12, 192)          0         ['mixed5_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed5 (Concatenate)        (None, 12, 12, 768)          0         ['mixed5_b11_activ[0][0]',    
+                                                                     'mixed5_b23_activ[0][0]',    
+                                                                     'mixed5_b35_activ[0][0]',    
+                                                                     'mixed5_b42_activ[0][0]']    
+                                                                                                  
+ mixed6_b31_conv (Conv2D)    (None, 12, 12, 160)          122880    ['mixed5[0][0]']              
+                                                                                                  
+ mixed6_b31_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed6_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b31_activ (Activati  (None, 12, 12, 160)          0         ['mixed6_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b32_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed6_b31_activ[0][0]']    
+                                                                                                  
+ mixed6_b32_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed6_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b32_activ (Activati  (None, 12, 12, 160)          0         ['mixed6_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b21_conv (Conv2D)    (None, 12, 12, 160)          122880    ['mixed5[0][0]']              
+                                                                                                  
+ mixed6_b33_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed6_b32_activ[0][0]']    
+                                                                                                  
+ mixed6_b21_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed6_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b33_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed6_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b21_activ (Activati  (None, 12, 12, 160)          0         ['mixed6_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b33_activ (Activati  (None, 12, 12, 160)          0         ['mixed6_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b22_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed6_b21_activ[0][0]']    
+                                                                                                  
+ mixed6_b34_conv (Conv2D)    (None, 12, 12, 160)          179200    ['mixed6_b33_activ[0][0]']    
+                                                                                                  
+ mixed6_b22_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed6_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b34_bn (BatchNormal  (None, 12, 12, 160)          640       ['mixed6_b34_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b22_activ (Activati  (None, 12, 12, 160)          0         ['mixed6_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b34_activ (Activati  (None, 12, 12, 160)          0         ['mixed6_b34_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b41 (AveragePooling  (None, 12, 12, 768)          0         ['mixed5[0][0]']              
+ 2D)                                                                                              
+                                                                                                  
+ mixed6_b11_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed5[0][0]']              
+                                                                                                  
+ mixed6_b23_conv (Conv2D)    (None, 12, 12, 192)          215040    ['mixed6_b22_activ[0][0]']    
+                                                                                                  
+ mixed6_b35_conv (Conv2D)    (None, 12, 12, 192)          215040    ['mixed6_b34_activ[0][0]']    
+                                                                                                  
+ mixed6_b42_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed6_b41[0][0]']          
+                                                                                                  
+ mixed6_b11_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed6_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b23_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed6_b23_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b35_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed6_b35_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b42_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed6_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed6_b11_activ (Activati  (None, 12, 12, 192)          0         ['mixed6_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b23_activ (Activati  (None, 12, 12, 192)          0         ['mixed6_b23_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b35_activ (Activati  (None, 12, 12, 192)          0         ['mixed6_b35_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6_b42_activ (Activati  (None, 12, 12, 192)          0         ['mixed6_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed6 (Concatenate)        (None, 12, 12, 768)          0         ['mixed6_b11_activ[0][0]',    
+                                                                     'mixed6_b23_activ[0][0]',    
+                                                                     'mixed6_b35_activ[0][0]',    
+                                                                     'mixed6_b42_activ[0][0]']    
+                                                                                                  
+ mixed7_b31_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed6[0][0]']              
+                                                                                                  
+ mixed7_b31_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b31_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b32_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed7_b31_activ[0][0]']    
+                                                                                                  
+ mixed7_b32_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b32_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b21_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed6[0][0]']              
+                                                                                                  
+ mixed7_b33_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed7_b32_activ[0][0]']    
+                                                                                                  
+ mixed7_b21_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b33_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b21_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b33_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b22_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed7_b21_activ[0][0]']    
+                                                                                                  
+ mixed7_b34_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed7_b33_activ[0][0]']    
+                                                                                                  
+ mixed7_b22_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b34_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b34_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b22_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b34_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b34_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b41 (AveragePooling  (None, 12, 12, 768)          0         ['mixed6[0][0]']              
+ 2D)                                                                                              
+                                                                                                  
+ mixed7_b11_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed6[0][0]']              
+                                                                                                  
+ mixed7_b23_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed7_b22_activ[0][0]']    
+                                                                                                  
+ mixed7_b35_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed7_b34_activ[0][0]']    
+                                                                                                  
+ mixed7_b42_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed7_b41[0][0]']          
+                                                                                                  
+ mixed7_b11_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b23_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b23_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b35_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b35_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b42_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed7_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed7_b11_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b23_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b23_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b35_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b35_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7_b42_activ (Activati  (None, 12, 12, 192)          0         ['mixed7_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed7 (Concatenate)        (None, 12, 12, 768)          0         ['mixed7_b11_activ[0][0]',    
+                                                                     'mixed7_b23_activ[0][0]',    
+                                                                     'mixed7_b35_activ[0][0]',    
+                                                                     'mixed7_b42_activ[0][0]']    
+                                                                                                  
+ mixed8_b21_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed7[0][0]']              
+                                                                                                  
+ mixed8_b21_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed8_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed8_b21_activ (Activati  (None, 12, 12, 192)          0         ['mixed8_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed8_b22_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed8_b21_activ[0][0]']    
+                                                                                                  
+ mixed8_b22_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed8_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed8_b22_activ (Activati  (None, 12, 12, 192)          0         ['mixed8_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed8_b11_conv (Conv2D)    (None, 12, 12, 192)          147456    ['mixed7[0][0]']              
+                                                                                                  
+ mixed8_b23_conv (Conv2D)    (None, 12, 12, 192)          258048    ['mixed8_b22_activ[0][0]']    
+                                                                                                  
+ mixed8_b11_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed8_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed8_b23_bn (BatchNormal  (None, 12, 12, 192)          768       ['mixed8_b23_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed8_b11_activ (Activati  (None, 12, 12, 192)          0         ['mixed8_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed8_b23_activ (Activati  (None, 12, 12, 192)          0         ['mixed8_b23_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed8_b12_conv (Conv2D)    (None, 5, 5, 320)            552960    ['mixed8_b11_activ[0][0]']    
+                                                                                                  
+ mixed8_b24_conv (Conv2D)    (None, 5, 5, 192)            331776    ['mixed8_b23_activ[0][0]']    
+                                                                                                  
+ mixed8_b12_bn (BatchNormal  (None, 5, 5, 320)            1280      ['mixed8_b12_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed8_b24_bn (BatchNormal  (None, 5, 5, 192)            768       ['mixed8_b24_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed8_b12_activ (Activati  (None, 5, 5, 320)            0         ['mixed8_b12_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed8_b24_activ (Activati  (None, 5, 5, 192)            0         ['mixed8_b24_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed8_b31 (MaxPooling2D)   (None, 5, 5, 768)            0         ['mixed7[0][0]']              
+                                                                                                  
+ mixed8 (Concatenate)        (None, 5, 5, 1280)           0         ['mixed8_b12_activ[0][0]',    
+                                                                     'mixed8_b24_activ[0][0]',    
+                                                                     'mixed8_b31[0][0]']          
+                                                                                                  
+ mixed9_b31_conv (Conv2D)    (None, 5, 5, 448)            573440    ['mixed8[0][0]']              
+                                                                                                  
+ mixed9_b31_bn (BatchNormal  (None, 5, 5, 448)            1792      ['mixed9_b31_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b31_activ (Activati  (None, 5, 5, 448)            0         ['mixed9_b31_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b21_conv (Conv2D)    (None, 5, 5, 384)            491520    ['mixed8[0][0]']              
+                                                                                                  
+ mixed9_b32_conv (Conv2D)    (None, 5, 5, 384)            1548288   ['mixed9_b31_activ[0][0]']    
+                                                                                                  
+ mixed9_b21_bn (BatchNormal  (None, 5, 5, 384)            1536      ['mixed9_b21_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b32_bn (BatchNormal  (None, 5, 5, 384)            1536      ['mixed9_b32_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b21_activ (Activati  (None, 5, 5, 384)            0         ['mixed9_b21_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b32_activ (Activati  (None, 5, 5, 384)            0         ['mixed9_b32_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b22_conv (Conv2D)    (None, 5, 5, 384)            442368    ['mixed9_b21_activ[0][0]']    
+                                                                                                  
+ mixed9_b23_conv (Conv2D)    (None, 5, 5, 384)            442368    ['mixed9_b21_activ[0][0]']    
+                                                                                                  
+ mixed9_b33_conv (Conv2D)    (None, 5, 5, 384)            442368    ['mixed9_b32_activ[0][0]']    
+                                                                                                  
+ mixed9_b34_conv (Conv2D)    (None, 5, 5, 384)            442368    ['mixed9_b32_activ[0][0]']    
+                                                                                                  
+ mixed9_b41 (AveragePooling  (None, 5, 5, 1280)           0         ['mixed8[0][0]']              
+ 2D)                                                                                              
+                                                                                                  
+ mixed9_b11_conv (Conv2D)    (None, 5, 5, 320)            409600    ['mixed8[0][0]']              
+                                                                                                  
+ mixed9_b22_bn (BatchNormal  (None, 5, 5, 384)            1536      ['mixed9_b22_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b23_bn (BatchNormal  (None, 5, 5, 384)            1536      ['mixed9_b23_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b33_bn (BatchNormal  (None, 5, 5, 384)            1536      ['mixed9_b33_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b34_bn (BatchNormal  (None, 5, 5, 384)            1536      ['mixed9_b34_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b42_conv (Conv2D)    (None, 5, 5, 192)            245760    ['mixed9_b41[0][0]']          
+                                                                                                  
+ mixed9_b11_bn (BatchNormal  (None, 5, 5, 320)            1280      ['mixed9_b11_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b22_activ (Activati  (None, 5, 5, 384)            0         ['mixed9_b22_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b23_activ (Activati  (None, 5, 5, 384)            0         ['mixed9_b23_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b33_activ (Activati  (None, 5, 5, 384)            0         ['mixed9_b33_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b34_activ (Activati  (None, 5, 5, 384)            0         ['mixed9_b34_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b42_bn (BatchNormal  (None, 5, 5, 192)            768       ['mixed9_b42_conv[0][0]']     
+ ization)                                                                                         
+                                                                                                  
+ mixed9_b11_activ (Activati  (None, 5, 5, 320)            0         ['mixed9_b11_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9_b24 (Concatenate)    (None, 5, 5, 768)            0         ['mixed9_b22_activ[0][0]',    
+                                                                     'mixed9_b23_activ[0][0]']    
+                                                                                                  
+ mixed9_b35 (Concatenate)    (None, 5, 5, 768)            0         ['mixed9_b33_activ[0][0]',    
+                                                                     'mixed9_b34_activ[0][0]']    
+                                                                                                  
+ mixed9_b42_activ (Activati  (None, 5, 5, 192)            0         ['mixed9_b42_bn[0][0]']       
+ on)                                                                                              
+                                                                                                  
+ mixed9 (Concatenate)        (None, 5, 5, 2048)           0         ['mixed9_b11_activ[0][0]',    
+                                                                     'mixed9_b24[0][0]',          
+                                                                     'mixed9_b35[0][0]',          
+                                                                     'mixed9_b42_activ[0][0]']    
+                                                                                                  
+ mixed10_b31_conv (Conv2D)   (None, 5, 5, 448)            917504    ['mixed9[0][0]']              
+                                                                                                  
+ mixed10_b31_bn (BatchNorma  (None, 5, 5, 448)            1792      ['mixed10_b31_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b31_activ (Activat  (None, 5, 5, 448)            0         ['mixed10_b31_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b21_conv (Conv2D)   (None, 5, 5, 384)            786432    ['mixed9[0][0]']              
+                                                                                                  
+ mixed10_b32_conv (Conv2D)   (None, 5, 5, 384)            1548288   ['mixed10_b31_activ[0][0]']   
+                                                                                                  
+ mixed10_b21_bn (BatchNorma  (None, 5, 5, 384)            1536      ['mixed10_b21_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b32_bn (BatchNorma  (None, 5, 5, 384)            1536      ['mixed10_b32_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b21_activ (Activat  (None, 5, 5, 384)            0         ['mixed10_b21_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b32_activ (Activat  (None, 5, 5, 384)            0         ['mixed10_b32_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b22_conv (Conv2D)   (None, 5, 5, 384)            442368    ['mixed10_b21_activ[0][0]']   
+                                                                                                  
+ mixed10_b23_conv (Conv2D)   (None, 5, 5, 384)            442368    ['mixed10_b21_activ[0][0]']   
+                                                                                                  
+ mixed10_b33_conv (Conv2D)   (None, 5, 5, 384)            442368    ['mixed10_b32_activ[0][0]']   
+                                                                                                  
+ mixed10_b34_conv (Conv2D)   (None, 5, 5, 384)            442368    ['mixed10_b32_activ[0][0]']   
+                                                                                                  
+ mixed10_b41 (AveragePoolin  (None, 5, 5, 2048)           0         ['mixed9[0][0]']              
+ g2D)                                                                                             
+                                                                                                  
+ mixed10_b11_conv (Conv2D)   (None, 5, 5, 320)            655360    ['mixed9[0][0]']              
+                                                                                                  
+ mixed10_b22_bn (BatchNorma  (None, 5, 5, 384)            1536      ['mixed10_b22_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b23_bn (BatchNorma  (None, 5, 5, 384)            1536      ['mixed10_b23_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b33_bn (BatchNorma  (None, 5, 5, 384)            1536      ['mixed10_b33_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b34_bn (BatchNorma  (None, 5, 5, 384)            1536      ['mixed10_b34_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b42_conv (Conv2D)   (None, 5, 5, 192)            393216    ['mixed10_b41[0][0]']         
+                                                                                                  
+ mixed10_b11_bn (BatchNorma  (None, 5, 5, 320)            1280      ['mixed10_b11_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b22_activ (Activat  (None, 5, 5, 384)            0         ['mixed10_b22_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b23_activ (Activat  (None, 5, 5, 384)            0         ['mixed10_b23_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b33_activ (Activat  (None, 5, 5, 384)            0         ['mixed10_b33_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b34_activ (Activat  (None, 5, 5, 384)            0         ['mixed10_b34_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b42_bn (BatchNorma  (None, 5, 5, 192)            768       ['mixed10_b42_conv[0][0]']    
+ lization)                                                                                        
+                                                                                                  
+ mixed10_b11_activ (Activat  (None, 5, 5, 320)            0         ['mixed10_b11_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10_b24 (Concatenate)   (None, 5, 5, 768)            0         ['mixed10_b22_activ[0][0]',   
+                                                                     'mixed10_b23_activ[0][0]']   
+                                                                                                  
+ mixed10_b35 (Concatenate)   (None, 5, 5, 768)            0         ['mixed10_b33_activ[0][0]',   
+                                                                     'mixed10_b34_activ[0][0]']   
+                                                                                                  
+ mixed10_b42_activ (Activat  (None, 5, 5, 192)            0         ['mixed10_b42_bn[0][0]']      
+ ion)                                                                                             
+                                                                                                  
+ mixed10 (Concatenate)       (None, 5, 5, 2048)           0         ['mixed10_b11_activ[0][0]',   
+                                                                     'mixed10_b24[0][0]',         
+                                                                     'mixed10_b35[0][0]',         
+                                                                     'mixed10_b42_activ[0][0]']   
+                                                                                                  
+ avg_pool (GlobalAveragePoo  (None, 2048)                 0         ['mixed10[0][0]']             
+ ling2D)                                                                                          
+                                                                                                  
+ predictions (Dense)         (None, 1000)                 2049000   ['avg_pool[0][0]']            
+                                                                                                  
+ activation_30 (Activation)  (None, 1000)                 0         ['predictions[0][0]']         
+                                                                                                  
+==================================================================================================
+Total params: 23869000 (91.05 MB)
+Trainable params: 23834568 (90.92 MB)
+Non-trainable params: 34432 (134.50 KB)
+__________________________________________________________________________________________________

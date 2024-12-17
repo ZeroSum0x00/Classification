@@ -1,0 +1,1564 @@
+Model: "Inception-v4"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_11 (InputLayer)       [(None, 224, 224, 3)]        0         []                            
+                                                                                                  
+ stem_b11_conv (Conv2D)      (None, 111, 111, 32)         896       ['input_11[0][0]']            
+                                                                                                  
+ stem_b11_bn (BatchNormaliz  (None, 111, 111, 32)         128       ['stem_b11_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b11_activ (Activation  (None, 111, 111, 32)         0         ['stem_b11_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b12_conv (Conv2D)      (None, 109, 109, 32)         9248      ['stem_b11_activ[0][0]']      
+                                                                                                  
+ stem_b12_bn (BatchNormaliz  (None, 109, 109, 32)         128       ['stem_b12_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b12_activ (Activation  (None, 109, 109, 32)         0         ['stem_b12_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b13_conv (Conv2D)      (None, 109, 109, 64)         18496     ['stem_b12_activ[0][0]']      
+                                                                                                  
+ stem_b13_bn (BatchNormaliz  (None, 109, 109, 64)         256       ['stem_b13_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b13_activ (Activation  (None, 109, 109, 64)         0         ['stem_b13_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b22_conv (Conv2D)      (None, 54, 54, 96)           55392     ['stem_b13_activ[0][0]']      
+                                                                                                  
+ stem_b22_bn (BatchNormaliz  (None, 54, 54, 96)           384       ['stem_b22_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b21 (MaxPooling2D)     (None, 54, 54, 64)           0         ['stem_b13_activ[0][0]']      
+                                                                                                  
+ stem_b22_activ (Activation  (None, 54, 54, 96)           0         ['stem_b22_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_merged1 (Concatenate)  (None, 54, 54, 160)          0         ['stem_b21[0][0]',            
+                                                                     'stem_b22_activ[0][0]']      
+                                                                                                  
+ stem_b41_conv (Conv2D)      (None, 54, 54, 64)           10304     ['stem_merged1[0][0]']        
+                                                                                                  
+ stem_b41_bn (BatchNormaliz  (None, 54, 54, 64)           256       ['stem_b41_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b41_activ (Activation  (None, 54, 54, 64)           0         ['stem_b41_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b42_conv (Conv2D)      (None, 54, 54, 64)           28736     ['stem_b41_activ[0][0]']      
+                                                                                                  
+ stem_b42_bn (BatchNormaliz  (None, 54, 54, 64)           256       ['stem_b42_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b42_activ (Activation  (None, 54, 54, 64)           0         ['stem_b42_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b31_conv (Conv2D)      (None, 54, 54, 64)           10304     ['stem_merged1[0][0]']        
+                                                                                                  
+ stem_b43_conv (Conv2D)      (None, 54, 54, 64)           28736     ['stem_b42_activ[0][0]']      
+                                                                                                  
+ stem_b31_bn (BatchNormaliz  (None, 54, 54, 64)           256       ['stem_b31_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b43_bn (BatchNormaliz  (None, 54, 54, 64)           256       ['stem_b43_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b31_activ (Activation  (None, 54, 54, 64)           0         ['stem_b31_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b43_activ (Activation  (None, 54, 54, 64)           0         ['stem_b43_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b32_conv (Conv2D)      (None, 52, 52, 96)           55392     ['stem_b31_activ[0][0]']      
+                                                                                                  
+ stem_b44_conv (Conv2D)      (None, 52, 52, 96)           55392     ['stem_b43_activ[0][0]']      
+                                                                                                  
+ stem_b32_bn (BatchNormaliz  (None, 52, 52, 96)           384       ['stem_b32_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b44_bn (BatchNormaliz  (None, 52, 52, 96)           384       ['stem_b44_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b32_activ (Activation  (None, 52, 52, 96)           0         ['stem_b32_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b44_activ (Activation  (None, 52, 52, 96)           0         ['stem_b44_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_merged2 (Concatenate)  (None, 52, 52, 192)          0         ['stem_b32_activ[0][0]',      
+                                                                     'stem_b44_activ[0][0]']      
+                                                                                                  
+ stem_b51_conv (Conv2D)      (None, 25, 25, 192)          331968    ['stem_merged2[0][0]']        
+                                                                                                  
+ stem_b51_bn (BatchNormaliz  (None, 25, 25, 192)          768       ['stem_b51_conv[0][0]']       
+ ation)                                                                                           
+                                                                                                  
+ stem_b51_activ (Activation  (None, 25, 25, 192)          0         ['stem_b51_bn[0][0]']         
+ )                                                                                                
+                                                                                                  
+ stem_b52 (MaxPooling2D)     (None, 25, 25, 192)          0         ['stem_merged2[0][0]']        
+                                                                                                  
+ stem_merged3 (Concatenate)  (None, 25, 25, 384)          0         ['stem_b51_activ[0][0]',      
+                                                                     'stem_b52[0][0]']            
+                                                                                                  
+ inceptionA_step1_b41_conv   (None, 25, 25, 64)           24640     ['stem_merged3[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionA_step1_b41_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step1_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step1_b41_activ  (None, 25, 25, 64)           0         ['inceptionA_step1_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step1_b31_conv   (None, 25, 25, 64)           24640     ['stem_merged3[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionA_step1_b42_conv   (None, 25, 25, 96)           55392     ['inceptionA_step1_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step1_b31_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step1_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step1_b42_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step1_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step1_b11 (Aver  (None, 25, 25, 384)          0         ['stem_merged3[0][0]']        
+ agePooling2D)                                                                                    
+                                                                                                  
+ inceptionA_step1_b31_activ  (None, 25, 25, 64)           0         ['inceptionA_step1_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step1_b42_activ  (None, 25, 25, 96)           0         ['inceptionA_step1_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step1_b12_conv   (None, 25, 25, 96)           36960     ['inceptionA_step1_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionA_step1_b21_conv   (None, 25, 25, 96)           36960     ['stem_merged3[0][0]']        
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionA_step1_b32_conv   (None, 25, 25, 96)           55392     ['inceptionA_step1_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step1_b43_conv   (None, 25, 25, 96)           83040     ['inceptionA_step1_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step1_b12_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step1_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step1_b21_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step1_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step1_b32_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step1_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step1_b43_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step1_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step1_b12_activ  (None, 25, 25, 96)           0         ['inceptionA_step1_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step1_b21_activ  (None, 25, 25, 96)           0         ['inceptionA_step1_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step1_b32_activ  (None, 25, 25, 96)           0         ['inceptionA_step1_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step1_b43_activ  (None, 25, 25, 96)           0         ['inceptionA_step1_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step1_merged (C  (None, 25, 25, 384)          0         ['inceptionA_step1_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionA_step1_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step1_b32_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step1_b43_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionA_step2_b41_conv   (None, 25, 25, 64)           24640     ['inceptionA_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step2_b41_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step2_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step2_b41_activ  (None, 25, 25, 64)           0         ['inceptionA_step2_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_b31_conv   (None, 25, 25, 64)           24640     ['inceptionA_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step2_b42_conv   (None, 25, 25, 96)           55392     ['inceptionA_step2_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step2_b31_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step2_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step2_b42_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step2_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step2_b11 (Aver  (None, 25, 25, 384)          0         ['inceptionA_step1_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_b31_activ  (None, 25, 25, 64)           0         ['inceptionA_step2_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_b42_activ  (None, 25, 25, 96)           0         ['inceptionA_step2_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_b12_conv   (None, 25, 25, 96)           36960     ['inceptionA_step2_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionA_step2_b21_conv   (None, 25, 25, 96)           36960     ['inceptionA_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step2_b32_conv   (None, 25, 25, 96)           55392     ['inceptionA_step2_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step2_b43_conv   (None, 25, 25, 96)           83040     ['inceptionA_step2_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step2_b12_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step2_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step2_b21_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step2_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step2_b32_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step2_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step2_b43_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step2_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step2_b12_activ  (None, 25, 25, 96)           0         ['inceptionA_step2_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_b21_activ  (None, 25, 25, 96)           0         ['inceptionA_step2_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_b32_activ  (None, 25, 25, 96)           0         ['inceptionA_step2_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_b43_activ  (None, 25, 25, 96)           0         ['inceptionA_step2_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step2_merged (C  (None, 25, 25, 384)          0         ['inceptionA_step2_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionA_step2_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step2_b32_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step2_b43_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionA_step3_b41_conv   (None, 25, 25, 64)           24640     ['inceptionA_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step3_b41_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step3_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step3_b41_activ  (None, 25, 25, 64)           0         ['inceptionA_step3_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_b31_conv   (None, 25, 25, 64)           24640     ['inceptionA_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step3_b42_conv   (None, 25, 25, 96)           55392     ['inceptionA_step3_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step3_b31_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step3_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step3_b42_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step3_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step3_b11 (Aver  (None, 25, 25, 384)          0         ['inceptionA_step2_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_b31_activ  (None, 25, 25, 64)           0         ['inceptionA_step3_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_b42_activ  (None, 25, 25, 96)           0         ['inceptionA_step3_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_b12_conv   (None, 25, 25, 96)           36960     ['inceptionA_step3_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionA_step3_b21_conv   (None, 25, 25, 96)           36960     ['inceptionA_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step3_b32_conv   (None, 25, 25, 96)           55392     ['inceptionA_step3_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step3_b43_conv   (None, 25, 25, 96)           83040     ['inceptionA_step3_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step3_b12_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step3_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step3_b21_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step3_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step3_b32_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step3_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step3_b43_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step3_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step3_b12_activ  (None, 25, 25, 96)           0         ['inceptionA_step3_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_b21_activ  (None, 25, 25, 96)           0         ['inceptionA_step3_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_b32_activ  (None, 25, 25, 96)           0         ['inceptionA_step3_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_b43_activ  (None, 25, 25, 96)           0         ['inceptionA_step3_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step3_merged (C  (None, 25, 25, 384)          0         ['inceptionA_step3_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionA_step3_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step3_b32_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step3_b43_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionA_step4_b41_conv   (None, 25, 25, 64)           24640     ['inceptionA_step3_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step4_b41_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step4_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step4_b41_activ  (None, 25, 25, 64)           0         ['inceptionA_step4_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_b31_conv   (None, 25, 25, 64)           24640     ['inceptionA_step3_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step4_b42_conv   (None, 25, 25, 96)           55392     ['inceptionA_step4_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step4_b31_bn (B  (None, 25, 25, 64)           256       ['inceptionA_step4_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step4_b42_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step4_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step4_b11 (Aver  (None, 25, 25, 384)          0         ['inceptionA_step3_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_b31_activ  (None, 25, 25, 64)           0         ['inceptionA_step4_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_b42_activ  (None, 25, 25, 96)           0         ['inceptionA_step4_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_b12_conv   (None, 25, 25, 96)           36960     ['inceptionA_step4_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionA_step4_b21_conv   (None, 25, 25, 96)           36960     ['inceptionA_step3_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionA_step4_b32_conv   (None, 25, 25, 96)           55392     ['inceptionA_step4_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step4_b43_conv   (None, 25, 25, 96)           83040     ['inceptionA_step4_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionA_step4_b12_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step4_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step4_b21_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step4_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step4_b32_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step4_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step4_b43_bn (B  (None, 25, 25, 96)           384       ['inceptionA_step4_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionA_step4_b12_activ  (None, 25, 25, 96)           0         ['inceptionA_step4_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_b21_activ  (None, 25, 25, 96)           0         ['inceptionA_step4_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_b32_activ  (None, 25, 25, 96)           0         ['inceptionA_step4_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_b43_activ  (None, 25, 25, 96)           0         ['inceptionA_step4_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionA_step4_merged (C  (None, 25, 25, 384)          0         ['inceptionA_step4_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionA_step4_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step4_b32_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionA_step4_b43_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ incep_reductionA_b31_conv   (None, 25, 25, 192)          73920     ['inceptionA_step4_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ incep_reductionA_b31_bn (B  (None, 25, 25, 192)          768       ['incep_reductionA_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionA_b31_activ  (None, 25, 25, 192)          0         ['incep_reductionA_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionA_b32_conv   (None, 25, 25, 224)          301280    ['incep_reductionA_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ incep_reductionA_b32_bn (B  (None, 25, 25, 224)          896       ['incep_reductionA_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionA_b32_activ  (None, 25, 25, 224)          0         ['incep_reductionA_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionA_b21_conv   (None, 12, 12, 384)          1327488   ['inceptionA_step4_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ incep_reductionA_b33_conv   (None, 12, 12, 256)          516352    ['incep_reductionA_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ incep_reductionA_b21_bn (B  (None, 12, 12, 384)          1536      ['incep_reductionA_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionA_b33_bn (B  (None, 12, 12, 256)          1024      ['incep_reductionA_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionA_b11 (MaxP  (None, 12, 12, 384)          0         ['inceptionA_step4_merged[0][0
+ ooling2D)                                                          ]']                           
+                                                                                                  
+ incep_reductionA_b21_activ  (None, 12, 12, 384)          0         ['incep_reductionA_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionA_b33_activ  (None, 12, 12, 256)          0         ['incep_reductionA_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionA_merged (C  (None, 12, 12, 1024)         0         ['incep_reductionA_b11[0][0]',
+ oncatenate)                                                         'incep_reductionA_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'incep_reductionA_b33_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionB_step1_b41_conv   (None, 12, 12, 192)          196800    ['incep_reductionA_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step1_b41_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step1_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b41_activ  (None, 12, 12, 192)          0         ['inceptionB_step1_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b42_conv   (None, 12, 12, 192)          258240    ['inceptionB_step1_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step1_b42_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step1_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b42_activ  (None, 12, 12, 192)          0         ['inceptionB_step1_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b31_conv   (None, 12, 12, 192)          196800    ['incep_reductionA_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step1_b43_conv   (None, 12, 12, 224)          301280    ['inceptionB_step1_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step1_b31_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step1_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b43_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step1_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b31_activ  (None, 12, 12, 192)          0         ['inceptionB_step1_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b43_activ  (None, 12, 12, 224)          0         ['inceptionB_step1_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b32_conv   (None, 12, 12, 224)          301280    ['inceptionB_step1_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step1_b44_conv   (None, 12, 12, 224)          351456    ['inceptionB_step1_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step1_b32_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step1_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b44_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step1_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b11 (Aver  (None, 12, 12, 1024)         0         ['incep_reductionA_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b32_activ  (None, 12, 12, 224)          0         ['inceptionB_step1_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b44_activ  (None, 12, 12, 224)          0         ['inceptionB_step1_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b12_conv   (None, 12, 12, 128)          131200    ['inceptionB_step1_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionB_step1_b21_conv   (None, 12, 12, 384)          393600    ['incep_reductionA_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step1_b33_conv   (None, 12, 12, 256)          401664    ['inceptionB_step1_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step1_b45_conv   (None, 12, 12, 256)          401664    ['inceptionB_step1_b44_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step1_b12_bn (B  (None, 12, 12, 128)          512       ['inceptionB_step1_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b21_bn (B  (None, 12, 12, 384)          1536      ['inceptionB_step1_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b33_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step1_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b45_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step1_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step1_b12_activ  (None, 12, 12, 128)          0         ['inceptionB_step1_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b21_activ  (None, 12, 12, 384)          0         ['inceptionB_step1_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b33_activ  (None, 12, 12, 256)          0         ['inceptionB_step1_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_b45_activ  (None, 12, 12, 256)          0         ['inceptionB_step1_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step1_merged (C  (None, 12, 12, 1024)         0         ['inceptionB_step1_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionB_step1_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step1_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step1_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionB_step2_b41_conv   (None, 12, 12, 192)          196800    ['inceptionB_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step2_b41_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step2_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b41_activ  (None, 12, 12, 192)          0         ['inceptionB_step2_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b42_conv   (None, 12, 12, 192)          258240    ['inceptionB_step2_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step2_b42_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step2_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b42_activ  (None, 12, 12, 192)          0         ['inceptionB_step2_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b31_conv   (None, 12, 12, 192)          196800    ['inceptionB_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step2_b43_conv   (None, 12, 12, 224)          301280    ['inceptionB_step2_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step2_b31_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step2_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b43_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step2_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b31_activ  (None, 12, 12, 192)          0         ['inceptionB_step2_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b43_activ  (None, 12, 12, 224)          0         ['inceptionB_step2_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b32_conv   (None, 12, 12, 224)          301280    ['inceptionB_step2_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step2_b44_conv   (None, 12, 12, 224)          351456    ['inceptionB_step2_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step2_b32_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step2_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b44_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step2_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b11 (Aver  (None, 12, 12, 1024)         0         ['inceptionB_step1_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b32_activ  (None, 12, 12, 224)          0         ['inceptionB_step2_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b44_activ  (None, 12, 12, 224)          0         ['inceptionB_step2_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b12_conv   (None, 12, 12, 128)          131200    ['inceptionB_step2_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionB_step2_b21_conv   (None, 12, 12, 384)          393600    ['inceptionB_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step2_b33_conv   (None, 12, 12, 256)          401664    ['inceptionB_step2_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step2_b45_conv   (None, 12, 12, 256)          401664    ['inceptionB_step2_b44_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step2_b12_bn (B  (None, 12, 12, 128)          512       ['inceptionB_step2_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b21_bn (B  (None, 12, 12, 384)          1536      ['inceptionB_step2_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b33_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step2_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b45_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step2_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step2_b12_activ  (None, 12, 12, 128)          0         ['inceptionB_step2_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b21_activ  (None, 12, 12, 384)          0         ['inceptionB_step2_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b33_activ  (None, 12, 12, 256)          0         ['inceptionB_step2_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_b45_activ  (None, 12, 12, 256)          0         ['inceptionB_step2_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step2_merged (C  (None, 12, 12, 1024)         0         ['inceptionB_step2_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionB_step2_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step2_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step2_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionB_step3_b41_conv   (None, 12, 12, 192)          196800    ['inceptionB_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step3_b41_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step3_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b41_activ  (None, 12, 12, 192)          0         ['inceptionB_step3_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b42_conv   (None, 12, 12, 192)          258240    ['inceptionB_step3_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step3_b42_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step3_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b42_activ  (None, 12, 12, 192)          0         ['inceptionB_step3_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b31_conv   (None, 12, 12, 192)          196800    ['inceptionB_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step3_b43_conv   (None, 12, 12, 224)          301280    ['inceptionB_step3_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step3_b31_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step3_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b43_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step3_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b31_activ  (None, 12, 12, 192)          0         ['inceptionB_step3_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b43_activ  (None, 12, 12, 224)          0         ['inceptionB_step3_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b32_conv   (None, 12, 12, 224)          301280    ['inceptionB_step3_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step3_b44_conv   (None, 12, 12, 224)          351456    ['inceptionB_step3_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step3_b32_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step3_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b44_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step3_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b11 (Aver  (None, 12, 12, 1024)         0         ['inceptionB_step2_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b32_activ  (None, 12, 12, 224)          0         ['inceptionB_step3_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b44_activ  (None, 12, 12, 224)          0         ['inceptionB_step3_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b12_conv   (None, 12, 12, 128)          131200    ['inceptionB_step3_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionB_step3_b21_conv   (None, 12, 12, 384)          393600    ['inceptionB_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step3_b33_conv   (None, 12, 12, 256)          401664    ['inceptionB_step3_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step3_b45_conv   (None, 12, 12, 256)          401664    ['inceptionB_step3_b44_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step3_b12_bn (B  (None, 12, 12, 128)          512       ['inceptionB_step3_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b21_bn (B  (None, 12, 12, 384)          1536      ['inceptionB_step3_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b33_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step3_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b45_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step3_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step3_b12_activ  (None, 12, 12, 128)          0         ['inceptionB_step3_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b21_activ  (None, 12, 12, 384)          0         ['inceptionB_step3_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b33_activ  (None, 12, 12, 256)          0         ['inceptionB_step3_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_b45_activ  (None, 12, 12, 256)          0         ['inceptionB_step3_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step3_merged (C  (None, 12, 12, 1024)         0         ['inceptionB_step3_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionB_step3_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step3_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step3_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionB_step4_b41_conv   (None, 12, 12, 192)          196800    ['inceptionB_step3_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step4_b41_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step4_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b41_activ  (None, 12, 12, 192)          0         ['inceptionB_step4_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b42_conv   (None, 12, 12, 192)          258240    ['inceptionB_step4_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step4_b42_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step4_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b42_activ  (None, 12, 12, 192)          0         ['inceptionB_step4_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b31_conv   (None, 12, 12, 192)          196800    ['inceptionB_step3_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step4_b43_conv   (None, 12, 12, 224)          301280    ['inceptionB_step4_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step4_b31_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step4_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b43_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step4_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b31_activ  (None, 12, 12, 192)          0         ['inceptionB_step4_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b43_activ  (None, 12, 12, 224)          0         ['inceptionB_step4_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b32_conv   (None, 12, 12, 224)          301280    ['inceptionB_step4_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step4_b44_conv   (None, 12, 12, 224)          351456    ['inceptionB_step4_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step4_b32_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step4_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b44_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step4_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b11 (Aver  (None, 12, 12, 1024)         0         ['inceptionB_step3_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b32_activ  (None, 12, 12, 224)          0         ['inceptionB_step4_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b44_activ  (None, 12, 12, 224)          0         ['inceptionB_step4_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b12_conv   (None, 12, 12, 128)          131200    ['inceptionB_step4_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionB_step4_b21_conv   (None, 12, 12, 384)          393600    ['inceptionB_step3_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step4_b33_conv   (None, 12, 12, 256)          401664    ['inceptionB_step4_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step4_b45_conv   (None, 12, 12, 256)          401664    ['inceptionB_step4_b44_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step4_b12_bn (B  (None, 12, 12, 128)          512       ['inceptionB_step4_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b21_bn (B  (None, 12, 12, 384)          1536      ['inceptionB_step4_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b33_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step4_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b45_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step4_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step4_b12_activ  (None, 12, 12, 128)          0         ['inceptionB_step4_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b21_activ  (None, 12, 12, 384)          0         ['inceptionB_step4_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b33_activ  (None, 12, 12, 256)          0         ['inceptionB_step4_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_b45_activ  (None, 12, 12, 256)          0         ['inceptionB_step4_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step4_merged (C  (None, 12, 12, 1024)         0         ['inceptionB_step4_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionB_step4_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step4_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step4_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionB_step5_b41_conv   (None, 12, 12, 192)          196800    ['inceptionB_step4_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step5_b41_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step5_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b41_activ  (None, 12, 12, 192)          0         ['inceptionB_step5_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b42_conv   (None, 12, 12, 192)          258240    ['inceptionB_step5_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step5_b42_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step5_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b42_activ  (None, 12, 12, 192)          0         ['inceptionB_step5_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b31_conv   (None, 12, 12, 192)          196800    ['inceptionB_step4_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step5_b43_conv   (None, 12, 12, 224)          301280    ['inceptionB_step5_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step5_b31_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step5_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b43_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step5_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b31_activ  (None, 12, 12, 192)          0         ['inceptionB_step5_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b43_activ  (None, 12, 12, 224)          0         ['inceptionB_step5_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b32_conv   (None, 12, 12, 224)          301280    ['inceptionB_step5_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step5_b44_conv   (None, 12, 12, 224)          351456    ['inceptionB_step5_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step5_b32_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step5_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b44_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step5_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b11 (Aver  (None, 12, 12, 1024)         0         ['inceptionB_step4_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b32_activ  (None, 12, 12, 224)          0         ['inceptionB_step5_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b44_activ  (None, 12, 12, 224)          0         ['inceptionB_step5_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b12_conv   (None, 12, 12, 128)          131200    ['inceptionB_step5_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionB_step5_b21_conv   (None, 12, 12, 384)          393600    ['inceptionB_step4_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step5_b33_conv   (None, 12, 12, 256)          401664    ['inceptionB_step5_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step5_b45_conv   (None, 12, 12, 256)          401664    ['inceptionB_step5_b44_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step5_b12_bn (B  (None, 12, 12, 128)          512       ['inceptionB_step5_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b21_bn (B  (None, 12, 12, 384)          1536      ['inceptionB_step5_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b33_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step5_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b45_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step5_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step5_b12_activ  (None, 12, 12, 128)          0         ['inceptionB_step5_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b21_activ  (None, 12, 12, 384)          0         ['inceptionB_step5_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b33_activ  (None, 12, 12, 256)          0         ['inceptionB_step5_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_b45_activ  (None, 12, 12, 256)          0         ['inceptionB_step5_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step5_merged (C  (None, 12, 12, 1024)         0         ['inceptionB_step5_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionB_step5_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step5_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step5_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionB_step6_b41_conv   (None, 12, 12, 192)          196800    ['inceptionB_step5_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step6_b41_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step6_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b41_activ  (None, 12, 12, 192)          0         ['inceptionB_step6_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b42_conv   (None, 12, 12, 192)          258240    ['inceptionB_step6_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step6_b42_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step6_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b42_activ  (None, 12, 12, 192)          0         ['inceptionB_step6_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b31_conv   (None, 12, 12, 192)          196800    ['inceptionB_step5_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step6_b43_conv   (None, 12, 12, 224)          301280    ['inceptionB_step6_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step6_b31_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step6_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b43_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step6_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b31_activ  (None, 12, 12, 192)          0         ['inceptionB_step6_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b43_activ  (None, 12, 12, 224)          0         ['inceptionB_step6_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b32_conv   (None, 12, 12, 224)          301280    ['inceptionB_step6_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step6_b44_conv   (None, 12, 12, 224)          351456    ['inceptionB_step6_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step6_b32_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step6_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b44_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step6_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b11 (Aver  (None, 12, 12, 1024)         0         ['inceptionB_step5_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b32_activ  (None, 12, 12, 224)          0         ['inceptionB_step6_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b44_activ  (None, 12, 12, 224)          0         ['inceptionB_step6_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b12_conv   (None, 12, 12, 128)          131200    ['inceptionB_step6_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionB_step6_b21_conv   (None, 12, 12, 384)          393600    ['inceptionB_step5_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step6_b33_conv   (None, 12, 12, 256)          401664    ['inceptionB_step6_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step6_b45_conv   (None, 12, 12, 256)          401664    ['inceptionB_step6_b44_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step6_b12_bn (B  (None, 12, 12, 128)          512       ['inceptionB_step6_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b21_bn (B  (None, 12, 12, 384)          1536      ['inceptionB_step6_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b33_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step6_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b45_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step6_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step6_b12_activ  (None, 12, 12, 128)          0         ['inceptionB_step6_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b21_activ  (None, 12, 12, 384)          0         ['inceptionB_step6_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b33_activ  (None, 12, 12, 256)          0         ['inceptionB_step6_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_b45_activ  (None, 12, 12, 256)          0         ['inceptionB_step6_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step6_merged (C  (None, 12, 12, 1024)         0         ['inceptionB_step6_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionB_step6_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step6_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step6_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionB_step7_b41_conv   (None, 12, 12, 192)          196800    ['inceptionB_step6_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step7_b41_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step7_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b41_activ  (None, 12, 12, 192)          0         ['inceptionB_step7_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b42_conv   (None, 12, 12, 192)          258240    ['inceptionB_step7_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step7_b42_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step7_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b42_activ  (None, 12, 12, 192)          0         ['inceptionB_step7_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b31_conv   (None, 12, 12, 192)          196800    ['inceptionB_step6_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step7_b43_conv   (None, 12, 12, 224)          301280    ['inceptionB_step7_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step7_b31_bn (B  (None, 12, 12, 192)          768       ['inceptionB_step7_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b43_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step7_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b31_activ  (None, 12, 12, 192)          0         ['inceptionB_step7_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b43_activ  (None, 12, 12, 224)          0         ['inceptionB_step7_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b32_conv   (None, 12, 12, 224)          301280    ['inceptionB_step7_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step7_b44_conv   (None, 12, 12, 224)          351456    ['inceptionB_step7_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step7_b32_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step7_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b44_bn (B  (None, 12, 12, 224)          896       ['inceptionB_step7_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b11 (Aver  (None, 12, 12, 1024)         0         ['inceptionB_step6_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b32_activ  (None, 12, 12, 224)          0         ['inceptionB_step7_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b44_activ  (None, 12, 12, 224)          0         ['inceptionB_step7_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b12_conv   (None, 12, 12, 128)          131200    ['inceptionB_step7_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionB_step7_b21_conv   (None, 12, 12, 384)          393600    ['inceptionB_step6_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionB_step7_b33_conv   (None, 12, 12, 256)          401664    ['inceptionB_step7_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step7_b45_conv   (None, 12, 12, 256)          401664    ['inceptionB_step7_b44_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionB_step7_b12_bn (B  (None, 12, 12, 128)          512       ['inceptionB_step7_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b21_bn (B  (None, 12, 12, 384)          1536      ['inceptionB_step7_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b33_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step7_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b45_bn (B  (None, 12, 12, 256)          1024      ['inceptionB_step7_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionB_step7_b12_activ  (None, 12, 12, 128)          0         ['inceptionB_step7_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b21_activ  (None, 12, 12, 384)          0         ['inceptionB_step7_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b33_activ  (None, 12, 12, 256)          0         ['inceptionB_step7_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_b45_activ  (None, 12, 12, 256)          0         ['inceptionB_step7_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionB_step7_merged (C  (None, 12, 12, 1024)         0         ['inceptionB_step7_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionB_step7_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step7_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionB_step7_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ incep_reductionB_b31_conv   (None, 12, 12, 256)          262400    ['inceptionB_step7_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ incep_reductionB_b31_bn (B  (None, 12, 12, 256)          1024      ['incep_reductionB_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionB_b31_activ  (None, 12, 12, 256)          0         ['incep_reductionB_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionB_b32_conv   (None, 12, 12, 256)          459008    ['incep_reductionB_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ incep_reductionB_b32_bn (B  (None, 12, 12, 256)          1024      ['incep_reductionB_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionB_b32_activ  (None, 12, 12, 256)          0         ['incep_reductionB_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionB_b21_conv   (None, 12, 12, 192)          196800    ['inceptionB_step7_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ incep_reductionB_b33_conv   (None, 12, 12, 320)          573760    ['incep_reductionB_b32_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ incep_reductionB_b21_bn (B  (None, 12, 12, 192)          768       ['incep_reductionB_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionB_b33_bn (B  (None, 12, 12, 320)          1280      ['incep_reductionB_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionB_b21_activ  (None, 12, 12, 192)          0         ['incep_reductionB_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionB_b33_activ  (None, 12, 12, 320)          0         ['incep_reductionB_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionB_b22_conv   (None, 5, 5, 192)            331968    ['incep_reductionB_b21_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ incep_reductionB_b34_conv   (None, 5, 5, 320)            921920    ['incep_reductionB_b33_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ incep_reductionB_b22_bn (B  (None, 5, 5, 192)            768       ['incep_reductionB_b22_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionB_b34_bn (B  (None, 5, 5, 320)            1280      ['incep_reductionB_b34_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ incep_reductionB_b11 (MaxP  (None, 5, 5, 1024)           0         ['inceptionB_step7_merged[0][0
+ ooling2D)                                                          ]']                           
+                                                                                                  
+ incep_reductionB_b22_activ  (None, 5, 5, 192)            0         ['incep_reductionB_b22_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionB_b34_activ  (None, 5, 5, 320)            0         ['incep_reductionB_b34_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ incep_reductionB_merged (C  (None, 5, 5, 1536)           0         ['incep_reductionB_b11[0][0]',
+ oncatenate)                                                         'incep_reductionB_b22_activ[0
+                                                                    ][0]',                        
+                                                                     'incep_reductionB_b34_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionC_step1_b41_conv   (None, 5, 5, 384)            590208    ['incep_reductionB_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step1_b41_bn (B  (None, 5, 5, 384)            1536      ['inceptionC_step1_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b41_activ  (None, 5, 5, 384)            0         ['inceptionC_step1_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b42_conv   (None, 5, 5, 448)            516544    ['inceptionC_step1_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step1_b42_bn (B  (None, 5, 5, 448)            1792      ['inceptionC_step1_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b42_activ  (None, 5, 5, 448)            0         ['inceptionC_step1_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b31_conv   (None, 5, 5, 384)            590208    ['incep_reductionB_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step1_b43_conv   (None, 5, 5, 512)            688640    ['inceptionC_step1_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step1_b31_bn (B  (None, 5, 5, 384)            1536      ['inceptionC_step1_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b43_bn (B  (None, 5, 5, 512)            2048      ['inceptionC_step1_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b11 (Aver  (None, 5, 5, 1536)           0         ['incep_reductionB_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b31_activ  (None, 5, 5, 384)            0         ['inceptionC_step1_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b43_activ  (None, 5, 5, 512)            0         ['inceptionC_step1_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b12_conv   (None, 5, 5, 256)            393472    ['inceptionC_step1_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionC_step1_b21_conv   (None, 5, 5, 256)            393472    ['incep_reductionB_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step1_b32_conv   (None, 5, 5, 256)            295168    ['inceptionC_step1_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step1_b33_conv   (None, 5, 5, 256)            295168    ['inceptionC_step1_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step1_b44_conv   (None, 5, 5, 256)            393472    ['inceptionC_step1_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step1_b45_conv   (None, 5, 5, 256)            393472    ['inceptionC_step1_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step1_b12_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step1_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b21_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step1_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b32_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step1_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b33_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step1_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b44_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step1_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b45_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step1_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step1_b12_activ  (None, 5, 5, 256)            0         ['inceptionC_step1_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b21_activ  (None, 5, 5, 256)            0         ['inceptionC_step1_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b32_activ  (None, 5, 5, 256)            0         ['inceptionC_step1_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b33_activ  (None, 5, 5, 256)            0         ['inceptionC_step1_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b44_activ  (None, 5, 5, 256)            0         ['inceptionC_step1_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_b45_activ  (None, 5, 5, 256)            0         ['inceptionC_step1_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step1_merged (C  (None, 5, 5, 1536)           0         ['inceptionC_step1_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionC_step1_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step1_b32_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step1_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step1_b44_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step1_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionC_step2_b41_conv   (None, 5, 5, 384)            590208    ['inceptionC_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step2_b41_bn (B  (None, 5, 5, 384)            1536      ['inceptionC_step2_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b41_activ  (None, 5, 5, 384)            0         ['inceptionC_step2_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b42_conv   (None, 5, 5, 448)            516544    ['inceptionC_step2_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step2_b42_bn (B  (None, 5, 5, 448)            1792      ['inceptionC_step2_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b42_activ  (None, 5, 5, 448)            0         ['inceptionC_step2_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b31_conv   (None, 5, 5, 384)            590208    ['inceptionC_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step2_b43_conv   (None, 5, 5, 512)            688640    ['inceptionC_step2_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step2_b31_bn (B  (None, 5, 5, 384)            1536      ['inceptionC_step2_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b43_bn (B  (None, 5, 5, 512)            2048      ['inceptionC_step2_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b11 (Aver  (None, 5, 5, 1536)           0         ['inceptionC_step1_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b31_activ  (None, 5, 5, 384)            0         ['inceptionC_step2_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b43_activ  (None, 5, 5, 512)            0         ['inceptionC_step2_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b12_conv   (None, 5, 5, 256)            393472    ['inceptionC_step2_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionC_step2_b21_conv   (None, 5, 5, 256)            393472    ['inceptionC_step1_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step2_b32_conv   (None, 5, 5, 256)            295168    ['inceptionC_step2_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step2_b33_conv   (None, 5, 5, 256)            295168    ['inceptionC_step2_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step2_b44_conv   (None, 5, 5, 256)            393472    ['inceptionC_step2_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step2_b45_conv   (None, 5, 5, 256)            393472    ['inceptionC_step2_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step2_b12_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step2_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b21_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step2_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b32_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step2_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b33_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step2_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b44_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step2_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b45_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step2_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step2_b12_activ  (None, 5, 5, 256)            0         ['inceptionC_step2_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b21_activ  (None, 5, 5, 256)            0         ['inceptionC_step2_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b32_activ  (None, 5, 5, 256)            0         ['inceptionC_step2_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b33_activ  (None, 5, 5, 256)            0         ['inceptionC_step2_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b44_activ  (None, 5, 5, 256)            0         ['inceptionC_step2_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_b45_activ  (None, 5, 5, 256)            0         ['inceptionC_step2_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step2_merged (C  (None, 5, 5, 1536)           0         ['inceptionC_step2_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionC_step2_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step2_b32_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step2_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step2_b44_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step2_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ inceptionC_step3_b41_conv   (None, 5, 5, 384)            590208    ['inceptionC_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step3_b41_bn (B  (None, 5, 5, 384)            1536      ['inceptionC_step3_b41_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b41_activ  (None, 5, 5, 384)            0         ['inceptionC_step3_b41_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b42_conv   (None, 5, 5, 448)            516544    ['inceptionC_step3_b41_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step3_b42_bn (B  (None, 5, 5, 448)            1792      ['inceptionC_step3_b42_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b42_activ  (None, 5, 5, 448)            0         ['inceptionC_step3_b42_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b31_conv   (None, 5, 5, 384)            590208    ['inceptionC_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step3_b43_conv   (None, 5, 5, 512)            688640    ['inceptionC_step3_b42_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step3_b31_bn (B  (None, 5, 5, 384)            1536      ['inceptionC_step3_b31_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b43_bn (B  (None, 5, 5, 512)            2048      ['inceptionC_step3_b43_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b11 (Aver  (None, 5, 5, 1536)           0         ['inceptionC_step2_merged[0][0
+ agePooling2D)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b31_activ  (None, 5, 5, 384)            0         ['inceptionC_step3_b31_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b43_activ  (None, 5, 5, 512)            0         ['inceptionC_step3_b43_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b12_conv   (None, 5, 5, 256)            393472    ['inceptionC_step3_b11[0][0]']
+ (Conv2D)                                                                                         
+                                                                                                  
+ inceptionC_step3_b21_conv   (None, 5, 5, 256)            393472    ['inceptionC_step2_merged[0][0
+ (Conv2D)                                                           ]']                           
+                                                                                                  
+ inceptionC_step3_b32_conv   (None, 5, 5, 256)            295168    ['inceptionC_step3_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step3_b33_conv   (None, 5, 5, 256)            295168    ['inceptionC_step3_b31_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step3_b44_conv   (None, 5, 5, 256)            393472    ['inceptionC_step3_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step3_b45_conv   (None, 5, 5, 256)            393472    ['inceptionC_step3_b43_activ[0
+ (Conv2D)                                                           ][0]']                        
+                                                                                                  
+ inceptionC_step3_b12_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step3_b12_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b21_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step3_b21_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b32_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step3_b32_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b33_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step3_b33_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b44_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step3_b44_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b45_bn (B  (None, 5, 5, 256)            1024      ['inceptionC_step3_b45_conv[0]
+ atchNormalization)                                                 [0]']                         
+                                                                                                  
+ inceptionC_step3_b12_activ  (None, 5, 5, 256)            0         ['inceptionC_step3_b12_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b21_activ  (None, 5, 5, 256)            0         ['inceptionC_step3_b21_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b32_activ  (None, 5, 5, 256)            0         ['inceptionC_step3_b32_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b33_activ  (None, 5, 5, 256)            0         ['inceptionC_step3_b33_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b44_activ  (None, 5, 5, 256)            0         ['inceptionC_step3_b44_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_b45_activ  (None, 5, 5, 256)            0         ['inceptionC_step3_b45_bn[0][0
+  (Activation)                                                      ]']                           
+                                                                                                  
+ inceptionC_step3_merged (C  (None, 5, 5, 1536)           0         ['inceptionC_step3_b12_activ[0
+ oncatenate)                                                        ][0]',                        
+                                                                     'inceptionC_step3_b21_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step3_b32_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step3_b33_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step3_b44_activ[0
+                                                                    ][0]',                        
+                                                                     'inceptionC_step3_b45_activ[0
+                                                                    ][0]']                        
+                                                                                                  
+ avg_pooling (AveragePoolin  (None, 5, 5, 1536)           0         ['inceptionC_step3_merged[0][0
+ g2D)                                                               ]']                           
+                                                                                                  
+ dropout (Dropout)           (None, 5, 5, 1536)           0         ['avg_pooling[0][0]']         
+                                                                                                  
+ flatten (Flatten)           (None, 38400)                0         ['dropout[0][0]']             
+                                                                                                  
+ predictions (Dense)         (None, 1000)                 3840100   ['flatten[0][0]']             
+                                                          0                                       
+                                                                                                  
+ activation_31 (Activation)  (None, 1000)                 0         ['predictions[0][0]']         
+                                                                                                  
+==================================================================================================
+Total params: 79552552 (303.47 MB)
+Trainable params: 79489384 (303.23 MB)
+Non-trainable params: 63168 (246.75 KB)
+__________________________________________________________________________________________________

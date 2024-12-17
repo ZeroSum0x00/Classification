@@ -1,0 +1,35 @@
+Model: "Efficient-Rep-medium_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_170 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (RepVGGBlock)          (None, 112, 112, 48)      1344      
+                                                                 
+ stage1.block1 (RepVGGBlock  (None, 56, 56, 96)        41568     
+ )                                                               
+                                                                 
+ stage1.block2 (BepC3)       (None, 56, 56, 96)        173186    
+                                                                 
+ stage2.block1 (RepVGGBlock  (None, 28, 28, 192)       166080    
+ )                                                               
+                                                                 
+ stage2.block2 (BepC3)       (None, 28, 28, 192)       985603    
+                                                                 
+ stage3.block1 (RepVGGBlock  (None, 14, 14, 384)       663936    
+ )                                                               
+                                                                 
+ stage3.block2 (BepC3)       (None, 14, 14, 384)       6297605   
+                                                                 
+ stage4.block1 (RepVGGBlock  (None, 7, 7, 768)         2654976   
+ )                                                               
+                                                                 
+ stage4.block2 (BepC3)       (None, 7, 7, 768)         11019266  
+                                                                 
+ stage4.block3 (SPPF)        (None, 7, 7, 768)         1479168   
+                                                                 
+=================================================================
+Total params: 23482732 (89.58 MB)
+Trainable params: 23473708 (89.55 MB)
+Non-trainable params: 9024 (35.25 KB)
+_________________________________________________________________

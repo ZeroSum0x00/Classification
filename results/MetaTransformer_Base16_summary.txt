@@ -1,0 +1,70 @@
+Model: "Meta-Transformer-Base-16"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_19 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ stem_conv (PatchConv2DWith  (None, 14, 14, 768)       589824    
+ ResampleWeights)                                                
+                                                                 
+ reshape (Reshape)           (None, 196, 768)          0         
+                                                                 
+ cls_token (ClassToken)      (None, 197, 768)          768       
+                                                                 
+ positional_embedding (Posi  (None, 197, 768)          151296    
+ tionalEmbedding)                                                
+                                                                 
+ pre_ln (LayerNormalization  (None, 197, 768)          1536      
+ )                                                               
+                                                                 
+ AttentionMLP_block_1 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_2 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_3 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_4 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_5 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_6 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_7 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_8 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_9 (Atte  (None, 197, 768)          7087872   
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_10 (Att  (None, 197, 768)          7087872   
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_11 (Att  (None, 197, 768)          7087872   
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_12 (Att  (None, 197, 768)          7087872   
+ entionMLPBlock)                                                 
+                                                                 
+ out_ln (LayerNormalization  (None, 197, 768)          1536      
+ )                                                               
+                                                                 
+ tf.__operators__.getitem (  (None, 768)               0         
+ SlicingOpLambda)                                                
+                                                                 
+ predictions (Dense)         (None, 1000)              769000    
+                                                                 
+ activation_39 (Activation)  (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 86568424 (330.23 MB)
+Trainable params: 86568424 (330.23 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

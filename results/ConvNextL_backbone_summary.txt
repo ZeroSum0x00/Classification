@@ -1,0 +1,726 @@
+Model: "ConvNextL_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_31 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ stem_conv (Conv2D)          (None, 56, 56, 192)       9408      
+                                                                 
+ stem_norm (LayerNormalizat  (None, 56, 56, 192)       384       
+ ion)                                                            
+                                                                 
+ block0_part0_dw (Conv2D)    (None, 56, 56, 192)       9600      
+                                                                 
+ block0_part0_norm (LayerNo  (None, 56, 56, 192)       384       
+ rmalization)                                                    
+                                                                 
+ block0_part0_pw (Conv2D)    (None, 56, 56, 768)       148224    
+                                                                 
+ block0_part0_activation (A  (None, 56, 56, 768)       0         
+ ctivation)                                                      
+                                                                 
+ block0_part0_conv_final (C  (None, 56, 56, 192)       147648    
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_234 (TFOp  (None, 56, 56, 192)       0         
+ Lambda)                                                         
+                                                                 
+ block0_part0_final (Lambda  (None, 56, 56, 192)       0         
+ )                                                               
+                                                                 
+ block0_part1_dw (Conv2D)    (None, 56, 56, 192)       9600      
+                                                                 
+ block0_part1_norm (LayerNo  (None, 56, 56, 192)       384       
+ rmalization)                                                    
+                                                                 
+ block0_part1_pw (Conv2D)    (None, 56, 56, 768)       148224    
+                                                                 
+ block0_part1_activation (A  (None, 56, 56, 768)       0         
+ ctivation)                                                      
+                                                                 
+ block0_part1_conv_final (C  (None, 56, 56, 192)       147648    
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_235 (TFOp  (None, 56, 56, 192)       0         
+ Lambda)                                                         
+                                                                 
+ block0_part1_final (Lambda  (None, 56, 56, 192)       0         
+ )                                                               
+                                                                 
+ block0_part2_dw (Conv2D)    (None, 56, 56, 192)       9600      
+                                                                 
+ block0_part2_norm (LayerNo  (None, 56, 56, 192)       384       
+ rmalization)                                                    
+                                                                 
+ block0_part2_pw (Conv2D)    (None, 56, 56, 768)       148224    
+                                                                 
+ block0_part2_activation (A  (None, 56, 56, 768)       0         
+ ctivation)                                                      
+                                                                 
+ block0_part2_conv_final (C  (None, 56, 56, 192)       147648    
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_236 (TFOp  (None, 56, 56, 192)       0         
+ Lambda)                                                         
+                                                                 
+ block0_part2_final (Lambda  (None, 56, 56, 192)       0         
+ )                                                               
+                                                                 
+ downsaples1_norm (LayerNor  (None, 56, 56, 192)       384       
+ malization)                                                     
+                                                                 
+ downsaples1_conv (Conv2D)   (None, 28, 28, 384)       295296    
+                                                                 
+ block1_part0_dw (Conv2D)    (None, 28, 28, 384)       19200     
+                                                                 
+ block1_part0_norm (LayerNo  (None, 28, 28, 384)       768       
+ rmalization)                                                    
+                                                                 
+ block1_part0_pw (Conv2D)    (None, 28, 28, 1536)      591360    
+                                                                 
+ block1_part0_activation (A  (None, 28, 28, 1536)      0         
+ ctivation)                                                      
+                                                                 
+ block1_part0_conv_final (C  (None, 28, 28, 384)       590208    
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_237 (TFOp  (None, 28, 28, 384)       0         
+ Lambda)                                                         
+                                                                 
+ block1_part0_final (Lambda  (None, 28, 28, 384)       0         
+ )                                                               
+                                                                 
+ block1_part1_dw (Conv2D)    (None, 28, 28, 384)       19200     
+                                                                 
+ block1_part1_norm (LayerNo  (None, 28, 28, 384)       768       
+ rmalization)                                                    
+                                                                 
+ block1_part1_pw (Conv2D)    (None, 28, 28, 1536)      591360    
+                                                                 
+ block1_part1_activation (A  (None, 28, 28, 1536)      0         
+ ctivation)                                                      
+                                                                 
+ block1_part1_conv_final (C  (None, 28, 28, 384)       590208    
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_238 (TFOp  (None, 28, 28, 384)       0         
+ Lambda)                                                         
+                                                                 
+ block1_part1_final (Lambda  (None, 28, 28, 384)       0         
+ )                                                               
+                                                                 
+ block1_part2_dw (Conv2D)    (None, 28, 28, 384)       19200     
+                                                                 
+ block1_part2_norm (LayerNo  (None, 28, 28, 384)       768       
+ rmalization)                                                    
+                                                                 
+ block1_part2_pw (Conv2D)    (None, 28, 28, 1536)      591360    
+                                                                 
+ block1_part2_activation (A  (None, 28, 28, 1536)      0         
+ ctivation)                                                      
+                                                                 
+ block1_part2_conv_final (C  (None, 28, 28, 384)       590208    
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_239 (TFOp  (None, 28, 28, 384)       0         
+ Lambda)                                                         
+                                                                 
+ block1_part2_final (Lambda  (None, 28, 28, 384)       0         
+ )                                                               
+                                                                 
+ downsaples2_norm (LayerNor  (None, 28, 28, 384)       768       
+ malization)                                                     
+                                                                 
+ downsaples2_conv (Conv2D)   (None, 14, 14, 768)       1180416   
+                                                                 
+ block2_part0_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part0_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part0_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part0_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part0_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_240 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part0_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part1_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part1_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part1_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part1_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part1_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_241 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part1_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part2_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part2_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part2_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part2_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part2_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_242 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part2_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part3_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part3_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part3_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part3_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part3_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_243 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part3_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part4_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part4_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part4_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part4_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part4_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_244 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part4_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part5_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part5_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part5_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part5_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part5_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_245 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part5_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part6_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part6_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part6_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part6_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part6_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_246 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part6_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part7_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part7_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part7_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part7_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part7_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_247 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part7_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part8_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part8_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part8_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part8_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part8_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_248 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part8_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part9_dw (Conv2D)    (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part9_norm (LayerNo  (None, 14, 14, 768)       1536      
+ rmalization)                                                    
+                                                                 
+ block2_part9_pw (Conv2D)    (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part9_activation (A  (None, 14, 14, 3072)      0         
+ ctivation)                                                      
+                                                                 
+ block2_part9_conv_final (C  (None, 14, 14, 768)       2360064   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_249 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part9_final (Lambda  (None, 14, 14, 768)       0         
+ )                                                               
+                                                                 
+ block2_part10_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part10_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part10_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part10_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part10_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_250 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part10_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part11_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part11_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part11_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part11_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part11_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_251 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part11_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part12_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part12_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part12_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part12_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part12_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_252 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part12_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part13_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part13_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part13_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part13_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part13_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_253 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part13_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part14_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part14_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part14_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part14_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part14_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_254 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part14_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part15_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part15_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part15_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part15_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part15_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_255 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part15_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part16_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part16_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part16_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part16_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part16_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_256 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part16_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part17_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part17_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part17_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part17_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part17_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_257 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part17_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part18_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part18_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part18_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part18_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part18_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_258 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part18_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part19_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part19_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part19_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part19_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part19_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_259 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part19_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part20_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part20_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part20_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part20_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part20_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_260 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part20_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part21_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part21_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part21_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part21_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part21_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_261 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part21_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part22_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part22_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part22_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part22_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part22_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_262 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part22_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part23_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part23_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part23_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part23_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part23_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_263 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part23_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part24_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part24_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part24_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part24_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part24_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_264 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part24_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part25_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part25_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part25_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part25_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part25_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_265 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part25_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ block2_part26_dw (Conv2D)   (None, 14, 14, 768)       38400     
+                                                                 
+ block2_part26_norm (LayerN  (None, 14, 14, 768)       1536      
+ ormalization)                                                   
+                                                                 
+ block2_part26_pw (Conv2D)   (None, 14, 14, 3072)      2362368   
+                                                                 
+ block2_part26_activation (  (None, 14, 14, 3072)      0         
+ Activation)                                                     
+                                                                 
+ block2_part26_conv_final (  (None, 14, 14, 768)       2360064   
+ Conv2D)                                                         
+                                                                 
+ tf.math.multiply_266 (TFOp  (None, 14, 14, 768)       0         
+ Lambda)                                                         
+                                                                 
+ block2_part26_final (Lambd  (None, 14, 14, 768)       0         
+ a)                                                              
+                                                                 
+ downsaples3_norm (LayerNor  (None, 14, 14, 768)       1536      
+ malization)                                                     
+                                                                 
+ downsaples3_conv (Conv2D)   (None, 7, 7, 1536)        4720128   
+                                                                 
+ block3_part0_dw (Conv2D)    (None, 7, 7, 1536)        76800     
+                                                                 
+ block3_part0_norm (LayerNo  (None, 7, 7, 1536)        3072      
+ rmalization)                                                    
+                                                                 
+ block3_part0_pw (Conv2D)    (None, 7, 7, 6144)        9443328   
+                                                                 
+ block3_part0_activation (A  (None, 7, 7, 6144)        0         
+ ctivation)                                                      
+                                                                 
+ block3_part0_conv_final (C  (None, 7, 7, 1536)        9438720   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_267 (TFOp  (None, 7, 7, 1536)        0         
+ Lambda)                                                         
+                                                                 
+ block3_part0_final (Lambda  (None, 7, 7, 1536)        0         
+ )                                                               
+                                                                 
+ block3_part1_dw (Conv2D)    (None, 7, 7, 1536)        76800     
+                                                                 
+ block3_part1_norm (LayerNo  (None, 7, 7, 1536)        3072      
+ rmalization)                                                    
+                                                                 
+ block3_part1_pw (Conv2D)    (None, 7, 7, 6144)        9443328   
+                                                                 
+ block3_part1_activation (A  (None, 7, 7, 6144)        0         
+ ctivation)                                                      
+                                                                 
+ block3_part1_conv_final (C  (None, 7, 7, 1536)        9438720   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_268 (TFOp  (None, 7, 7, 1536)        0         
+ Lambda)                                                         
+                                                                 
+ block3_part1_final (Lambda  (None, 7, 7, 1536)        0         
+ )                                                               
+                                                                 
+ block3_part2_dw (Conv2D)    (None, 7, 7, 1536)        76800     
+                                                                 
+ block3_part2_norm (LayerNo  (None, 7, 7, 1536)        3072      
+ rmalization)                                                    
+                                                                 
+ block3_part2_pw (Conv2D)    (None, 7, 7, 6144)        9443328   
+                                                                 
+ block3_part2_activation (A  (None, 7, 7, 6144)        0         
+ ctivation)                                                      
+                                                                 
+ block3_part2_conv_final (C  (None, 7, 7, 1536)        9438720   
+ onv2D)                                                          
+                                                                 
+ tf.math.multiply_269 (TFOp  (None, 7, 7, 1536)        0         
+ Lambda)                                                         
+                                                                 
+ block3_part2_final (Lambda  (None, 7, 7, 1536)        0         
+ )                                                               
+                                                                 
+ global_avgpool (GlobalAver  (None, 1536)              0         
+ agePooling2D)                                                   
+                                                                 
+ final_norm (LayerNormaliza  (None, 1536)              3072      
+ tion)                                                           
+                                                                 
+ predictions (Dense)         (None, 1000)              1537000   
+                                                                 
+ activation_1151 (Activatio  (None, 1000)              0         
+ n)                                                              
+                                                                 
+=================================================================
+Total params: 197740264 (754.32 MB)
+Trainable params: 197740264 (754.32 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

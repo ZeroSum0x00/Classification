@@ -1,0 +1,55 @@
+Model: "Efficient-Lite-large_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_137 (InputLayer)      [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (ConvolutionBlock)     (None, 112, 112, 24)      744       
+                                                                 
+ stage1.block1 (Lite_EffiBl  (None, 56, 56, 48)        5067      
+ ockS2)                                                          
+                                                                 
+ stage2.block1 (Lite_EffiBl  (None, 28, 28, 96)        17190     
+ ockS2)                                                          
+                                                                 
+ stage2.block2 (Lite_EffiBl  (None, 28, 28, 96)        6828      
+ ockS1)                                                          
+                                                                 
+ stage2.block3 (Lite_EffiBl  (None, 28, 28, 96)        6828      
+ ockS1)                                                          
+                                                                 
+ stage3.block1 (Lite_EffiBl  (None, 14, 14, 192)       62604     
+ ockS2)                                                          
+                                                                 
+ stage3.block2 (Lite_EffiBl  (None, 14, 14, 192)       25176     
+ ockS1)                                                          
+                                                                 
+ stage3.block3 (Lite_EffiBl  (None, 14, 14, 192)       25176     
+ ockS1)                                                          
+                                                                 
+ stage3.block4 (Lite_EffiBl  (None, 14, 14, 192)       25176     
+ ockS1)                                                          
+                                                                 
+ stage3.block5 (Lite_EffiBl  (None, 14, 14, 192)       25176     
+ ockS1)                                                          
+                                                                 
+ stage3.block6 (Lite_EffiBl  (None, 14, 14, 192)       25176     
+ ockS1)                                                          
+                                                                 
+ stage3.block7 (Lite_EffiBl  (None, 14, 14, 192)       25176     
+ ockS1)                                                          
+                                                                 
+ stage4.block1 (Lite_EffiBl  (None, 7, 7, 384)         238104    
+ ockS2)                                                          
+                                                                 
+ stage4.block2 (Lite_EffiBl  (None, 7, 7, 384)         96432     
+ ockS1)                                                          
+                                                                 
+ stage4.block3 (Lite_EffiBl  (None, 7, 7, 384)         96432     
+ ockS1)                                                          
+                                                                 
+=================================================================
+Total params: 681285 (2.60 MB)
+Trainable params: 669141 (2.55 MB)
+Non-trainable params: 12144 (47.44 KB)
+_________________________________________________________________

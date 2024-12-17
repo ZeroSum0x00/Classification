@@ -1,0 +1,50 @@
+Model: "MLPMixer-S16"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_17 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ extract_patches_5 (Extract  (None, 196, 512)          393728    
+ Patches)                                                        
+                                                                 
+ mixer_block_104 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ mixer_block_105 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ mixer_block_106 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ mixer_block_107 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ mixer_block_108 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ mixer_block_109 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ mixer_block_110 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ mixer_block_111 (MixerBloc  (None, 196, 512)          2202564   
+ k)                                                              
+                                                                 
+ layer_normalization_5 (Lay  (None, 196, 512)          1024      
+ erNormalization)                                                
+                                                                 
+ global_average_pooling1d_5  (None, 512)               0         
+  (GlobalAveragePooling1D)                                       
+                                                                 
+ dropout_6 (Dropout)         (None, 512)               0         
+                                                                 
+ predictions (Dense)         (None, 1000)              513000    
+                                                                 
+ activation_37 (Activation)  (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 18528264 (70.68 MB)
+Trainable params: 18528264 (70.68 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

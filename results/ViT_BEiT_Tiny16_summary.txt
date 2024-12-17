@@ -1,0 +1,68 @@
+Model: "ViT-BEiT-Tiny-16"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_97 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ stem_conv (PatchConv2DWith  (None, 14, 14, 192)       147648    
+ ResampleWeights)                                                
+                                                                 
+ reshape_15 (Reshape)        (None, 196, 192)          0         
+                                                                 
+ cls_token (ClassToken)      (None, 197, 192)          192       
+                                                                 
+ positional_embedding (Posi  (None, 197, 192)          37824     
+ tionalEmbedding)                                                
+                                                                 
+ AttentionMLP_block_1 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_2 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_3 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_4 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_5 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_6 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_7 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_8 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_9 (Atte  (None, 197, 192)          444864    
+ ntionMLPBlock)                                                  
+                                                                 
+ AttentionMLP_block_10 (Att  (None, 197, 192)          444864    
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_11 (Att  (None, 197, 192)          444864    
+ entionMLPBlock)                                                 
+                                                                 
+ AttentionMLP_block_12 (Att  (None, 197, 192)          444864    
+ entionMLPBlock)                                                 
+                                                                 
+ out_ln (LayerNormalization  (None, 197, 192)          384       
+ )                                                               
+                                                                 
+ tf.__operators__.getitem_1  (None, 192)               0         
+ 1 (SlicingOpLambda)                                             
+                                                                 
+ predictions (Dense)         (None, 1000)              193000    
+                                                                 
+ activation_151 (Activation  (None, 1000)              0         
+ )                                                               
+                                                                 
+=================================================================
+Total params: 5717416 (21.81 MB)
+Trainable params: 5717416 (21.81 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________

@@ -1,0 +1,38 @@
+Model: "DarkNet-ELAN4-small_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_97 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ stem.block1 (ConvolutionBl  (None, 112, 112, 64)      1984      
+ ock)                                                            
+                                                                 
+ stage1.block1 (Convolution  (None, 56, 56, 128)       74240     
+ Block)                                                          
+                                                                 
+ stage1.block2 (RepNCSPELAN  (None, 56, 56, 256)       214784    
+ 4)                                                              
+                                                                 
+ stage2.block1 (AverageConv  (None, 28, 28, 256)       164864    
+ olutionDown)                                                    
+                                                                 
+ stage2.block2 (RepNCSPELAN  (None, 28, 28, 512)       851456    
+ 4)                                                              
+                                                                 
+ stage3.block1 (AverageConv  (None, 14, 14, 512)       657408    
+ olutionDown)                                                    
+                                                                 
+ stage3.block2 (RepNCSPELAN  (None, 14, 14, 512)       2864128   
+ 4)                                                              
+                                                                 
+ stage4.block1 (AverageConv  (None, 7, 7, 512)         657408    
+ olutionDown)                                                    
+                                                                 
+ stage4.block2 (RepNCSPELAN  (None, 7, 7, 512)         2864128   
+ 4)                                                              
+                                                                 
+=================================================================
+Total params: 8350400 (31.85 MB)
+Trainable params: 8328384 (31.77 MB)
+Non-trainable params: 22016 (86.00 KB)
+_________________________________________________________________

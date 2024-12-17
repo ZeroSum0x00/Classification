@@ -1,0 +1,35 @@
+Model: "DarkNet-C3-Large_backbone"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_59 (InputLayer)       [(None, 224, 224, 3)]     0         
+                                                                 
+ stem (StemBlock)            (None, 112, 112, 64)      7168      
+                                                                 
+ stage1.block1 (Convolution  (None, 56, 56, 128)       74240     
+ Block)                                                          
+                                                                 
+ stage1.block2 (C3)          (None, 56, 56, 128)       158208    
+                                                                 
+ stage2.block1 (Convolution  (None, 28, 28, 256)       295936    
+ Block)                                                          
+                                                                 
+ stage2.block2 (C3)          (None, 28, 28, 256)       1122304   
+                                                                 
+ stage3.block1 (Convolution  (None, 14, 14, 512)       1181696   
+ Block)                                                          
+                                                                 
+ stage3.block2 (C3)          (None, 14, 14, 512)       6445056   
+                                                                 
+ stage4.block1 (Convolution  (None, 7, 7, 1024)        4722688   
+ Block)                                                          
+                                                                 
+ stage4.block2 (C3)          (None, 7, 7, 1024)        9981952   
+                                                                 
+ stage4.block3 (SPP)         (None, 7, 7, 1024)        2627584   
+                                                                 
+=================================================================
+Total params: 26616832 (101.54 MB)
+Trainable params: 26582912 (101.41 MB)
+Non-trainable params: 33920 (132.50 KB)
+_________________________________________________________________

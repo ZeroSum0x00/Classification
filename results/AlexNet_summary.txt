@@ -1,0 +1,64 @@
+Model: "AlexNet"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_1 (InputLayer)        [(None, 224, 224, 3)]     0         
+                                                                 
+ conv2d (Conv2D)             (None, 54, 54, 96)        34944     
+                                                                 
+ activation (Activation)     (None, 54, 54, 96)        0         
+                                                                 
+ tf.nn.local_response_norma  (None, 54, 54, 96)        0         
+ lization (TFOpLambda)                                           
+                                                                 
+ max_pooling2d (MaxPooling2  (None, 26, 26, 96)        0         
+ D)                                                              
+                                                                 
+ conv2d_1 (Conv2D)           (None, 26, 26, 256)       614656    
+                                                                 
+ activation_1 (Activation)   (None, 26, 26, 256)       0         
+                                                                 
+ tf.nn.local_response_norma  (None, 26, 26, 256)       0         
+ lization_1 (TFOpLambda)                                         
+                                                                 
+ max_pooling2d_1 (MaxPoolin  (None, 12, 12, 256)       0         
+ g2D)                                                            
+                                                                 
+ conv2d_2 (Conv2D)           (None, 12, 12, 384)       885120    
+                                                                 
+ activation_2 (Activation)   (None, 12, 12, 384)       0         
+                                                                 
+ conv2d_3 (Conv2D)           (None, 12, 12, 384)       1327488   
+                                                                 
+ activation_3 (Activation)   (None, 12, 12, 384)       0         
+                                                                 
+ conv2d_4 (Conv2D)           (None, 12, 12, 256)       884992    
+                                                                 
+ activation_4 (Activation)   (None, 12, 12, 256)       0         
+                                                                 
+ max_pooling2d_2 (MaxPoolin  (None, 5, 5, 256)         0         
+ g2D)                                                            
+                                                                 
+ dropout (Dropout)           (None, 5, 5, 256)         0         
+                                                                 
+ flatten (Flatten)           (None, 6400)              0         
+                                                                 
+ dense (Dense)               (None, 4096)              26218496  
+                                                                 
+ activation_5 (Activation)   (None, 4096)              0         
+                                                                 
+ dropout_1 (Dropout)         (None, 4096)              0         
+                                                                 
+ dense_1 (Dense)             (None, 4096)              16781312  
+                                                                 
+ activation_6 (Activation)   (None, 4096)              0         
+                                                                 
+ predictions (Dense)         (None, 1000)              4097000   
+                                                                 
+ activation_7 (Activation)   (None, 1000)              0         
+                                                                 
+=================================================================
+Total params: 50844008 (193.95 MB)
+Trainable params: 50844008 (193.95 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
