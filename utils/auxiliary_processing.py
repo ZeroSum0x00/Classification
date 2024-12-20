@@ -2,6 +2,13 @@ import cv2
 import numpy as np
 
 
+def random_to_negative(number):
+    if np.random.choice([0, 1]):
+        return number
+    else:
+        return -number
+
+
 def random_range(a=0, b=1):
     return np.random.rand() * (b - a) + a
 
