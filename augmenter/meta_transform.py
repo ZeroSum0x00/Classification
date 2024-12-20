@@ -40,7 +40,6 @@ class RandomOrder:
         random.shuffle(order)
 
         for i in order:
-            # print(self.transforms[i].__class__.__name__)
             if isinstance(images, (tuple, list)):
                 images = [self.transforms[i](img) for img in images]
             else:

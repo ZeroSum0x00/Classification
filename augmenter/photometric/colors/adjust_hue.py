@@ -10,7 +10,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def adjust_hue(image, hue_factor):
     if not(-0.5 <= hue_factor <= 0.5):
-        raise ValueError('hue_factor is not in [-0.5, 0.5].'.format(hue_factor))
+        raise ValueError('Hue factor is not in [-0.5, 0.5].'.format(hue_factor))
 
     if not is_numpy_image(image):
         raise TypeError('img should be image. Got {}'.format(type(image)))

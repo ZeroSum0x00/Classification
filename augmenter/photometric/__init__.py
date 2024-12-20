@@ -11,12 +11,13 @@ from .blurs import (gaussian_blur, GaussianBlur, RandomGaussianBlur,
                     median_blur, MedianBlur, RandomMedianBlur,
                     motion_blur, MotionBlur, RandomMotionBlur,
                     variable_blur, VariableBlur, RandomVariableBlur)
-from .colors import (color, Color, RandomColor,
+from .colors import (adjust_hue, AdjustHue, RandomAdjustHue,
+                     adjust_saturation, AdjustSaturation, RandomAdjustSaturation,
+                     color, Color, RandomColor,
                      desaturate, Desaturate, RandomDesaturate,
-                     to_grayscale, Grayscale, RandomGrayscale,
-                     adjust_hue, AdjustHue, RandomAdjustHue,
-                     adjust_saturation, AdjustSaturation, RandomAdjustSaturation)
+                     to_grayscale, Grayscale, RandomGrayscale)
 from .contrastions import (clahe, CLAHE, RandomCLAHE,
+                           contrast, Contrast, RandomContrast,
                            adjust_contrast, AdjustContrast, RandomAdjustContrast,
                            auto_contrast, AutoContrast, RandomAutoContrast,
                            adjust_gamma, AdjustGamma, RandomAdjustGamma,
@@ -25,7 +26,8 @@ from .distortions import (dirt_effect_modification, DirtEffectModification, Rand
                           erosion_or_dilation,
                           Erosion, RandomErosion,
                           Dilation, RandomDilation,
-                          scratches, Scratches, RandomScratches)
+                          scratches, Scratches, RandomScratches,
+                          sharpness, Sharpness, RandomSharpness)
 from .lighting import (adjust_brightness, AdjustBrightness, RandomAdjustBrightness,
                        camera_flare, CameraFlare, RandomCameraFlare,
                        flashlight, Flashlight, RandomFlashlight,
