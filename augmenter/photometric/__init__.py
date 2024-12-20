@@ -28,7 +28,8 @@ from .distortions import (dirt_effect_modification, DirtEffectModification, Rand
                           Dilation, RandomDilation,
                           scratches, Scratches, RandomScratches,
                           sharpness, Sharpness, RandomSharpness)
-from .lighting import (adjust_brightness, AdjustBrightness, RandomAdjustBrightness,
+from .lighting import (brightness, Brightness, RandomBrightness,
+                       adjust_brightness, AdjustBrightness, RandomAdjustBrightness,
                        camera_flare, CameraFlare, RandomCameraFlare,
                        flashlight, Flashlight, RandomFlashlight,
                        halo_effect, HaloEffect, RandomHaloEffect,
