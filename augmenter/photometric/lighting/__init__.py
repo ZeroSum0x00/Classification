@@ -1,3 +1,4 @@
+from .brightness import brightness, Brightness, RandomBrightness
 from .adjust_brightness import adjust_brightness, AdjustBrightness, RandomAdjustBrightness
 from .camera_flare import camera_flare, CameraFlare, RandomCameraFlare
 from .flashlight import flashlight, Flashlight, RandomFlashlight
