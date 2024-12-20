@@ -4,7 +4,7 @@ from augmenter.geometric import *
 from augmenter.photometric import *
 from augmenter.base_transform import *
 from augmenter.meta_transform import *
-from augmenter.level_to_arg import *
+from utils.level_to_arg import *
 
 
 LEVEL_TO_ARG = {
