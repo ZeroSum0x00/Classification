@@ -1,4 +1,4 @@
-from utils.auxiliary_processing import random_to_negative
+from .auxiliary_processing import random_to_negative
 
 _MAX_LEVEL = 10
 
