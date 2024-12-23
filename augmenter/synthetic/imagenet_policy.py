@@ -7,27 +7,6 @@ from augmenter.meta_transform import *
 from utils.level_to_arg import *
 
 
-LEVEL_TO_ARG = {
-    "RandomAutoContrast": lambda level: (),
-    "RandomEqualize": lambda level: (),
-    "RandomInversion": lambda level: (),
-    "RandomErasing": lambda level: (),
-    "RandomRotation": rotate_level_to_arg,
-    "RandomPosterize": posterize_level_to_arg,
-    "RandomSolarize": solarize_level_to_arg,
-    "RandomSolarizeAdd": solarize_add_level_to_arg,
-    "RandomColor": enhance_level_to_arg,
-    "RandomContrast": enhance_level_to_arg,
-    "RandomBrightness": enhance_level_to_arg,
-    "RandomSharpness": enhance_level_to_arg,
-    "RandomShearX": shear_level_to_arg,
-    "RandomShearY": shear_level_to_arg,
-    "TranslateX": translate_level_to_arg,
-    "TranslateY": translate_level_to_arg,
-    "RandomTranslateX": translate_level_to_arg,
-    "RandomTranslateY": translate_level_to_arg,
-}
-
 class ImageNetPolicy(BaseTransform):
 
     def __init__(self, policy_mode="v0"):
