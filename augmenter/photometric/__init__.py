@@ -33,7 +33,7 @@ from .lighting import (brightness, Brightness, RandomBrightness,
                        camera_flare, CameraFlare, RandomCameraFlare,
                        flashlight, Flashlight, RandomFlashlight,
                        halo_effect, HaloEffect, RandomHaloEffect,
-                       linear_gradient, LinearGradient, RandomRadialGradient,
+                       linear_gradient, LinearGradient, RandomLinearGradient,
                        radial_gradient, RadialGradient, RandomRadialGradient,
                        smudges, Smudges, RandomSmudges)
 from .noises import (gaussian_noise, GaussianNoise, RandomGaussianNoise,

@@ -47,7 +47,7 @@ class LinearGradient(BaseTransform):
         return linear_gradient(image, self.orientation, self.edge_brightness)
 
 
-class RandomRadialGradient(BaseRandomTransform):
+class RandomLinearGradient(BaseRandomTransform):
     def __init__(self,
                  orientation="horizontal", 
                  edge_brightness=(.1, .3),
