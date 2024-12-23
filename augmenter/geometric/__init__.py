@@ -1,7 +1,7 @@
 from .pad import pad, Pad
 from .flip import vflip, hflip, Flip, RandomFlip, RandomHorizontalFlip, RandomVerticalFlip
-from .resize import resize, Resize
-from .resize_keep_ratio import ResizeKeepRatio
+from .resize import (resize, Resize,
+                     ResizeKeepRatio)
 from .crop import (crop, Crop, RandomCrop,
                    center_crop, CenterCrop,
                    five_crop, FiveCrop,
