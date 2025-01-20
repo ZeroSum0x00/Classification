@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import losses
 
 
-class SparseCategoricalCrossentropy(tf.keras.losses.Loss):
+class SparseCategoricalCrossentropy(losses.Loss):
     def __init__(self, 
                  from_logits=False,
                  ignore_class=None,
