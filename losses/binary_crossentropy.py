@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import losses
 
 
-class BinaryCrossentropy(tf.keras.losses.Loss):
+class BinaryCrossentropy(losses.Loss):
     def __init__(self, 
                  from_logits=False,
                  label_smoothing=0.0,
