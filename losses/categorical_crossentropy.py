@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import losses
 from tensorflow.keras import backend as K
 
-class CategoricalCrossentropy(tf.keras.losses.Loss):
+class CategoricalCrossentropy(losses.Loss):
     def __init__(self, 
                  from_logits=False,
                  label_smoothing=0.0,
