@@ -26,8 +26,13 @@ def get_files(folder_path, extensions=['py', 'png', 'JPEG'], prefix=''):
         extensions = [extensions]
     else:
         extensions = [ex.lower() for ex in extensions]
-    result = [os.path.join(prefix, x) for x in os.listdir(folder_path) if x.split('.')[-1].lower() in extensions]
+    
+    result = []
+    if os.path.isdir(folder_path):
+        result = [os.path.join(prefix, x) for x in os.listdir(folder_path) if x.split('.')[-1].lower() in extensions]
+        
     return result
+
 
 def valid_image(image_path):
     subprocess.run(f"mogrify {image_path}", shell=True)
