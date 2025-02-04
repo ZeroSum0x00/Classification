@@ -76,7 +76,7 @@ def get_train_test_data(data_dirs,
     else:
         valid_generator = None
         
-    if dataloader_mode != 1:
+    if dataloader_mode == 0:
         data_test = get_data(data_dirs,
                              classes     = classes,
                              data_type   = data_type,
