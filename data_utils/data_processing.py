@@ -77,61 +77,45 @@ class Normalizer:
                     img[..., i] /= (self.std[i] + epsilon)
         return img
     
-    def _sub_divide(self, image, target_size=None, interpolation=None):
-        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
-            image = cv2.resize(image, (target_size[1], target_size[0]), interpolation=interpolation)
-
-        if len(image.shape) == 2:
-            image = np.expand_dims(image, axis=-1)
-
+    def _sub_divide(self, image):
         image = image.astype(np.float32)
         image = image / 127.5 - 1
         image = np.clip(image, -1, 1)
         image = self.__get_standard_deviation(image)
         return image
 
-    def _divide(self, image, target_size=None, interpolation=None):
-        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
-            image = cv2.resize(image, (target_size[1], target_size[0]), interpolation=interpolation)
-
-        if len(image.shape) == 2:
-            image = np.expand_dims(image, axis=-1)
-
+    def _divide(self, image):
         image = image.astype(np.float32)
         image = image / 255.0
         image = np.clip(image, 0, 1)
         image = self.__get_standard_deviation(image)
         return image
 
-    def _basic(self, image, target_size, interpolation=None):
-        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
-            image = cv2.resize(image, (target_size[1], target_size[0]), interpolation=interpolation)
-        
-        if len(image.shape) == 2:
-            image = np.expand_dims(image, axis=-1)
-
+    def _basic(self, image):
         image = image.astype(np.uint8)
         image = np.clip(image, 0, 255)
         image = self.__get_standard_deviation(image)
         return image
 
-    def _func_calc(self, image, func, target_size, interpolation=None):
-        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
-            image = cv2.resize(image, (target_size[1], target_size[0]), interpolation=interpolation)
-        
-        if len(image.shape) == 2:
-            image = np.expand_dims(image, axis=-1)
-
+    def _func_calc(self, image, func):
         image = func(image)
         return image
         
-    def __call__(self, input, *args, **kargs):
+    def __call__(self, image, *args, **kargs):
+        target_size = kargs['target_size']
+        interpolation = kargs.get('interpolation', 0)
+        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
+            image = cv2.resize(image, (target_size[1], target_size[0]), interpolation=interpolation)
+
+        if len(image.shape) == 2:
+            image = np.expand_dims(image, axis=-1)
+
         if isinstance(self.norm_type, str):
             if self.norm_type == "divide":
-                return self._divide(input, *args, **kargs)
+                return self._divide(image)
             elif self.norm_type == "sub_divide":
-                return self._sub_divide(input, *args, **kargs)
+                return self._sub_divide(image)
         elif isinstance(self.norm_type, types.FunctionType):
-            return self._func_calc(input, self.norm_type, *args, **kargs)
+            return self._func_calc(image, self.norm_type)
         else:
-            return self._basic(input, *args, **kargs)
+            return self._basic(image)
