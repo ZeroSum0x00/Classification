@@ -127,10 +127,9 @@ class Data_Sequence(Sequence):
         self.phase       = phase
         self.debug_mode  = debug_mode
 
-        if augmentor and isinstance(augmentor[phase], (tuple, list)):
-            self.augmentor = Augmentor(augment_objects=build_augmenter(augmentor[phase]))
-        else:
-            self.augmentor = augmentor[phase]
+        self.augmentor = augmentor.get(phase) if isinstance(augmentor, dict) else augmentor
+        if augmentor and isinstance(self.augmentor, (tuple, list)):
+            self.augmentor = Augmentor(augment_objects=build_augmenter(self.augmentor))
 
         self.normalizer = Normalizer(normalizer, mean=mean_norm, std=std_norm)
 
