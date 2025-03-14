@@ -5,6 +5,7 @@ import tensorflow as tf
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+from visualizer import value_above_line
 
 
 class WarmUpLearningRate(tf.keras.callbacks.Callback):
@@ -26,8 +27,8 @@ class WarmUpLearningRate(tf.keras.callbacks.Callback):
             lr = self.global_steps / self.warmup_steps * self.lr_init
         else:
             lr = self.lr_end + 0.5 * (self.lr_init - self.lr_end)*((1 + tf.cos((self.global_steps - self.warmup_steps) / (self.total_steps - self.warmup_steps) * np.pi)))
-        self.model.optimizer.lr.assign(lr.numpy())
-        return self.global_steps.numpy(), self.model.optimizer.lr.numpy()
+        self.model.optimizer.learning_rate.assign(lr.numpy())
+        return self.global_steps.numpy(), self.model.optimizer.learning_rate.numpy()
 
 
 class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
@@ -59,27 +60,38 @@ class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
             lr = self.lr_end
         else:
             lr = self.lr_end + 0.5 * (lr - self.lr_end) * (1.0 + tf.cos(np.pi * (epoch - self.warmup_total_epochs) / (self.epochs - self.warmup_total_epochs - self.no_aug_epoch)))
-        self.model.optimizer.lr.assign(lr)
+        self.model.optimizer.learning_rate.assign(lr)
         
         if self.result_path:
             self.lr_list.append(lr)
             self.epochs_list.append(epoch + 1)
 
-            with open(os.path.join(self.result_path, "learning_rate.txt"), 'a') as f:
-                try:
-                    f.write(f"Learning rate in epoch {epoch + 1}: {str(lr.numpy())}")
-                except:
-                    f.write(f"Learning rate in epoch {epoch + 1}: {str(lr)}")
-                f.write("\n")
-            
-            plt.figure()
-            plt.plot(self.epochs_list, self.lr_list, 'red', linewidth=2, label='learning rate')
+            # with open(os.path.join(self.result_path, "learning_rate.txt"), 'a') as f:
+            #     try:
+            #         f.write(f"Learning rate in epoch {epoch + 1}: {str(lr.numpy())}")
+            #     except:
+            #         f.write(f"Learning rate in epoch {epoch + 1}: {str(lr)}")
+            #     f.write("\n")
 
+            f = plt.figure()
+            value_above_line(f,
+                             x=self.epochs_list,
+                             y=self.lr_list,
+                             i=-1,
+                             max_size=[np.max(self.lr_list), np.max(self.epochs_list)],
+                             linewidth=2,
+                             line_color='red',
+                             text_color='white', 
+                             box_color='hotpink',
+                             label='learning rate')
             plt.grid(True)
             plt.xlabel('Epoch')
             plt.ylabel('Learning Rate')
             plt.title('Learning Rate Schedule')
-            plt.legend(loc="upper right")
+            
+            handles, labels = plt.gca().get_legend_handles_labels()
+            if labels:
+                plt.legend(loc="upper left")
 
             plt.savefig(os.path.join(self.result_path, "learning_rate.png"))
             plt.cla()
@@ -97,8 +109,8 @@ class BasicReduceLearningRate(tf.keras.callbacks.Callback):
         step_size   = epochs / num_steps
 
     def on_epoch_end(self, epoch, logs=None):
-        lr = self.model.optimizer.lr.numpy()
+        lr = self.model.optimizer.learning_rate.numpy()
         n       = epoch // self.step_size
         out_lr  = lr * self.decay_rate ** n
-        self.model.optimizer.lr.assign(lr.numpy())
+        self.model.optimizer.learning_rate.assign(lr.numpy())
         return lr.numpy()

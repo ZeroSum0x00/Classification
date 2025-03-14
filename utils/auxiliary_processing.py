@@ -1,5 +1,27 @@
 import cv2
+import importlib
 import numpy as np
+
+
+def dynamic_import(module_name, global_vars=None):
+    components = module_name.split('.')
+    target = components[-1]
+    
+    if global_vars is None:
+        global_vars = globals()
+
+    if target in global_vars:
+        return global_vars[target]
+    
+    if len(components) > 1:
+        module = importlib.import_module('.'.join(components[:-1]))
+    else:
+        module = importlib.import_module(__name__)
+        
+    try:
+        return getattr(module, target)
+    except AttributeError:
+        raise ImportError(f"'{target}' does not exist in module '{'.'.join(components[:-1])}'")
 
 
 def random_to_negative(number):

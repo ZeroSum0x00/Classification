@@ -1,12 +1,11 @@
 import copy
-import importlib
 import tensorflow as tf
 from tensorflow.keras.optimizers import *
+from utils.auxiliary_processing import dynamic_import
 
 
 def build_optimizer(config):
     config = copy.deepcopy(config)
     name = config.pop("name")
-    mod = importlib.import_module(__name__)
-    arch = getattr(mod, name)(**config)
+    arch = dynamic_import(name, globals())(**config)
     return arch

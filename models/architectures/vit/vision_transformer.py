@@ -100,7 +100,7 @@ def ViT(attention_block=None,
 
     x = ExtractPatches(patch_size, hidden_dim)(img_input)
     x = ClassificationToken(name="class_token")(x)
-    x = PositionalEmbedding(name="Transformer/posembed_input")(x)
+    x = PositionalEmbedding(name="Posembed_input")(x)
 
     for n in range(num_layers):
         if attention_block is None:
@@ -124,9 +124,9 @@ def ViT(attention_block=None,
                                 activation=activation,
                                 norm_eps=norm_eps,
                                 drop_rate=drop_rate,
-                                name=f"Transformer/encoderblock_{n}")(x)
+                                name=f"encoderblock_{n}")(x)
 
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="Transformer/encoder_norm")(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="encoder_norm")(x)
     x = Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
 
     if include_top:

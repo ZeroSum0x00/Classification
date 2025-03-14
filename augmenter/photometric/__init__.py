@@ -42,4 +42,4 @@ from .noises import (gaussian_noise, GaussianNoise, RandomGaussianNoise,
                      poisson_noise, PoissonNoise, RandomPoissonNoise,
                      salt_and_pepper_noise, SaltPepperNoise, RandomSaltPepperNoise)
 from .channel_shuffle import channel_shuffle, ChannelShuffle, RandomChannelShuffle
-from .colorjitter import ColorJitter
+from .colorjitter import ColorJitter, RandomColorJitter

@@ -10,5 +10,6 @@ class BinaryAccuracy(tf.keras.metrics.Metric):
         self.save_type = "increase"
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-        print(y_true)
+        depth = tf.shape(y_pred)[-1]
+        y_true = tf.one_hot(indices=y_true, depth=depth)
         super().update_state(self.metric(y_true, y_pred), sample_weight)

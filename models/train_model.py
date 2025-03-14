@@ -9,17 +9,22 @@ class TrainModel(tf.keras.Model):
     def __init__(self, 
                  architecture,
                  classes=None,
+                 image_size=(224, 224, 3),
+                 global_clipnorm=5.,
                  **kwargs):
         super(TrainModel, self).__init__()
-        self.architecture = architecture
-        self.classes      = classes
+        self.architecture       = architecture
+        self.classes            = classes
+        self.image_size         = image_size
+        self.global_clipnorm    = global_clipnorm
         self.total_loss_tracker = tf.keras.metrics.Mean(name="loss")
 
     def compile(self, optimizer, loss, metrics=None, **kwargs):
         super(TrainModel, self).compile()
-        self.optimizer = optimizer
-        self.loss_object = loss
-        self.list_metrics = metrics
+        self.optimizer        = optimizer
+        self.loss_object      = loss
+        self.list_metrics     = metrics
+        self.model_param_call = dict()
 
     @property
     def metrics(self):
@@ -34,10 +39,11 @@ class TrainModel(tf.keras.Model):
     def train_step(self, data):
         images, labels = data
         loss_value = 0
+        self.model_param_call['training'] = True
 
         with tf.GradientTape() as tape:
             for losses in self.loss_object:
-                y_pred = self.architecture(images, training=True)
+                y_pred = self.architecture(images, **self.model_param_call)
                 loss_value += self.architecture.calc_loss(y_true=labels, 
                                                           y_pred=y_pred, 
                                                           loss_object=losses)
@@ -45,6 +51,7 @@ class TrainModel(tf.keras.Model):
             loss_value  = tf.reduce_sum(self.architecture.losses) + loss_value
 
         gradients = tape.gradient(loss_value, self.architecture.trainable_variables)
+        gradients, _ = tf.clip_by_global_norm(gradients, self.global_clipnorm)
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.total_loss_tracker.update_state(loss_value)
 
@@ -66,9 +73,10 @@ class TrainModel(tf.keras.Model):
     def test_step(self, data):
         images, labels = data
         loss_value = 0
+        self.model_param_call['training'] = False
 
         for losses in self.loss_object:
-            y_pred = self.architecture(images, training=False)
+            y_pred = self.architecture(images, **self.model_param_call)
             loss_value += self.architecture.calc_loss(y_true=labels, 
                                                       y_pred=y_pred, 
                                                       loss_object=losses)

@@ -14,7 +14,7 @@ def losses_prepare(loss_object):
     return loss
 
 
-def train_prepare(train_mode, num_gpu=0, init_seed=-1):
+def train_prepare(train_mode, vram_usage='limit', num_gpu=0, init_seed=-1):
     try:
         if init_seed >= 0:
             random.seed(init_seed)
@@ -26,10 +26,18 @@ def train_prepare(train_mode, num_gpu=0, init_seed=-1):
             return True
         else:
             os.environ["CUDA_VISIBLE_DEVICES"] = str(num_gpu)
-            # gpus = tf.config.experimental.list_physical_devices('GPU')
-            # for gpu in gpus:
-            #   tf.config.experimental.set_memory_growth(gpu, True)
-                
+            gpus = tf.config.experimental.list_physical_devices('GPU')
+            if vram_usage:
+                if gpus:
+                    try:
+                        for gpu in gpus:
+                            if vram_usage.lower() == "limit":
+                                tf.config.experimental.set_memory_growth(gpu, True)
+                            else:
+                                pass
+                    except RuntimeError as e:
+                        print(e)
+
             logger.info(f"Setting trainer width {train_mode.lower()} mode")
             if train_mode.lower() == 'eager':
                 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -48,7 +56,30 @@ def train_prepare(train_mode, num_gpu=0, init_seed=-1):
         print(e)
         return False
     
-    
+
+def find_max_batch_size(model, max_batch=1024):
+    def can_run(batch_size):
+        try:
+            input_data = tf.random.uniform((batch_size, *model.image_size))
+            _ = model(input_data)
+            return True
+        except tf.errors.ResourceExhaustedError:
+            return False
+
+    low, high = 1, max_batch
+    best_batch_size = low
+
+    while low <= high:
+        mid = (low + high) // 2
+        if can_run(mid):
+            best_batch_size = mid
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    return best_batch_size
+
+
 def create_folder_weights(saved_dir):
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     TRAINING_TIME_PATH = saved_dir + current_time

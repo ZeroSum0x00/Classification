@@ -20,6 +20,7 @@ class ChannelShuffle(BaseTransform):
     def image_transform(self, image):
         return channel_shuffle(image)
 
+
 class RandomChannelShuffle(BaseRandomTransform):
 
     def image_transform(self, image):

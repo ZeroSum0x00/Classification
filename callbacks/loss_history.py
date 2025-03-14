@@ -1,12 +1,13 @@
 import os
+import numpy as np
 import scipy.signal
 import tensorflow as tf
-
 from utils.logger import logger
 
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+from visualizer import value_above_line
 
 
 class LossHistory(tf.keras.callbacks.Callback):
@@ -14,7 +15,6 @@ class LossHistory(tf.keras.callbacks.Callback):
                  result_path    = None, 
                  max_ratio      = 1.0,
                  save_best      = False,
-                 save_format    = 'tf',
                  run_mode       = "epoch",
                  show_frequency = 1):
         super(LossHistory, self).__init__()
@@ -23,7 +23,6 @@ class LossHistory(tf.keras.callbacks.Callback):
         self.max_ratio          = max_ratio
         self.run_mode           = run_mode
         self.save_best          = save_best
-        self.save_format        = save_format
         self.show_frequency     = show_frequency
         
         self.train_loss_list    = []
@@ -31,8 +30,8 @@ class LossHistory(tf.keras.callbacks.Callback):
         self.current_train_loss = 0.0
         self.current_valid_loss = 0.0
         self.weight_path        = os.path.join(self.result_path, 'weights')
-        os.makedirs(self.weight_path, exist_ok=True)
         self.summary_path       = os.path.join(self.result_path, 'summary')
+        os.makedirs(self.weight_path, exist_ok=True)
         os.makedirs(self.summary_path, exist_ok=True)
         
     def call_calc_loss(self, iters, logs):
@@ -43,17 +42,38 @@ class LossHistory(tf.keras.callbacks.Callback):
             
         iters = range(len(self.train_loss_list))
 
-        plt.figure()
-        plt.plot(iters, self.train_loss_list, 'red', linewidth = 2, label='train loss')
-        plt.plot(iters, self.valid_loss_list, 'coral', linewidth = 2, label='valid loss')
+        f = plt.figure()
+        max_height = max(np.max(self.train_loss_list), np.max(self.valid_loss_list) if np.any(self.valid_loss_list) else 0)
+        max_width  = np.max(iters)
+        value_above_line(f,
+                         x=iters,
+                         y=self.train_loss_list,
+                         i=np.argmin(self.train_loss_list),
+                         max_size=[max_height, max_width],
+                         linewidth=2,
+                         line_color='red',
+                         label=f'train loss')
+        
+        if np.any(self.valid_loss_list):
+            value_above_line(f,
+                             x=iters,
+                             y=self.valid_loss_list,
+                             i=np.argmin(self.valid_loss_list),
+                             max_size=[max_height, max_width],
+                             linewidth=2,
+                             line_color='coral',
+                             label=f'valid loss')
+        
         try:
             if len(self.train_loss_list) < 25:
                 num = 5
             else:
                 num = 15
-            
-            plt.plot(iters, scipy.signal.savgol_filter(self.train_loss_list, num, 3), 'green', linestyle = '--', linewidth = 2, label='smooth train loss')
-            plt.plot(iters, scipy.signal.savgol_filter(self.valid_loss_list, num, 3), '#8B4513', linestyle = '--', linewidth = 2, label='smooth valid loss')
+            window_length = min(len(self.train_loss_list), num)
+            polyorder = min(3, window_length - 1)
+            plt.plot(iters, scipy.signal.savgol_filter(self.train_loss_list, window_length, polyorder), 'green', linestyle='--', linewidth=2, label='smooth train loss')
+            if np.any(self.valid_loss_list):
+                plt.plot(iters, scipy.signal.savgol_filter(self.valid_loss_list, window_length, polyorder), '#8B4513', linestyle='--', linewidth=2, label='smooth valid loss')
         except:
             pass
 
@@ -61,7 +81,10 @@ class LossHistory(tf.keras.callbacks.Callback):
         plt.xlabel(f'{self.run_mode.capitalize()} iters')
         plt.ylabel('Loss values')
         plt.title('A Loss Curve')
-        plt.legend(loc="upper right")
+        
+        handles, labels = plt.gca().get_legend_handles_labels()
+        if labels:
+            plt.legend(loc="upper left")
 
         plt.savefig(os.path.join(self.summary_path, f"{self.run_mode.lower()}_loss.png"))
 
@@ -73,12 +96,12 @@ class LossHistory(tf.keras.callbacks.Callback):
             if train_loss < self.current_train_loss and train_loss < self.max_ratio:
                 logger.info(f'Train loss score increase {self.current_train_loss:.2f}% to {train_loss:.2f}%')
                 logger.info(f'Save best train loss weights to {os.path.join(self.weight_path, f"best_train_loss")}')
-                self.model.save_weights(os.path.join(self.weight_path, f'best_train_loss'), save_format=self.save_format)
+                self.model.save_weights(os.path.join(self.weight_path, f'best_train_loss'))
                 self.current_train_loss = train_loss
             if valid_loss < self.current_valid_loss and valid_loss < self.max_ratio:
                 logger.info(f'Validation loss score increase {self.current_valid_loss:.2f}% to {valid_loss:.2f}%')
                 logger.info(f'Save best validation loss weights to {os.path.join(self.weight_path, f"best_valid_loss")}')
-                self.model.save_weights(os.path.join(self.weight_path, f'best_valid_loss'), save_format=self.save_format)
+                self.model.save_weights(os.path.join(self.weight_path, f'best_valid_loss'))
                 self.current_valid_loss = valid_loss
                 
     def on_epoch_end(self, epoch, logs=None):

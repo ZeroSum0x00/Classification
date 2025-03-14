@@ -4,11 +4,8 @@ from utils.train_processing import losses_prepare
 
 
 class CLS(tf.keras.Model):
-    def __init__(self, 
-                 backbone,
-                 name = "SPV", 
-                 **kwargs):
-        super(CLS, self).__init__(name=name, **kwargs)
+    def __init__(self, backbone, name = "CLS", *args, **kwargs):
+        super(CLS, self).__init__(*args, **kwargs)
         self.backbone = backbone
 
     def call(self, inputs, training=False):

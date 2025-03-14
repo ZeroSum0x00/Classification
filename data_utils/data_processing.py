@@ -1,33 +1,9 @@
 import os
-import cv2
-import xml
-import types
-import numpy as np
-from tqdm import tqdm
-
-from data_utils import ParseDirName
-from utils.files import extract_zip, get_files, valid_image
-from utils.constants import ALLOW_IMAGE_EXTENSIONS, epsilon
-
-
-def extract_data_folder(data_dir, dst_dir=None):
-    ACCEPTABLE_EXTRACT_FORMATS = ['.zip', '.rar', '.tar']
-    if (os.path.isfile(data_dir)) and os.path.splitext(data_dir)[-1] in ACCEPTABLE_EXTRACT_FORMATS:
-        if dst_dir is not None:
-            data_destination = dst_dir
-        else:
-            data_destination = '/'.join(data_dir.split('/')[: -1])
-
-        folder_name = data_dir.split('/')[-1]
-        folder_name = os.path.splitext(folder_name)[0]
-        data_destination = os.path.join(data_destination, folder_name) 
-
-        if not os.path.isdir(data_destination):
-            extract_zip(data_dir, data_destination)
-        
-        return data_destination
-    else:
-        return data_dir
+from utils.files import  get_files
+from utils.post_processing import get_labels
+from utils.constants import ALLOW_IMAGE_EXTENSIONS
+from utils.logger import logger
+from data_utils import ParseDirName, DataSequencePipeline, TFDataPipeline
 
 
 def get_data(data_dirs, classes, data_type=None, phase='train', check_data=False, load_memory=False, *args, **kwargs):
@@ -55,67 +31,78 @@ def get_data(data_dirs, classes, data_type=None, phase='train', check_data=False
     return data_extraction
 
 
-class Normalizer:
-    def __init__(self, norm_type="divide", mean=None, std=None):
-        self.norm_type = norm_type
-        self.mean      = mean
-        self.std       = std
-        
-    def __get_standard_deviation(self, img):
-        if self.mean is not None:
-            for i in range(img.shape[-1]):
-                if isinstance(self.mean, float) or isinstance(self.mean, int):
-                    img[..., i] -= self.mean
-                else:
-                    img[..., i] -= self.mean[i]
-
-        if self.std is not None:
-            for i in range(img.shape[-1]):
-                if isinstance(self.std, float) or isinstance(self.std, int):
-                    img[..., i] /= (self.std + epsilon)
-                else:
-                    img[..., i] /= (self.std[i] + epsilon)
-        return img
+def get_train_test_data(data_dirs, 
+                        classes         = None, 
+                        target_size     = [224, 224, 3], 
+                        batch_size      = 16, 
+                        color_space     = 'RGB',
+                        augmentor       = None,
+                        normalizer      = None,
+                        mean_norm       = None,
+                        std_norm        = None,
+                        data_type       = 'dirname',
+                        check_data      = False, 
+                        load_memory     = False,
+                        dataloader_mode = 'tf',
+                        get_data_mode   = 0,
+                        num_workers     = 1,
+                        *args,
+                        **kwargs):
+    """
+        get_data_mode = 0:   train - validation - test
+        get_data_mode = 1:   train - validation
+        get_data_mode = 2:   train
+    """
+    data_args = {
+        "target_size": target_size, 
+         "batch_size": batch_size, 
+         "color_space": color_space,
+         "augmentor": augmentor, 
+         "normalizer": normalizer, 
+         "mean_norm": mean_norm, 
+         "std_norm": std_norm, 
+         "num_workers": num_workers,
+        **kwargs
+    }
     
-    def _sub_divide(self, image):
-        image = image.astype(np.float32)
-        image = image / 127.5 - 1
-        image = np.clip(image, -1, 1)
-        image = self.__get_standard_deviation(image)
-        return image
+    if classes:
+        if isinstance(classes, str):
+            classes, _ = get_labels(classes)
+    else:
+        classes, _ = get_labels(data_dirs)
 
-    def _divide(self, image):
-        image = image.astype(np.float32)
-        image = image / 255.0
-        image = np.clip(image, 0, 1)
-        image = self.__get_standard_deviation(image)
-        return image
+    data_train = get_data(data_dirs,
+                          classes     = classes,
+                          data_type   = data_type,
+                          phase       = 'train', 
+                          check_data  = check_data,
+                          load_memory = load_memory)
+    train_args = {"dataset": data_train, "phase": "train", **data_args}
+    train_generator = TFDataPipeline(**train_args) if dataloader_mode.lower() == 'tf' else DataSequencePipeline(**train_args)
 
-    def _basic(self, image):
-        image = image.astype(np.uint8)
-        image = np.clip(image, 0, 255)
-        image = self.__get_standard_deviation(image)
-        return image
-
-    def _func_calc(self, image, func):
-        image = func(image)
-        return image
+    if get_data_mode != 2:
+        data_valid = get_data(data_dirs,
+                              classes     = classes,
+                              data_type   = data_type,
+                              phase       = 'validation', 
+                              check_data  = check_data,
+                              load_memory = load_memory)
+        valid_args = {"dataset": data_valid, "phase": "valid", **data_args}
+        valid_generator = TFDataPipeline(**valid_args) if dataloader_mode.lower() == 'tf' else DataSequencePipeline(**valid_args)
+    else:
+        valid_generator = None
         
-    def __call__(self, image, *args, **kargs):
-        target_size = kargs['target_size']
-        interpolation = kargs.get('interpolation', 0)
-        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
-            image = cv2.resize(image, (target_size[1], target_size[0]), interpolation=interpolation)
-
-        if len(image.shape) == 2:
-            image = np.expand_dims(image, axis=-1)
-
-        if isinstance(self.norm_type, str):
-            if self.norm_type == "divide":
-                return self._divide(image)
-            elif self.norm_type == "sub_divide":
-                return self._sub_divide(image)
-        elif isinstance(self.norm_type, types.FunctionType):
-            return self._func_calc(image, self.norm_type)
-        else:
-            return self._basic(image)
+    if get_data_mode == 0:
+        data_test = get_data(data_dirs,
+                             classes     = classes,
+                             data_type   = data_type,
+                             phase       = 'test', 
+                             check_data  = check_data,
+                             load_memory = load_memory)
+        test_args = {"dataset": data_test, "phase": "test", **data_args}
+        test_generator = TFDataPipeline(**test_args) if dataloader_mode.lower() == 'tf' else DataSequencePipeline(**test_args)
+    else:
+        test_generator = None
+        
+    logger.info('Load data successfully')
+    return train_generator, valid_generator, test_generator

@@ -1,9 +1,9 @@
 # train-test processing model
 import copy
-import importlib
 from .train_model import TrainModel
 from .classifycation import CLS
 from utils.post_processing import get_labels
+from utils.auxiliary_processing import dynamic_import
 
 
 # convolutional base architectures
@@ -56,9 +56,9 @@ from .architectures import (MLPMixer, MLPMixer_S16, MLPMixer_S32, MLPMixer_B16, 
 )
 
 
+
 def build_models(config):
     config = copy.deepcopy(config)
-    mod = importlib.import_module(__name__)
     input_shape = config.pop("input_shape")
     weight_path = config.pop("weight_path")
     load_weight_type = config.pop("load_weight_type")
@@ -77,10 +77,10 @@ def build_models(config):
         backbone_config['classes'] = num_classes
 
     backbone_name = backbone_config.pop("name")
-    backbone = getattr(mod, backbone_name)(**backbone_config)
+    backbone = dynamic_import(backbone_name, globals())(**backbone_config)
 
     architecture_config['backbone'] = backbone
-    architecture = getattr(mod, architecture_name)(**architecture_config)
+    architecture = dynamic_import(architecture_name, globals())(**architecture_config)
 
-    model = TrainModel(architecture, classes=classes, name=architecture_name)
+    model = TrainModel(architecture, classes=classes, image_size=input_shape, name=architecture_name)
     return model
