@@ -21,6 +21,7 @@ class DataSequencePipeline(Sequence):
                  normalizer='divide', 
                  mean_norm=None, 
                  std_norm=None, 
+                 interpolation="BILINEAR",
                  phase='train', 
                  num_workers=1,
                  debug_mode=False,
@@ -43,18 +44,18 @@ class DataSequencePipeline(Sequence):
         if augmentor and isinstance(self.augmentor, (tuple, list)):
             self.augmentor = Augmentor(augment_objects=build_augmenter(self.augmentor))
 
-        self.normalizer = Normalizer(normalizer, mean=mean_norm, std=std_norm)
+        self.normalizer = Normalizer(normalizer,
+                                     target_size=target_size,
+                                     mean=mean_norm,
+                                     std=std_norm,
+                                     interpolation=interpolation)
 
     def load_data(self, sample):
         sample_image = sample.get('image')
         sample_label = sample['label']
+        deep_channel = 1 if (len(self.target_size) > 2 and self.target_size[-1] > 1) else 0
 
-        if len(self.target_size) == 2 or self.target_size[-1] == 1:
-            deep_channel = 0
-        else:
-            deep_channel = 1
-
-        if sample_image:
+        if sample_image is not None:
             image = sample_image
         else:
             img_path = os.path.join(sample['path'], sample['filename'])
@@ -67,9 +68,7 @@ class DataSequencePipeline(Sequence):
         if self.augmentor:
             image = self.augmentor(image)
             
-        image = self.normalizer(image,
-                                target_size=self.target_size,
-                                interpolation=cv2.INTER_NEAREST)
+        image = self.normalizer(image)
         return image, sample_label
 
     def __len__(self):

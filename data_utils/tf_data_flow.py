@@ -20,6 +20,7 @@ class TFDataPipeline:
                  normalizer='divide',
                  mean_norm=None,
                  std_norm=None,
+                 interpolation="BILINEAR",
                  phase='train',
                  num_workers=1,
                  debug_mode=False):
@@ -39,18 +40,18 @@ class TFDataPipeline:
         if augmentor and isinstance(self.augmentor, (tuple, list)):
             self.augmentor = Augmentor(augment_objects=build_augmenter(self.augmentor))
             
-        self.normalizer = Normalizer(normalizer, mean=mean_norm, std=std_norm)
+        self.normalizer = Normalizer(normalizer,
+                                     target_size=target_size,
+                                     mean=mean_norm,
+                                     std=std_norm,
+                                     interpolation=interpolation)
 
     def load_data(self, sample):
         sample_image = sample.get('image')
         sample_label = sample['label']
+        deep_channel = 1 if (len(self.target_size) > 2 and self.target_size[-1] > 1) else 0
 
-        if len(self.target_size) == 2 or self.target_size[-1] == 1:
-            deep_channel = 0
-        else:
-            deep_channel = 1
-
-        if sample_image:
+        if sample_image is not None:
             image = sample_image
         else:
             img_path = os.path.join(sample['path'], sample['filename'])
@@ -63,25 +64,43 @@ class TFDataPipeline:
         if self.augmentor:
             image = self.augmentor(image)
             
-        image = self.normalizer(image,
-                                target_size=self.target_size,
-                                interpolation=cv2.INTER_NEAREST)
+        image = self.normalizer(image)
         return image, sample_label
 
     def data_generator(self):
-        for sample in self.dataset:
-            yield self.load_data(sample)
+        # batch_count = 0
+        batch_images = []
+        batch_labels = []
+
+        for idx, sample in enumerate(self.dataset):
+            image, label = self.load_data(sample)
+            batch_images.append(image)
+            batch_labels.append(label)
+
+            if len(batch_images) == self.batch_size or idx == self.N - 1:
+                # batch_count += 1
+                current_batch_size = len(batch_images)
+                
+                # tf.print(f"Batch {batch_count}: {current_batch_size} samples")
+                yield np.array(batch_images), np.array(batch_labels)
+                batch_images = []
+                batch_labels = []
 
     def get_dataset(self):
         dataset = tf.data.Dataset.from_generator(
             self.data_generator,
             output_signature=(
-                tf.TensorSpec(shape=(*self.target_size,), dtype=tf.float32),
-                tf.TensorSpec(shape=(), dtype=tf.int32)
+                tf.TensorSpec(shape=(None, *self.target_size), dtype=tf.float32),
+                tf.TensorSpec(shape=(None,), dtype=tf.int32)
             )
         )
-        dataset = dataset.batch(self.batch_size).prefetch(tf.data.AUTOTUNE).repeat()
+        dataset = dataset.prefetch(tf.data.AUTOTUNE)
+        
+        if self.phase == 'train':
+            dataset = dataset.repeat()
+        
         return dataset
+
 
     def __len__(self):
         return int(np.ceil(self.N / self.batch_size))

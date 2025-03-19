@@ -2,13 +2,16 @@ import cv2
 import types
 import numpy as np
 from utils.constants import epsilon
+from utils.constants import INTER_MODE
 
 
 class Normalizer:
-    def __init__(self, norm_type="divide", mean=None, std=None):
-        self.norm_type = norm_type
-        self.mean      = mean
-        self.std       = std
+    def __init__(self, norm_type="divide", target_size=(224, 224, 3), mean=None, std=None, interpolation="BILINEAR"):
+        self.norm_type     = norm_type
+        self.target_size   = target_size
+        self.mean          = mean
+        self.std           = std
+        self.interpolation = interpolation
         
     def __get_standard_deviation(self, img):
         if self.mean is not None:
@@ -51,10 +54,9 @@ class Normalizer:
         return image
         
     def __call__(self, image, *args, **kargs):
-        target_size = kargs['target_size']
-        interpolation = kargs.get('interpolation', 0)
-        if target_size and (image.shape[0] != target_size[0] or image.shape[1] != target_size[1]):
-            image = cv2.resize(image, (target_size[1], target_size[0]), interpolation=interpolation)
+        target_h, target_w = self.target_size[:2]
+        if image.shape[:2] != (target_h, target_w):
+            image = cv2.resize(image, (target_w, target_h), interpolation=INTER_MODE[self.interpolation])
 
         if len(image.shape) == 2:
             image = np.expand_dims(image, axis=-1)

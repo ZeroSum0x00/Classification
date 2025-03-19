@@ -71,7 +71,7 @@ class TrainModel(tf.keras.Model):
         return results
     
     def test_step(self, data):
-        images, labels = data
+        images, labels = data        
         loss_value = 0
         self.model_param_call['training'] = False
 

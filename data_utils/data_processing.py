@@ -40,6 +40,7 @@ def get_train_test_data(data_dirs,
                         normalizer      = None,
                         mean_norm       = None,
                         std_norm        = None,
+                        interpolation   = "BILINEAR",
                         data_type       = 'dirname',
                         check_data      = False, 
                         load_memory     = False,
@@ -54,13 +55,14 @@ def get_train_test_data(data_dirs,
         get_data_mode = 2:   train
     """
     data_args = {
-        "target_size": target_size, 
-         "batch_size": batch_size, 
+        "target_size": target_size,
+         "batch_size": batch_size,
          "color_space": color_space,
-         "augmentor": augmentor, 
-         "normalizer": normalizer, 
-         "mean_norm": mean_norm, 
-         "std_norm": std_norm, 
+         "augmentor": augmentor,
+         "normalizer": normalizer,
+         "mean_norm": mean_norm,
+         "std_norm": std_norm,
+         "interpolation": interpolation,
          "num_workers": num_workers,
         **kwargs
     }

@@ -52,38 +52,48 @@ def preprocess_input(image):
     return image
 
 
-def decode_predictions(preds, class_names, top_k=5):
-    results = []
-    for pred in preds:
-        top_indices = tf.argsort(pred)[-top_k:][::-1]
-        result = [(class_names[i], pred[i].numpy()) for i in top_indices]
-        result.sort(key=lambda x: x[1], reverse=True)
-        results.extend(result)
-    return results
-
-
-def detect_image(image, model, target_shape, class_names, top_k=5):
-    if isinstance(image, str):
-        image = cv2.imread(image)
-        image = change_color_space(image, 'bgr', 'rgb')
-    image_data  = resize_image(image, target_shape, letterbox_image=True)
-    image_data  = preprocess_input(image_data.astype(np.float32))
-    image_data  = np.expand_dims(image_data, axis=0)
-    predictions = model.predict(image_data)
-    if len(class_names) == 2:
-        score = predictions[0][0].numpy()
-        if score < 0.5:
-            correct_label_idx = 0
-            imprecise_label_idx = 1
-        else:
-            correct_label_idx = 1
-            imprecise_label_idx = 0
-            
-        top1 = (class_names[correct_label_idx], (1 - score) if correct_label_idx == 0 else score)
-        predictions = [(top1), (class_names[imprecise_label_idx], (1 - score) if correct_label_idx == 1 else score)]
-    else:
-        predictions = decode_predictions(predictions, class_names, top_k=5)
-        top1 = predictions[0]
+def detect_images(images, model, class_names, top_k=5):
     
-    # visual_image([image], [f'{top1[0]}: {top1[1]}'])
-    return top1, predictions
+    if isinstance(images, str):
+        images = [images]
+
+    batch_images = []
+
+    for image in images:
+        if isinstance(image, str):
+            image = cv2.imread(image)
+            image = change_color_space(image, 'BGR', 'RGB')
+
+        batch_images.append(image)
+
+    # print(batch_images)
+    batch_images = np.stack(batch_images, axis=0).astype(np.float32)
+
+    # Dự đoán batch ảnh
+    predictions = model.predict(batch_images)
+    predictions = predictions if isinstance(predictions, np.ndarray) else predictions.numpy()
+
+    if len(class_names) == 2:
+        scores = predictions[:, 0]
+        top1_results = [(class_names[int(score >= 0.5)], score) for score in scores]
+        all_results = [[
+            (class_names[0], 1 - score),
+            (class_names[1], score)
+        ] for score in scores]
+    else:
+        all_results = decode_predictions(predictions, class_names, top_k)
+        top1_results = [pred[0] for pred in all_results]
+
+    return top1_results, all_results
+
+
+def decode_predictions(preds, class_names, top_k=5):
+    top_indices = tf.argsort(preds, axis=-1, direction='DESCENDING')[:, :top_k]
+    sorted_preds = np.take_along_axis(preds, top_indices.numpy(), axis=-1)
+
+    results = [
+        [(class_names[i], prob) for i, prob in zip(indices, probs)]
+        for indices, probs in zip(top_indices.numpy(), sorted_preds)
+    ]
+    
+    return results

@@ -90,7 +90,7 @@ class Rotation(BaseTransform):
         self.fill     = fill
 
     def image_transform(self, image):
-        return rotate(image, self.degrees, self.resample, self.expand, self.center)
+        return rotate(image, self.degrees, self.resample, self.expand, self.center, self.fill)
 
 
 class RandomRotation(BaseRandomTransform):

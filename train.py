@@ -7,7 +7,7 @@ from models import build_models
 from losses import build_losses
 from optimizers import build_optimizer
 from metrics import build_metrics
-from callbacks import build_callbacks
+from callbacks import build_callbacks, Evaluate
 from data_utils import get_train_test_data, TFDataPipeline
 from utils.train_processing import create_folder_weights, find_max_batch_size, train_prepare
 from utils.config_processing import load_config
@@ -46,6 +46,7 @@ def train(engine_file_config, model_file_config):
                                                                                normalizer      = data_config['data_normalizer'].get('norm_type', 'divide'),
                                                                                mean_norm       = data_config['data_normalizer'].get('norm_mean'),
                                                                                std_norm        = data_config['data_normalizer'].get('norm_std'),
+                                                                               interpolation   = data_config['data_normalizer'].get('interpolation', 'BILINEAR'),
                                                                                data_type       = data_config['data_info']['data_type'],
                                                                                check_data      = data_config['data_info'].get('check_data', False),
                                                                                load_memory     = data_config['data_info'].get('load_memory', False),
@@ -55,6 +56,8 @@ def train(engine_file_config, model_file_config):
         
         train_step = int(np.ceil(train_generator.N / batch_size))
         train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
+        if test_generator:
+            test_generator  = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
 
         
         losses    = build_losses(loss_config)
@@ -62,6 +65,13 @@ def train(engine_file_config, model_file_config):
         metrics   = build_metrics(metric_config)
         callbacks = build_callbacks(callbacks_config, TRAINING_TIME_PATH)
 
+        for callback in callbacks:
+            if isinstance(callback, Evaluate):
+                if test_generator:
+                    callback.pass_data(test_generator)
+                else:
+                    callback.pass_data(valid_generator)
+                    
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
         
         if valid_generator:
@@ -83,13 +93,23 @@ def train(engine_file_config, model_file_config):
                       callbacks     = callbacks)
 
         if test_generator:
-            test_generator  = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
-
             model.evaluate(test_generator)
 
         model.save_weights(os.path.join(TRAINING_TIME_PATH, 'weights', 'last_weights.weights.h5'))
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train a model with specified config files.")
+    parser.add_argument(
+        "--engine_config", type=str, default="./configs/test/engine.yaml",
+        help="Path to the engine configuration YAML file. Default: ./configs/test/engine.yaml"
+    )
+    parser.add_argument(
+        "--model_config", type=str, default="./configs/test/model.yaml",
+        help="Path to the model configuration YAML file. Default: ./configs/test/model.yaml"
+    )
+    return parser.parse_args()
+
 if __name__ == '__main__':
-    engine_file_config = "./configs/test/engine.yaml"
-    model_file_config  = "./configs/test/model.yaml"
-    train(engine_file_config, model_file_config)
+    args = parse_args()
+    train(args.engine_config, args.model_config)

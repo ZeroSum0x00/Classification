@@ -5,13 +5,8 @@ import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform
 from utils.auxiliary_processing import is_numpy_image
+from utils.constants import INTER_MODE
 
-
-INTER_MODE = {
-    'NEAREST': cv2.INTER_NEAREST, 
-    'BILINEAR': cv2.INTER_LINEAR, 
-    'BICUBIC': cv2.INTER_CUBIC
-}
 
 
 def resize(image, size, interpolation='BILINEAR'):
