@@ -56,6 +56,11 @@ def train(engine_file_config, model_file_config):
         
         train_step = int(np.ceil(train_generator.N / batch_size))
         train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
+
+        if valid_generator:
+            valid_step = int(np.ceil(valid_generator.N / batch_size))
+            valid_generator = valid_generator.get_dataset() if isinstance(valid_generator, TFDataPipeline) else valid_generator
+
         if test_generator:
             test_generator  = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
 
@@ -75,9 +80,6 @@ def train(engine_file_config, model_file_config):
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
         
         if valid_generator:
-            valid_step = int(np.ceil(valid_generator.N / batch_size))
-            valid_generator = valid_generator.get_dataset() if isinstance(valid_generator, TFDataPipeline) else valid_generator
-            
             model.fit(train_generator,
                       steps_per_epoch  = train_step,
                       validation_data  = valid_generator,
