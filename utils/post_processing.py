@@ -21,17 +21,17 @@ def get_labels(label_object):
         return subfolders, len(subfolders)
 
 
-def inference_batch_generator(image_paths, data_path, augmentor, normalizer, color_space, deep_channel, batch_size):
+def inference_batch_generator(images, labels, augmentor, normalizer, color_space, batch_size):
     batch_images = []
     batch_labels = []
 
-    for sub_path in image_paths:
-        label = os.path.dirname(sub_path)
-        path = os.path.join(data_path, sub_path)
-
-        image = cv2.imread(path)
-        if color_space.lower() != 'bgr':
-            image = change_color_space(image, 'bgr' if deep_channel else 'gray', color_space)
+    for image, label in zip(images, labels):
+        
+        if not isinstance(image, np.ndarray):    
+            image = cv2.imread(image)
+            
+            if color_space.lower() != 'bgr':
+                image = change_color_space(image, 'BGR', color_space)
         
         if augmentor:
             image = augmentor(image)
