@@ -1,4 +1,3 @@
-import re
 import os
 import cv2
 import random
@@ -18,39 +17,36 @@ def get_labels(label_object):
     elif os.path.isdir(label_object):
         label_object = f"{label_object}/train/" if os.path.isdir(f"{label_object}/train/") else label_object
         subfolders = [f.path for f in os.scandir(label_object) if f.is_dir() ]
-        subfolders = sorted([os.path.basename(os.path.normpath(fname)) for fname in subfolders])
+        subfolders = sorted([x.split('/')[-1] for x in subfolders])
         return subfolders, len(subfolders)
 
 
-def resize_image(image, target_size, letterbox_image):
-    if len(image.shape) > 2:
-        h, w, _    = image.shape
-    else:
-        h, w = image.shape
-    if len(target_size) > 2:
-        ih, iw, _  = target_size
-    else:
-        ih, iw = target_size
-    if letterbox_image:
-        scale = min(iw/w, ih/h)
-        nw, nh  = int(scale * w), int(scale * h)
-        dw, dh = (iw - nw) // 2, (ih - nh) // 2
-        image_resized = cv2.resize(image, (nw, nh))
-        if len(image.shape) > 2:
-            image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0, dtype=image.dtype)
-            image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
-        else:
-            image_paded = np.full(shape=[ih, iw], fill_value=128.0, dtype=image.dtype)
-            image_paded[dh:nh+dh, dw:nw+dw] = image_resized
-        return image_paded
-    else:
-        image = cv2.resize(image, (iw, ih))
-        return image
+def inference_batch_generator(image_paths, data_path, augmentor, normalizer, color_space, deep_channel, batch_size):
+    batch_images = []
+    batch_labels = []
 
+    for sub_path in image_paths:
+        label = os.path.dirname(sub_path)
+        path = os.path.join(data_path, sub_path)
 
-def preprocess_input(image):
-    image = image / 127.5 - 1
-    return image
+        image = cv2.imread(path)
+        if color_space.lower() != 'bgr':
+            image = change_color_space(image, 'bgr' if deep_channel else 'gray', color_space)
+        
+        if augmentor:
+            image = augmentor(image)
+        
+        image = normalizer(image)
+
+        batch_images.append(image)
+        batch_labels.append(label)
+
+        if len(batch_images) == batch_size:
+            yield np.array(batch_images), batch_labels
+            batch_images, batch_labels = [], []
+
+    if batch_images:
+        yield np.array(batch_images), batch_labels
 
 
 def detect_images(images, model, class_names, top_k=5):

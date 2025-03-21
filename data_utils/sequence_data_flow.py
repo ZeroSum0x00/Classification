@@ -8,7 +8,6 @@ from multiprocessing.pool import ThreadPool
 from augmenter import build_augmenter
 from data_utils import Augmentor, Normalizer
 from utils.auxiliary_processing import change_color_space
-from utils.post_processing import resize_image, preprocess_input
 
 
 class DataSequencePipeline(Sequence):
