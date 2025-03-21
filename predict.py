@@ -80,7 +80,10 @@ if __name__ == "__main__":
     data_config   = engine_config['Dataset']
     model_config  = load_config(args.model_config)['Model']
     weight_path   = "saved_weights/20250320-130528/weights/best_eval_acc.weights.h5"
-    
+
+    data_path = "/media/vbpo-101386/DATA1/Datasets/Classification/full_animals/test"
+    files = get_files(data_path, ALLOW_IMAGE_EXTENSIONS)
+
     classes, num_classes = get_labels(data_config['data_dir'])
 
     model = load_model(model_config, weight_path, classes)
@@ -89,24 +92,21 @@ if __name__ == "__main__":
     if augmentor and isinstance(augmentor, (tuple, list)):
         augmentor = Augmentor(augment_objects=build_augmenter(augmentor))
 
-    target_size = model_config['input_shape']
     normalizer = Normalizer(data_config['data_normalizer'].get('norm_type', 'divide'),
-                            target_size=target_size,
+                            target_size=model_config['input_shape'],
                             mean=data_config['data_normalizer'].get('norm_mean'),
                             std=data_config['data_normalizer'].get('norm_std'),
                             interpolation=data_config['data_normalizer'].get('interpolation', 'BILINEAR'))
     color_space = data_config['data_info'].get('color_space', 'RGB')
-    deep_channel = 1 if (len(target_size) > 2 and target_size[-1] > 1) else 0
 
-    data_path = "/media/vbpo-101386/DATA1/Datasets/Classification/full_animals/test"
-    files = get_files(data_path, ALLOW_IMAGE_EXTENSIONS)
 
     # for fi in files:
     #     top1, pred = predict(os.path.join(data_path, fi),
     #                          model=model,
     #                          classes=classes,
     #                          augmentor=augmentor,
-    #                          normalizer=normalizer)
+    #                          normalizer=normalizer,
+    #                          color_space=color_space)
     #     print(top1)
     
     image_names = [sorted(get_files(os.path.join(data_path, cls), ALLOW_IMAGE_EXTENSIONS, cls)) for cls in classes]
@@ -117,4 +117,5 @@ if __name__ == "__main__":
                    classes=classes,
                    augmentor=augmentor,
                    normalizer=normalizer,
+                   color_space=color_space,
                    batch_size=32)
