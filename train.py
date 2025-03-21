@@ -36,6 +36,11 @@ def train(engine_file_config, model_file_config):
             model_config['classes'] = data_config['data_dir']
         
         model = build_models(model_config)
+
+        with open(os.path.join(TRAINING_TIME_PATH, "classes.names"), "w") as f:
+            for cls in model.classes:
+                f.write(cls + "\n")
+
         batch_size = find_max_batch_size(model) if train_config['batch_size'] == -1 else train_config['batch_size']
         train_generator, valid_generator, test_generator = get_train_test_data(data_dirs       = data_config['data_dir'],
                                                                                classes         = model.classes,
