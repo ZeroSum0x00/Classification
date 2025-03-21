@@ -1,7 +1,9 @@
 import os
 import cv2
+import h5py
 import argparse
 import numpy as np
+import tensorflow as tf
 from tqdm import tqdm
 from models import build_models
 from augmenter import build_augmenter
@@ -13,17 +15,29 @@ from utils.constants import ALLOW_IMAGE_EXTENSIONS
 from utils.config_processing import load_config
 
 
-def load_model(model_config, weight_path, classes):
-    input_shape = model_config["input_shape"]
-    
-    if not model_config['classes']:
-        model_config['classes'] = classes
-    
-    model = build_models(model_config)
-    model.architecture.build((None, *input_shape))
-    model.architecture.load_weights(weight_path)
+def load_model(weight_path, model_config=None, classes=None):
+    if weight_path.endswith(".keras"):
+        model = tf.keras.models.load_model(weight_path)
+    elif weight_path.endswith(".h5"):
+        if not model_config:
+            raise ValueError("When using an H5 file, you must provide a `model_config`.")
+
+        if not classes:
+            raise ValueError("When using an H5 file, you must specify the number of `classes`.")
+
+        input_shape = model_config["input_shape"]
+
+        if not model_config.get('classes'):
+            model_config['classes'] = classes
+
+        model = build_models(model_config)
+        model.load_weights(weight_path)
+    else:
+        raise ValueError("Invalid file format. Please provide a `.keras` or `.h5` file.")
+
     return model
 
+    
 
 def predict(image, model, classes, augmentor, normalizer, color_space="RGB"):
     if not isinstance(image, np.ndarray):
@@ -71,7 +85,16 @@ def parse_args():
         "--model_config", type=str, default="./configs/test/model.yaml",
         help="Path to the model configuration YAML file. Default: ./configs/test/model.yaml"
     )
+    parser.add_argument(
+        "--weight_path", type=str, default=None,
+        help="Path to the pre-trained weight file (optional). Default: None"
+    )
+    parser.add_argument(
+        "--data_path", type=str, required=True,
+        help="Path to the dataset directory. This argument is required."
+    )
     return parser.parse_args()
+
 
 
 if __name__ == "__main__":
@@ -79,14 +102,19 @@ if __name__ == "__main__":
     engine_config = load_config(args.engine_config)
     data_config   = engine_config['Dataset']
     model_config  = load_config(args.model_config)['Model']
-    weight_path   = "saved_weights/20250320-130528/weights/best_eval_acc.weights.h5"
 
-    data_path = "/media/vbpo-101386/DATA1/Datasets/Classification/full_animals/test"
-    files = get_files(data_path, ALLOW_IMAGE_EXTENSIONS)
+    saved_weight_path = os.path.dirname(os.path.dirname(args.weight_path))
+    class_file = os.path.join(saved_weight_path, "classes.names")
+    if os.path.isfile(class_file):
+        classes, num_classes = get_labels(class_file)
+    else:
+        if os.path.isdir(data_config['data_dir']):
+            classes, num_classes = get_labels(data_config['data_dir'])
+        else:
+            classes, num_classes = get_labels(10)
 
-    classes, num_classes = get_labels(data_config['data_dir'])
+    model = load_model(args.weight_path, model_config, classes)
 
-    model = load_model(model_config, weight_path, classes)
 
     augmentor = data_config["data_augmentation"].get('inference')
     if augmentor and isinstance(augmentor, (tuple, list)):
@@ -99,9 +127,9 @@ if __name__ == "__main__":
                             interpolation=data_config['data_normalizer'].get('interpolation', 'BILINEAR'))
     color_space = data_config['data_info'].get('color_space', 'RGB')
 
-
+    # files = get_files(args.data_path, ALLOW_IMAGE_EXTENSIONS)
     # for fi in files:
-    #     top1, pred = predict(os.path.join(data_path, fi),
+    #     top1, pred = predict(os.path.join(args.data_path, fi),
     #                          model=model,
     #                          classes=classes,
     #                          augmentor=augmentor,
@@ -109,8 +137,8 @@ if __name__ == "__main__":
     #                          color_space=color_space)
     #     print(top1)
     
-    image_names = [sorted(get_files(os.path.join(data_path, cls), ALLOW_IMAGE_EXTENSIONS, cls)) for cls in classes]
-    flattened_files = tuple(os.path.join(data_path, item) for sublist in image_names for item in sublist)
+    image_names = [sorted(get_files(os.path.join(args.data_path, cls), ALLOW_IMAGE_EXTENSIONS, cls)) for cls in classes]
+    flattened_files = tuple(os.path.join(args.data_path, item) for sublist in image_names for item in sublist)
 
     predict_folder(flattened_files,
                    model=model,

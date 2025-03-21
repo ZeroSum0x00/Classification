@@ -13,22 +13,26 @@ from utils.logger import logger
 
 class Evaluate(tf.keras.callbacks.Callback):
     def __init__(self, 
-                 result_path     = None,
-                 sample_weight   = None,
-                 min_ratio       = 0.2,
-                 saved_best_map  = True,
-                 show_frequency  = 100):
+                 result_path    = None,
+                 sample_weight  = None,
+                 min_ratio      = 0.2,
+                 save_best      = True,
+                 save_mode      = "model",
+                 show_frequency = 100):
         super(Evaluate, self).__init__()
-        self.result_path          = result_path
-        self.sample_weight        = sample_weight
-        self.min_ratio            = min_ratio
-        self.saved_best_map       = saved_best_map
-        self.show_frequency       = show_frequency
-        self.epoches              = [0]
-        self.metric_values        = [0]
-        self.current_value        = 0.0
-        self.eval_dataset         = None
-
+        self.result_path    = result_path
+        self.sample_weight  = sample_weight
+        self.min_ratio      = min_ratio
+        self.save_best      = save_best
+        self.save_mode      = save_mode
+        self.show_frequency = show_frequency
+        self.epoches        = [0]
+        self.metric_values  = [0]
+        self.current_value  = 0.0
+        self.eval_dataset   = None
+        
+        if self.save_mode not in ["model", "weight"]:
+            raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weight"].')
 
     def pass_data(self, data):
         self.eval_dataset = data
@@ -61,13 +65,18 @@ class Evaluate(tf.keras.callbacks.Callback):
                 accuracy = sum_report.pop("accuracy", 0)
                 self.metric_values.append(accuracy)
 
-                if self.saved_best_map:
+                if self.save_best:
                     if accuracy > self.current_value and accuracy > self.min_ratio:
                         logger.info(f'Evaluate accuracy score increase {self.current_value*100:.2f}% to {accuracy*100:.2f}%')
-                        weight_path = os.path.join(self.result_path, "weights", "best_eval_acc.weights.h5")
-                        logger.info(f'Save best evaluate accuracy weights to {weight_path}')                    
-                        self.model.save_weights(weight_path)
                         self.current_value = accuracy
+                        if self.save_mode == "model":
+                            weight_path = os.path.join(self.result_path, "weights", "best_eval_acc.keras")
+                            logger.info(f'Save best evaluate accuracy model to {weight_path}')
+                            self.model.save_model(weight_path)
+                        elif self.save_mode == "weight":
+                            weight_path = os.path.join(self.result_path, "weights", "best_eval_acc.weights.h5")
+                            logger.info(f'Save best evaluate accuracy weights to {weight_path}')
+                            self.model.save_weights(weight_path)
                         
                 self.epoches.append(temp_epoch)
                 with open(os.path.join(self.result_path, 'summary', "best_eval_acc.txt"), 'a') as f:

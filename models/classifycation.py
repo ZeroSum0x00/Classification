@@ -10,6 +10,7 @@ class CLS(tf.keras.Model):
 
     def call(self, inputs, training=False):
         feature_maps = self.backbone(inputs, training=training)
+        
         if isinstance(feature_maps, (list, tuple)):
             return feature_maps[-1]
         else:
@@ -26,3 +27,18 @@ class CLS(tf.keras.Model):
         if loss:
             loss_value += loss(y_true, y_pred)
         return loss_value
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "backbone": self.backbone.get_config()
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        from tensorflow.keras.models import Model
+        
+        backbone_config = config.pop("backbone")
+        backbone = Model.from_config(backbone_config)
+        return CLS(backbone=backbone, **config)
