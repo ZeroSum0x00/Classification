@@ -107,18 +107,18 @@ def ViT_Text(vocab_size,
     return model
 
 
-def ViT_Text_Large14(vocab_size=49408,
-                     max_block_size=77,
-                     include_top=True, 
-                     weights='imagenet',
-                     input_tensor=None, 
-                     input_shape=None,
-                     pooling=None,
-                     final_activation="softmax",
-                     classes=1000,
-                     sam_rho=0.0,
-                     norm_eps=1e-6,
-                     drop_rate=0.1):
+def ViT_Text_L14(vocab_size=49408,
+                 max_block_size=77,
+                 include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_Text(vocab_size=vocab_size,
                      max_block_size=max_block_size,

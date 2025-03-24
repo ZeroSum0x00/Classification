@@ -1,14 +1,22 @@
 """
   # Description:
     - The following table comparing the params of the Explore the limits of Visual representation at scAle (EVA) base BEiT block
-    in Tensorflow on in Tensorflow on size 196 x 196 x 3 for 'Large' variant and 224 x 224 x 3 for 'Gaint' variant:
+    in Tensorflow on in Tensorflow on 224 x 224 x 3:
 
        -----------------------------------------
       |      Model Name     |      Params       |
       |-----------------------------------------|
-      |     EVA-Large-14    |    304,142,312    |
+      |     EVA-Tiny-14     |      5,645,032    |
+      |-----------------------------------------|
+      |     EVA-Small-14    |     21,905,896    |
+      |-----------------------------------------|
+      |     EVA-Base-14     |     86,278,120    |
+      |-----------------------------------------|
+      |     EVA-Large-14    |    303,940,584    |
+      |-----------------------------------------|
+      |     EVA-Huge-14     |    631,716,840    |
       |---------------------|-------------------|
-      |     EVA-Gaint-14    |  1,012,555,112    |
+      |     EVA-Gaint-14    |  1,012,193,256    |
        -----------------------------------------
 
   # Reference:
@@ -161,16 +169,106 @@ def EVA(num_layers,
     return model
 
 
-def EVA_Large14(include_top=True, 
-                weights='imagenet',
-                input_tensor=None, 
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000,
-                sam_rho=0.0,
-                norm_eps=1e-6,
-                drop_rate=0.1):
+def EVA_T14(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            norm_eps=1e-6,
+            drop_rate=0.1):
+
+    model = EVA(num_layers=12,
+                patch_size=14,
+                num_heads=3,
+                hidden_dim=192,
+                mlp_ratio=4,
+                attn_qkv_bias=True,
+                include_top=include_top,
+                weights=weights, 
+                input_tensor=input_tensor,
+                input_shape=input_shape,
+                pooling=pooling, 
+                final_activation=final_activation,
+                classes=classes,
+                sam_rho=sam_rho,
+                norm_eps=norm_eps,
+                drop_rate=drop_rate)
+    return model
+
+
+def EVA_S14(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            norm_eps=1e-6,
+            drop_rate=0.1):
+
+    model = EVA(num_layers=12,
+                patch_size=14,
+                num_heads=6,
+                hidden_dim=384,
+                mlp_ratio=4,
+                attn_qkv_bias=True,
+                include_top=include_top,
+                weights=weights, 
+                input_tensor=input_tensor,
+                input_shape=input_shape,
+                pooling=pooling, 
+                final_activation=final_activation,
+                classes=classes,
+                sam_rho=sam_rho,
+                norm_eps=norm_eps,
+                drop_rate=drop_rate)
+    return model
+
+
+def EVA_B14(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            norm_eps=1e-6,
+            drop_rate=0.1):
+
+    model = EVA(num_layers=12,
+                patch_size=14,
+                num_heads=12,
+                hidden_dim=768,
+                mlp_ratio=4,
+                attn_qkv_bias=True,
+                include_top=include_top,
+                weights=weights, 
+                input_tensor=input_tensor,
+                input_shape=input_shape,
+                pooling=pooling, 
+                final_activation=final_activation,
+                classes=classes,
+                sam_rho=sam_rho,
+                norm_eps=norm_eps,
+                drop_rate=drop_rate)
+    return model
+
+
+def EVA_L14(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            norm_eps=1e-6,
+            drop_rate=0.1):
 
     model = EVA(num_layers=24,
                 patch_size=14,
@@ -191,16 +289,46 @@ def EVA_Large14(include_top=True,
     return model
 
 
-def EVA_Gaint14(include_top=True, 
-                weights='imagenet',
-                input_tensor=None, 
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000,
-                sam_rho=0.0,
-                norm_eps=1e-6,
-                drop_rate=0.1):
+def EVA_H14(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            norm_eps=1e-6,
+            drop_rate=0.1):
+
+    model = EVA(num_layers=32,
+                patch_size=14,
+                num_heads=16,
+                hidden_dim=1280,
+                mlp_ratio=4,
+                attn_qkv_bias=True,
+                include_top=include_top,
+                weights=weights, 
+                input_tensor=input_tensor,
+                input_shape=input_shape,
+                pooling=pooling, 
+                final_activation=final_activation,
+                classes=classes,
+                sam_rho=sam_rho,
+                norm_eps=norm_eps,
+                drop_rate=drop_rate)
+    return model
+
+
+def EVA_G14(include_top=True, 
+            weights='imagenet',
+            input_tensor=None, 
+            input_shape=None,
+            pooling=None,
+            final_activation="softmax",
+            classes=1000,
+            sam_rho=0.0,
+            norm_eps=1e-6,
+            drop_rate=0.1):
 
     model = EVA(num_layers=40,
                 patch_size=14,

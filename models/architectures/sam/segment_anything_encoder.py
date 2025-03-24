@@ -461,14 +461,14 @@ def ViTImageEncoder(filters=256,
     return model
 
 
-def ViTImageEncoder_base(include_top=True, 
-                         weights='imagenet',
-                         input_tensor=None, 
-                         input_shape=None,
-                         pooling=None,
-                         final_activation="softmax",
-                         classes=1000,
-                         drop_rate=0.0):
+def ViTImageEncoder_B(include_top=True, 
+                      weights='imagenet',
+                      input_tensor=None, 
+                      input_shape=None,
+                      pooling=None,
+                      final_activation="softmax",
+                      classes=1000,
+                      drop_rate=0.0):
 
     model = ViTImageEncoder(filters=256,
                             embed_dim=768,
@@ -492,14 +492,14 @@ def ViTImageEncoder_base(include_top=True,
     return model
 
 
-def ViTImageEncoder_large(include_top=True, 
-                          weights='imagenet',
-                          input_tensor=None, 
-                          input_shape=None,
-                          pooling=None,
-                          final_activation="softmax",
-                          classes=1000,
-                          drop_rate=0.0):
+def ViTImageEncoder_L(include_top=True, 
+                      weights='imagenet',
+                      input_tensor=None, 
+                      input_shape=None,
+                      pooling=None,
+                      final_activation="softmax",
+                      classes=1000,
+                      drop_rate=0.0):
 
     model = ViTImageEncoder(filters=256,
                             embed_dim=1024,
@@ -523,14 +523,14 @@ def ViTImageEncoder_large(include_top=True,
     return model
 
 
-def ViTImageEncoder_huge(include_top=True, 
-                         weights='imagenet',
-                         input_tensor=None, 
-                         input_shape=None,
-                         pooling=None,
-                         final_activation="softmax",
-                         classes=1000,
-                         drop_rate=0.0):
+def ViTImageEncoder_H(include_top=True, 
+                      weights='imagenet',
+                      input_tensor=None, 
+                      input_shape=None,
+                      pooling=None,
+                      final_activation="softmax",
+                      classes=1000,
+                      drop_rate=0.0):
 
     model = ViTImageEncoder(filters=256,
                             embed_dim=1280,

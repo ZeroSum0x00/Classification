@@ -144,7 +144,7 @@ def BEiT(vocab_size=0,  # [Text model] Set value > 0 for building text model
                                             use_bias=use_patch_bias, 
                                             name="stem_conv")(img_input)
         patch_height = x.shape[1]
-        x = Reshape([-1, x.shape[-1]])(x)
+        x = Reshape(target_shape=[-1, x.shape[-1]])(x)
 
         """ Positional embedding """
         if use_abs_pos_emb and use_abs_pos_emb_on_cls_token:  # ViT / EvaLarge / EvaGiant / DINOv2
@@ -255,16 +255,16 @@ def BEiT(vocab_size=0,  # [Text model] Set value > 0 for building text model
     return model
 
 
-def BEiTBase16(include_top=True, 
-               weights='imagenet',
-               input_tensor=None, 
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               norm_eps=1e-6,
-               drop_rate=0.1):
+def BEiT_B16(include_top=True, 
+             weights='imagenet',
+             input_tensor=None, 
+             input_shape=None,
+             pooling=None,
+             final_activation="softmax",
+             classes=1000,
+             sam_rho=0.0,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
     model = BEiT(num_layers=12,
                  patch_size=16,
@@ -284,16 +284,16 @@ def BEiTBase16(include_top=True,
     return model
 
 
-def BEiTBase32(include_top=True, 
-               weights='imagenet',
-               input_tensor=None, 
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               norm_eps=1e-6,
-               drop_rate=0.1):
+def BEiT_B32(include_top=True, 
+             weights='imagenet',
+             input_tensor=None, 
+             input_shape=None,
+             pooling=None,
+             final_activation="softmax",
+             classes=1000,
+             sam_rho=0.0,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
     model = BEiT(num_layers=12,
                  patch_size=32,
@@ -313,16 +313,16 @@ def BEiTBase32(include_top=True,
     return model
 
 
-def BEiTLarge16(include_top=True, 
-                weights='imagenet',
-                input_tensor=None, 
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000,
-                sam_rho=0.0,
-                norm_eps=1e-6,
-                drop_rate=0.1):
+def BEiT_L16(include_top=True, 
+             weights='imagenet',
+             input_tensor=None, 
+             input_shape=None,
+             pooling=None,
+             final_activation="softmax",
+             classes=1000,
+             sam_rho=0.0,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
     model = BEiT(num_layers=24,
                  patch_size=16,
@@ -343,16 +343,16 @@ def BEiTLarge16(include_top=True,
     return model
 
 
-def BEiTLarge32(include_top=True, 
-                weights='imagenet',
-                input_tensor=None, 
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000,
-                sam_rho=0.0,
-                norm_eps=1e-6,
-                drop_rate=0.1):
+def BEiT_L32(include_top=True, 
+             weights='imagenet',
+             input_tensor=None, 
+             input_shape=None,
+             pooling=None,
+             final_activation="softmax",
+             classes=1000,
+             sam_rho=0.0,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
     model = BEiT(num_layers=24,
                  patch_size=32,
@@ -373,16 +373,16 @@ def BEiTLarge32(include_top=True,
     return model
 
 
-def BEiTHuge16(include_top=True, 
-               weights='imagenet',
-               input_tensor=None, 
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               norm_eps=1e-6,
-               drop_rate=0.1):
+def BEiT_H16(include_top=True, 
+             weights='imagenet',
+             input_tensor=None, 
+             input_shape=None,
+             pooling=None,
+             final_activation="softmax",
+             classes=1000,
+             sam_rho=0.0,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
     model = BEiT(num_layers=32,
                  patch_size=16,
@@ -403,16 +403,16 @@ def BEiTHuge16(include_top=True,
     return model
 
 
-def BEiTHuge32(include_top=True, 
-               weights='imagenet',
-               input_tensor=None, 
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               norm_eps=1e-6,
-               drop_rate=0.1):
+def BEiT_H32(include_top=True, 
+             weights='imagenet',
+             input_tensor=None, 
+             input_shape=None,
+             pooling=None,
+             final_activation="softmax",
+             classes=1000,
+             sam_rho=0.0,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
     model = BEiT(num_layers=32,
                  patch_size=32,

@@ -97,6 +97,10 @@ def parse_args():
         "--data_path", type=str, required=True,
         help="Path to the dataset directory. This argument is required."
     )
+    parser.add_argument(
+        "--batch_size", type=int, default=32,
+        help="Path to the dataset directory. This argument is required."
+    )
     return parser.parse_args()
 
 
@@ -160,4 +164,4 @@ if __name__ == "__main__":
                    augmentor=augmentor,
                    normalizer=normalizer,
                    color_space=color_space,
-                   batch_size=32)
+                   batch_size=args.batch_size)

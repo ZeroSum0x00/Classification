@@ -3,29 +3,45 @@
     - The following table comparing the params of the Vision Transformer (ViT) base BEiT block
     in Tensorflow on in Tensorflow on size 224 x 224 x 3:
 
-       ------------------------------------------
-      |       Model Name       |    Params       |
-      |------------------------------------------|
-      |    ViT-BEiT-Tiny-16    |    5,717,416    |
-      |------------------------|-----------------|
-      |    ViT-BEiT-Tiny-32    |    6,131,560    |
-      |------------------------|-----------------|
-      |    ViT-BEiT-Base-16    |   86,567,656    |
-      |------------------------|-----------------|
-      |    ViT-BEiT-Base-32    |   88,224,232    |
-      |------------------------------------------|
-      |    ViT-BEiT-Large-14   |  304,203,752    |
-      |------------------------|-----------------|
-      |    ViT-BEiT-Large-16   |  304,326,632    |
-      |------------------------|-----------------|
-      |    ViT-BEiT-Large-32   |  306,535,400    |
-      |------------------------------------------|
-      |    ViT-BEiT-Huge-14    |  632,045,800    |
-      |------------------------|-----------------|
-      |    ViT-BEiT-Huge-16    |  632,199,400    |
-      |------------------------|-----------------|
-      |    ViT-BEiT-Huge-16    |  634,960,360    |
-       ------------------------------------------
+       -------------------------------------------
+      |       Model Name       |     Params       |
+      |-------------------------------------------|
+      |    ViT-BEiT-Tiny-14    |     5,645,032    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Tiny-16    |     5,679,592    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Tiny-32    |     6,121,960    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Small-14   |    21,905,896    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Small-16   |    21,975,016    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Small-32   |    22,859,752    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Base-14    |    86,278,120    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Base-16    |    86,416,360    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Base-32    |    88,185,832    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Large-14   |   303,940,584    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Large-16   |   304,124,904    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Large-32   |   306,484,200    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Huge-14    |   631,716,840    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Huge-16    |   631,947,240    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Huge-32    |   634,896,360    |
+      |-------------------------------------------|
+      |    ViT-BEiT-Gaint-14   |  1,135,707,112   |
+      |-------------------------------------------|
+      |    ViT-BEiT-Gaint-16   |        -         |
+      |-------------------------------------------|
+      |    ViT-BEiT-Gaint-16   |        -         |
+       -------------------------------------------
 
   # Reference:
     - [An image is worth 16x16 words: transformers for image recognition 
@@ -173,16 +189,44 @@ def ViT_BEiT(num_layers,
     return model
 
 
-def ViT_BEiT_Tiny16(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+def ViT_BEiT_T14(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=12,
+                     patch_size=14,
+                     num_heads=3,
+                     hidden_dim=192,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_T16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=12,
                      patch_size=16,
@@ -201,16 +245,16 @@ def ViT_BEiT_Tiny16(include_top=True,
     return model
 
 
-def ViT_BEiT_Tiny32(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+def ViT_BEiT_T32(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=12,
                      patch_size=32,
@@ -228,17 +272,129 @@ def ViT_BEiT_Tiny32(include_top=True,
                      drop_rate=drop_rate)
     return model
 
-                        
-def ViT_BEiT_Base16(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+
+def ViT_BEiT_S14(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=12,
+                     patch_size=14,
+                     num_heads=6,
+                     hidden_dim=384,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_S32(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=12,
+                     patch_size=32,
+                     num_heads=6,
+                     hidden_dim=384,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_S16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=12,
+                     patch_size=16,
+                     num_heads=6,
+                     hidden_dim=384,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_B14(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=12,
+                     patch_size=14,
+                     num_heads=12,
+                     hidden_dim=768,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_B16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=12,
                      patch_size=16,
@@ -257,16 +413,16 @@ def ViT_BEiT_Base16(include_top=True,
     return model
 
 
-def ViT_BEiT_Base32(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+def ViT_BEiT_B32(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=12,
                      patch_size=32,
@@ -285,16 +441,16 @@ def ViT_BEiT_Base32(include_top=True,
     return model
 
 
-def ViT_BEiT_Large14(include_top=True, 
-                     weights='imagenet',
-                     input_tensor=None, 
-                     input_shape=None,
-                     pooling=None,
-                     final_activation="softmax",
-                     classes=1000,
-                     sam_rho=0.0,
-                     norm_eps=1e-6,
-                     drop_rate=0.1):
+def ViT_BEiT_L14(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=24,
                      patch_size=14,
@@ -313,16 +469,16 @@ def ViT_BEiT_Large14(include_top=True,
     return model
 
                          
-def ViT_BEiT_Large16(include_top=True, 
-                     weights='imagenet',
-                     input_tensor=None, 
-                     input_shape=None,
-                     pooling=None,
-                     final_activation="softmax",
-                     classes=1000,
-                     sam_rho=0.0,
-                     norm_eps=1e-6,
-                     drop_rate=0.1):
+def ViT_BEiT_L16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=24,
                      patch_size=16,
@@ -341,16 +497,16 @@ def ViT_BEiT_Large16(include_top=True,
     return model
 
 
-def ViT_BEiT_Large32(include_top=True, 
-                     weights='imagenet',
-                     input_tensor=None, 
-                     input_shape=None,
-                     pooling=None,
-                     final_activation="softmax",
-                     classes=1000,
-                     sam_rho=0.0,
-                     norm_eps=1e-6,
-                     drop_rate=0.1):
+def ViT_BEiT_L32(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=24,
                      patch_size=32,
@@ -369,16 +525,16 @@ def ViT_BEiT_Large32(include_top=True,
     return model
 
 
-def ViT_BEiT_Huge14(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+def ViT_BEiT_H14(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=32,
                      patch_size=14,
@@ -397,16 +553,16 @@ def ViT_BEiT_Huge14(include_top=True,
     return model
 
                         
-def ViT_BEiT_Huge16(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+def ViT_BEiT_H16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=32,
                      patch_size=16,
@@ -425,21 +581,105 @@ def ViT_BEiT_Huge16(include_top=True,
     return model
 
 
-def ViT_BEiT_Huge32(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+def ViT_BEiT_H32(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = ViT_BEiT(num_layers=32,
                      patch_size=32,
                      num_heads=16,
                      hidden_dim=1280,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_G14(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=40,
+                     patch_size=14,
+                     num_heads=16,
+                     hidden_dim=1536,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_G16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=40,
+                     patch_size=16,
+                     num_heads=16,
+                     hidden_dim=1536,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def ViT_BEiT_G32(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = ViT_BEiT(num_layers=40,
+                     patch_size=32,
+                     num_heads=16,
+                     hidden_dim=1536,
                      include_top=include_top,
                      weights=weights, 
                      input_tensor=input_tensor,

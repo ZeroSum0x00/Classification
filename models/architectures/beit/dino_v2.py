@@ -6,15 +6,17 @@
        ---------------------------------------------
       |       Model Name        |      Params       |
       |---------------------------------------------|
-      |     DINOv2-Small-14     |     22,825,192    |
+      |     DINOv2-Tiny-14      |      5,841,640    |
+      |---------------------------------------------|
+      |     DINOv2-Small-14     |     22,299,112    |
       |-------------------------|-------------------|
-      |     DINOv2-Base-14      |     88,116,712    |
+      |     DINOv2-Base-14      |     87,064,552    |
       |-------------------------|-------------------|
-      |     DINOv2-Large-14     |    306,416,616    |
+      |     DINOv2-Large-14     |    305,013,736    |
       |-------------------------|-------------------|
-      |     DINOv2-Huge-14      |    602,906,728    |
+      |     DINOv2-Huge-14      |    601,196,968    |
       |-------------------------|-------------------|
-      |     DINOv2-Gaint-14     |  1,139,552,232    |
+      |     DINOv2-Gaint-14     |  1,137,447,912    |
        ---------------------------------------------
 
   # Reference:
@@ -166,16 +168,46 @@ def DINOv2(num_layers,
     return model
 
 
-def DINOv2_Small14(include_top=True, 
-                   weights='imagenet',
-                   input_tensor=None, 
-                   input_shape=None,
-                   pooling=None,
-                   final_activation="softmax",
-                   classes=1000,
-                   sam_rho=0.0,
-                   norm_eps=1e-6,
-                   drop_rate=0.1):
+def DINOv2_T14(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
+
+    model = DINOv2(num_layers=12,
+                   patch_size=14,
+                   num_heads=3,
+                   hidden_dim=192,
+                   mlp_ratio=4,
+                   use_gated_mlp=False,
+                   include_top=include_top,
+                   weights=weights, 
+                   input_tensor=input_tensor,
+                   input_shape=input_shape,
+                   pooling=pooling, 
+                   final_activation=final_activation,
+                   classes=classes,
+                   sam_rho=sam_rho,
+                   norm_eps=norm_eps,
+                   drop_rate=drop_rate)
+    return model
+
+
+def DINOv2_S14(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
 
     model = DINOv2(num_layers=12,
                    patch_size=14,
@@ -196,16 +228,16 @@ def DINOv2_Small14(include_top=True,
     return model
 
                         
-def DINOv2_Base14(include_top=True, 
-                  weights='imagenet',
-                  input_tensor=None, 
-                  input_shape=None,
-                  pooling=None,
-                  final_activation="softmax",
-                  classes=1000,
-                  sam_rho=0.0,
-                  norm_eps=1e-6,
-                  drop_rate=0.1):
+def DINOv2_B14(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
 
     model = DINOv2(num_layers=12,
                    patch_size=14,
@@ -226,16 +258,16 @@ def DINOv2_Base14(include_top=True,
     return model
 
 
-def DINOv2_Large14(include_top=True, 
-                   weights='imagenet',
-                   input_tensor=None, 
-                   input_shape=None,
-                   pooling=None,
-                   final_activation="softmax",
-                   classes=1000,
-                   sam_rho=0.0,
-                   norm_eps=1e-6,
-                   drop_rate=0.1):
+def DINOv2_L14(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
 
     model = DINOv2(num_layers=24,
                    patch_size=14,
@@ -256,16 +288,16 @@ def DINOv2_Large14(include_top=True,
     return model
 
 
-def DINOv2_Huge14(include_top=True, 
-                  weights='imagenet',
-                  input_tensor=None, 
-                  input_shape=None,
-                  pooling=None,
-                  final_activation="softmax",
-                  classes=1000,
-                  sam_rho=0.0,
-                  norm_eps=1e-6,
-                  drop_rate=0.1):
+def DINOv2_H14(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
 
     model = DINOv2(num_layers=32,
                    patch_size=14,
@@ -286,16 +318,16 @@ def DINOv2_Huge14(include_top=True,
     return model
 
 
-def DINOv2_Gaint14(include_top=True, 
-                   weights='imagenet',
-                   input_tensor=None, 
-                   input_shape=None,
-                   pooling=None,
-                   final_activation="softmax",
-                   classes=1000,
-                   sam_rho=0.0,
-                   norm_eps=1e-6,
-                   drop_rate=0.1):
+def DINOv2_G14(include_top=True, 
+               weights='imagenet',
+               input_tensor=None, 
+               input_shape=None,
+               pooling=None,
+               final_activation="softmax",
+               classes=1000,
+               sam_rho=0.0,
+               norm_eps=1e-6,
+               drop_rate=0.1):
 
     model = DINOv2(num_layers=40,
                    patch_size=14,

@@ -228,7 +228,7 @@ def MobileNet_v2(alpha=1,
         inputs = img_input
     
     # Create model.
-    model = Model(inputs, x, name=f'{float(alpha)} MobileNetV2-{h}')
+    model = Model(inputs, x, name=f'{float(alpha)}-MobileNetV2-{h}')
 
     if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
         warnings.warn('You are using the TensorFlow backend, yet you '

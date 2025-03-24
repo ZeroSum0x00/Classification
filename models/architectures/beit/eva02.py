@@ -6,13 +6,17 @@
        -------------------------------------------
       |       Model Name      |      Params       |
       |-------------------------------------------|
-      |     EVA02-Tiny-14     |      5,756,584    |
+      |     EVA02-Tiny-14     |      5,645,800    |
       |-----------------------|-------------------|
-      |     EVA02-Small-14    |     22,129,000    |
+      |     EVA02-Small-14    |     21,907,432    |
       |-----------------------|-------------------|
-      |     EVA02-Base-14     |     87,117,544    |
+      |     EVA02-Base-14     |     86,330,344    |
       |-----------------------|-------------------|
-      |     EVA02-Large-14    |    305,080,232    |
+      |     EVA02-Large-14    |    304,030,632    |
+      |-----------------------|-------------------|
+      |     EVA02-Huge-14     |    631,907,944    |
+      |-----------------------|-------------------|
+      |     EVA02-Gaint-14    |    954,763,816    |
        -------------------------------------------
 
   # Reference:
@@ -163,16 +167,16 @@ def EVA02(num_layers,
     return model
 
 
-def EVA02_Tiny14(include_top=True, 
-                 weights='imagenet',
-                 input_tensor=None, 
-                 input_shape=None,
-                 pooling=None,
-                 final_activation="softmax",
-                 classes=1000,
-                 sam_rho=0.0,
-                 norm_eps=1e-6,
-                 drop_rate=0.1):
+def EVA02_T14(include_top=True, 
+              weights='imagenet',
+              input_tensor=None, 
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000,
+              sam_rho=0.0,
+              norm_eps=1e-6,
+              drop_rate=0.1):
 
     model = EVA02(num_layers=12,
                   patch_size=14,
@@ -192,16 +196,16 @@ def EVA02_Tiny14(include_top=True,
     return model
 
 
-def EVA02_Small14(include_top=True, 
-                 weights='imagenet',
-                 input_tensor=None, 
-                 input_shape=None,
-                 pooling=None,
-                 final_activation="softmax",
-                 classes=1000,
-                 sam_rho=0.0,
-                 norm_eps=1e-6,
-                 drop_rate=0.1):
+def EVA02_S14(include_top=True, 
+              weights='imagenet',
+              input_tensor=None, 
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000,
+              sam_rho=0.0,
+              norm_eps=1e-6,
+              drop_rate=0.1):
 
     model = EVA02(num_layers=12,
                   patch_size=14,
@@ -221,16 +225,16 @@ def EVA02_Small14(include_top=True,
     return model
 
 
-def EVA02_Base14(include_top=True, 
-                 weights='imagenet',
-                 input_tensor=None, 
-                 input_shape=None,
-                 pooling=None,
-                 final_activation="softmax",
-                 classes=1000,
-                 sam_rho=0.0,
-                 norm_eps=1e-6,
-                 drop_rate=0.1):
+def EVA02_B14(include_top=True, 
+              weights='imagenet',
+              input_tensor=None, 
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000,
+              sam_rho=0.0,
+              norm_eps=1e-6,
+              drop_rate=0.1):
 
     model = EVA02(num_layers=12,
                   patch_size=14,
@@ -250,21 +254,79 @@ def EVA02_Base14(include_top=True,
     return model
 
                      
-def EVA02_Large14(include_top=True, 
-                  weights='imagenet',
-                  input_tensor=None, 
-                  input_shape=None,
-                  pooling=None,
-                  final_activation="softmax",
-                  classes=1000,
-                  sam_rho=0.0,
-                  norm_eps=1e-6,
-                  drop_rate=0.1):
+def EVA02_L14(include_top=True, 
+              weights='imagenet',
+              input_tensor=None, 
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000,
+              sam_rho=0.0,
+              norm_eps=1e-6,
+              drop_rate=0.1):
 
     model = EVA02(num_layers=24,
                   patch_size=14,
                   num_heads=16,
                   hidden_dim=1024,
+                  use_mlp_norm=True,
+                  include_top=include_top,
+                  weights=weights, 
+                  input_tensor=input_tensor,
+                  input_shape=input_shape,
+                  pooling=pooling, 
+                  final_activation=final_activation,
+                  classes=classes,
+                  sam_rho=sam_rho,
+                  norm_eps=norm_eps,
+                  drop_rate=drop_rate)
+    return model
+
+
+def EVA02_H14(include_top=True, 
+              weights='imagenet',
+              input_tensor=None, 
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000,
+              sam_rho=0.0,
+              norm_eps=1e-6,
+              drop_rate=0.1):
+
+    model = EVA02(num_layers=32,
+                  patch_size=14,
+                  num_heads=16,
+                  hidden_dim=1280,
+                  use_mlp_norm=True,
+                  include_top=include_top,
+                  weights=weights, 
+                  input_tensor=input_tensor,
+                  input_shape=input_shape,
+                  pooling=pooling, 
+                  final_activation=final_activation,
+                  classes=classes,
+                  sam_rho=sam_rho,
+                  norm_eps=norm_eps,
+                  drop_rate=drop_rate)
+    return model
+
+
+def EVA02_G14(include_top=True, 
+              weights='imagenet',
+              input_tensor=None, 
+              input_shape=None,
+              pooling=None,
+              final_activation="softmax",
+              classes=1000,
+              sam_rho=0.0,
+              norm_eps=1e-6,
+              drop_rate=0.1):
+
+    model = EVA02(num_layers=40,
+                  patch_size=14,
+                  num_heads=16,
+                  hidden_dim=1408,
                   use_mlp_norm=True,
                   include_top=include_top,
                   weights=weights, 

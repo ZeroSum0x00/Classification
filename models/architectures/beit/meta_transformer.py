@@ -3,15 +3,33 @@
     - The following table comparing the params of the Explore the limits of Meta-Transformer, base BEiT block
     in Tensorflow on in Tensorflow on size 224 x 224 x 3 for 'Base' variant and 336 x 336 x 3 for 'Large' variant:
 
-       ------------------------------------------------
-      |           Model Name           |    Params     |
-      |------------------------------------------------|
-      |     MetaTransformer-Base-16    |   86,568,424  |
-      |--------------------------------|---------------|
-      |     MetaTransformer-Large-14   |  304,532,456  |
-      |--------------------------------|---------------|
-      |     MetaTransformer-Large-16   |  451,715,848  |
-       ------------------------------------------------
+       --------------------------------------------------
+      |           Model Name           |      Params     |
+      |--------------------------------------------------|
+      |     MetaTransformer-Tiny-14    |     5,645,224   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Tiny-16    |     5,679,784   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Small-14   |    21,906,280   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Small-16   |    21,975,400   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Base-14    |    86,278,888   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Base-16    |    86,417,128   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Large-14   |   303,941,608   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Large-16   |   451,164,232   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Huge-14    |   599,870,344   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Huge-16    |   909,332,968   |
+      |--------------------------------------------------|
+      |     MetaTransformer-Gaint-14   |       -         |
+      |--------------------------------------------------|
+      |     MetaTransformer-Gaint-16   |       -         |
+       --------------------------------------------------
 
   # Reference:
     - [Meta-Transformer: A Unified Framework for Multimodal Learning](https://arxiv.org/pdf/2307.10802.pdf)
@@ -161,16 +179,156 @@ def MetaTransformer(num_layers,
     return model
 
 
-def MetaTransformer_Base16(include_top=True, 
-                           weights='imagenet',
-                           input_tensor=None, 
-                           input_shape=None,
-                           pooling=None,
-                           final_activation="softmax",
-                           classes=1000,
-                           sam_rho=0.0,
-                           norm_eps=1e-6,
-                           drop_rate=0.1):
+def MetaTransformer_T14(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=12,
+                            patch_size=14,
+                            num_heads=3,
+                            hidden_dim=192,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_T16(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=12,
+                            patch_size=16,
+                            num_heads=3,
+                            hidden_dim=192,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_S14(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=12,
+                            patch_size=14,
+                            num_heads=6,
+                            hidden_dim=384,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_S16(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=12,
+                            patch_size=16,
+                            num_heads=6,
+                            hidden_dim=384,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_B14(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=12,
+                            patch_size=14,
+                            num_heads=12,
+                            hidden_dim=768,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_B16(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
 
     model = MetaTransformer(num_layers=12,
                             patch_size=16,
@@ -189,16 +347,16 @@ def MetaTransformer_Base16(include_top=True,
     return model
 
 
-def MetaTransformer_Large14(include_top=True, 
-                            weights='imagenet',
-                            input_tensor=None, 
-                            input_shape=None,
-                            pooling=None,
-                            final_activation="softmax",
-                            classes=1000,
-                            sam_rho=0.0,
-                            norm_eps=1e-6,
-                            drop_rate=0.1):
+def MetaTransformer_L14(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
 
     model = MetaTransformer(num_layers=24,
                             patch_size=14,
@@ -217,21 +375,133 @@ def MetaTransformer_Large14(include_top=True,
     return model
 
 
-def MetaTransformer_Large16(include_top=True, 
-                            weights='imagenet',
-                            input_tensor=None, 
-                            input_shape=None,
-                            pooling=None,
-                            final_activation="softmax",
-                            classes=1000,
-                            sam_rho=0.0,
-                            norm_eps=1e-6,
-                            drop_rate=0.1):
+def MetaTransformer_L16(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
 
     model = MetaTransformer(num_layers=24,
                             patch_size=16,
                             num_heads=24,
                             hidden_dim=1248,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_H14(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=32,
+                            patch_size=14,
+                            num_heads=18,
+                            hidden_dim=1248,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_H16(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=32,
+                            patch_size=16,
+                            num_heads=24,
+                            hidden_dim=1536,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_G14(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=40,
+                            patch_size=14,
+                            num_heads=24,
+                            hidden_dim=1536,
+                            include_top=include_top,
+                            weights=weights, 
+                            input_tensor=input_tensor,
+                            input_shape=input_shape,
+                            pooling=pooling, 
+                            final_activation=final_activation,
+                            classes=classes,
+                            sam_rho=sam_rho,
+                            norm_eps=norm_eps,
+                            drop_rate=drop_rate)
+    return model
+
+
+def MetaTransformer_G16(include_top=True, 
+                        weights='imagenet',
+                        input_tensor=None, 
+                        input_shape=None,
+                        pooling=None,
+                        final_activation="softmax",
+                        classes=1000,
+                        sam_rho=0.0,
+                        norm_eps=1e-6,
+                        drop_rate=0.1):
+
+    model = MetaTransformer(num_layers=40,
+                            patch_size=16,
+                            num_heads=32,
+                            hidden_dim=2048,
                             include_top=include_top,
                             weights=weights, 
                             input_tensor=input_tensor,

@@ -3,15 +3,21 @@
     - The following table comparing the params of the Explore the limits of Flexible Vision Transformer (FlexiViT) base BEiT block
     in Tensorflow on in Tensorflow on size 240 x 240 x 3:
 
-       -----------------------------------------
-      |        Model Name       |    Params     |
-      |-----------------------------------------|
-      |     FlexiViT-Small-16   |   22,061,416  |
-      |-------------------------|---------------|
-      |     FlexiViT-Base-16    |   86,589,160  |
-      |-------------------------|---------------|
-      |     FlexiViT-Large-16   |  304,355,304  |
-       -----------------------------------------
+       -------------------------------------------
+      |        Model Name       |      Params     |
+      |-------------------------------------------|
+      |     FlexiViT-Tiny-16    |     5,679,592   |
+      |-------------------------------------------|
+      |     FlexiViT-Small-16   |    21,975,016   |
+      |-------------------------|-----------------|
+      |     FlexiViT-Base-16    |    86,416,360   |
+      |-------------------------|-----------------|
+      |     FlexiViT-Large-16   |   304,124,904   |
+      |-------------------------------------------|
+      |     FlexiViT-Huge-16    |   600,813,160   |
+      |-------------------------------------------|
+      |     FlexiViT-Gaint-16   |   954,810,856   |
+       -------------------------------------------
 
   # Reference:
     - [FlexiViT: One Model for All Patch Sizes](https://arxiv.org/pdf/2212.08013.pdf)
@@ -160,16 +166,44 @@ def FlexiViT(num_layers,
     return model
 
 
-def FlexiViT_Small16(include_top=True, 
-                     weights='imagenet',
-                     input_tensor=None, 
-                     input_shape=None,
-                     pooling=None,
-                     final_activation="softmax",
-                     classes=1000,
-                     sam_rho=0.0,
-                     norm_eps=1e-6,
-                     drop_rate=0.1):
+def FlexiViT_T16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = FlexiViT(num_layers=12,
+                     patch_size=16,
+                     num_heads=3,
+                     hidden_dim=192,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def FlexiViT_S16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = FlexiViT(num_layers=12,
                      patch_size=16,
@@ -188,16 +222,16 @@ def FlexiViT_Small16(include_top=True,
     return model
 
 
-def FlexiViT_Base16(include_top=True, 
-                    weights='imagenet',
-                    input_tensor=None, 
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    sam_rho=0.0,
-                    norm_eps=1e-6,
-                    drop_rate=0.1):
+def FlexiViT_B16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = FlexiViT(num_layers=12,
                      patch_size=16,
@@ -216,21 +250,77 @@ def FlexiViT_Base16(include_top=True,
     return model
 
 
-def FlexiViT_Large16(include_top=True, 
-                     weights='imagenet',
-                     input_tensor=None, 
-                     input_shape=None,
-                     pooling=None,
-                     final_activation="softmax",
-                     classes=1000,
-                     sam_rho=0.0,
-                     norm_eps=1e-6,
-                     drop_rate=0.1):
+def FlexiViT_L16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
 
     model = FlexiViT(num_layers=24,
                      patch_size=16,
                      num_heads=16,
                      hidden_dim=1024,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def FlexiViT_H16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = FlexiViT(num_layers=32,
+                     patch_size=16,
+                     num_heads=16,
+                     hidden_dim=1248,
+                     include_top=include_top,
+                     weights=weights, 
+                     input_tensor=input_tensor,
+                     input_shape=input_shape,
+                     pooling=pooling, 
+                     final_activation=final_activation,
+                     classes=classes,
+                     sam_rho=sam_rho,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
+    return model
+
+
+def FlexiViT_G16(include_top=True, 
+                 weights='imagenet',
+                 input_tensor=None, 
+                 input_shape=None,
+                 pooling=None,
+                 final_activation="softmax",
+                 classes=1000,
+                 sam_rho=0.0,
+                 norm_eps=1e-6,
+                 drop_rate=0.1):
+
+    model = FlexiViT(num_layers=40,
+                     patch_size=16,
+                     num_heads=16,
+                     hidden_dim=1408,
                      include_top=include_top,
                      weights=weights, 
                      input_tensor=input_tensor,
