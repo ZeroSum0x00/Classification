@@ -15,7 +15,8 @@ class LossHistory(tf.keras.callbacks.Callback):
                  result_path    = None, 
                  max_ratio      = 1.0,
                  save_best      = False,
-                 save_mode      = "model",
+                 save_mode      = "weights",
+                 save_head      = True,
                  run_mode       = "epoch",
                  show_frequency = 1):
         super(LossHistory, self).__init__()
@@ -25,6 +26,7 @@ class LossHistory(tf.keras.callbacks.Callback):
         self.run_mode           = run_mode
         self.save_best          = save_best
         self.save_mode          = save_mode
+        self.save_head          = save_head
         self.show_frequency     = show_frequency
         self.train_loss_list    = []
         self.valid_loss_list    = []
@@ -35,8 +37,8 @@ class LossHistory(tf.keras.callbacks.Callback):
         os.makedirs(self.weight_path, exist_ok=True)
         os.makedirs(self.summary_path, exist_ok=True)
         
-        if self.save_mode not in ["model", "weight"]:
-            raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weight"].')
+        if self.save_mode not in ["model", "weights"]:
+            raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weights"].')
 
     def call_calc_loss(self, iters, logs):
         train_loss = logs.get('loss')
@@ -103,11 +105,11 @@ class LossHistory(tf.keras.callbacks.Callback):
                 if self.save_mode == "model":
                     weight_path = os.path.join(self.weight_path, f"best_train_los.keras")
                     logger.info(f'Save best train loss model to {weight_path}')
-                    self.model.save_model(weight_path)
-                elif self.save_mode == "weight":
+                    self.model.save_model(weight_path, save_head=self.save_head)
+                elif self.save_mode == "weights":
                     weight_path = os.path.join(self.weight_path, f"best_train_los.weights.h5")
                     logger.info(f'Save best train loss weights to {weight_path}')
-                    self.model.save_weights(weight_path)
+                    self.model.save_weights(weight_path, save_head=self.save_head)
                     
             if valid_loss < self.current_valid_loss and valid_loss < self.max_ratio:
                 logger.info(f'Validation loss score increase {self.current_valid_loss:.2f}% to {valid_loss:.2f}%')
@@ -115,11 +117,11 @@ class LossHistory(tf.keras.callbacks.Callback):
                 if self.save_mode == "model":
                     weight_path = os.path.join(self.weight_path, f"best_valid_loss.keras")
                     logger.info(f'Save best validation loss model to {weight_path}')
-                    self.model.save_model(weight_path)
-                elif self.save_mode == "weight":
+                    self.model.save_model(weight_path, save_head=self.save_head)
+                elif self.save_mode == "weights":
                     weight_path = os.path.join(self.weight_path, f"best_valid_loss.weights.h5")
                     logger.info(f'Save best validation loss weights to {weight_path}')
-                    self.model.save_weights(weight_path)
+                    self.model.save_weights(weight_path, save_head=self.save_head)
                 
     def on_epoch_end(self, epoch, logs=None):
         accept_type = ['epoch']

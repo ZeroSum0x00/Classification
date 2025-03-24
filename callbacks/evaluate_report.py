@@ -17,7 +17,8 @@ class Evaluate(tf.keras.callbacks.Callback):
                  sample_weight  = None,
                  min_ratio      = 0.2,
                  save_best      = True,
-                 save_mode      = "model",
+                 save_mode      = "weights",
+                 save_head      = True,
                  show_frequency = 100):
         super(Evaluate, self).__init__()
         self.result_path    = result_path
@@ -25,14 +26,15 @@ class Evaluate(tf.keras.callbacks.Callback):
         self.min_ratio      = min_ratio
         self.save_best      = save_best
         self.save_mode      = save_mode
+        self.save_head      = save_head
         self.show_frequency = show_frequency
         self.epoches        = [0]
         self.metric_values  = [0]
         self.current_value  = 0.0
         self.eval_dataset   = None
         
-        if self.save_mode not in ["model", "weight"]:
-            raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weight"].')
+        if self.save_mode not in ["model", "weights"]:
+            raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weights"].')
 
     def pass_data(self, data):
         self.eval_dataset = data
@@ -72,11 +74,11 @@ class Evaluate(tf.keras.callbacks.Callback):
                         if self.save_mode == "model":
                             weight_path = os.path.join(self.result_path, "weights", "best_eval_acc.keras")
                             logger.info(f'Save best evaluate accuracy model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(self.result_path, "weights", "best_eval_acc.weights.h5")
                             logger.info(f'Save best evaluate accuracy weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
                         
                 self.epoches.append(temp_epoch)
                 with open(os.path.join(self.result_path, 'summary', "best_eval_acc.txt"), 'a') as f:

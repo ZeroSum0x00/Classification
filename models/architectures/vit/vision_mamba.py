@@ -28,7 +28,7 @@ from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import (ExtractPatches, SSM, SAMModel,
+from models.layers import (ExtractPatches, SSM, SAMModel, ReduceWrapper,
                            get_activation_from_name, get_normalizer_from_name)
 from utils.model_processing import _obtain_input_shape
 
@@ -156,9 +156,9 @@ def ViM(dim=256,
                               d_state=d_state,
                               activation=activation,
                               norm_layer=norm_layer,
-                              name=f'VisionMamba/encoderblock_{n}')(x)
+                              name=f'VisionMamba.encoderblock_{n}')(x)
 
-    x = tf.reduce_mean(x, axis=1)
+    x = ReduceWrapper(reduce_mode="mean", axis=1)(x)
     x = get_normalizer_from_name(norm_layer)(x)
 
     if include_top:

@@ -67,9 +67,10 @@ class WindowAttention(tf.keras.layers.Layer):
         self.pretrained_window_size = (pretrained_window_size, pretrained_window_size) if isinstance(pretrained_window_size, int) else pretrained_window_size
 
     def build(self, input_shape):
-        initial_logic_value = tf.math.log(10 * tf.ones(shape=(self.num_heads, 1, 1), dtype=tf.float32))
+        with tf.init_scope():
+            initial_logic_value = tf.math.log(10 * tf.ones(shape=(self.num_heads, 1, 1), dtype=tf.float32))
         # self.logit_scale = self.add_weight(
-        #     f'attn/logit_scale',
+        #     'attn/logit_scale',
         #     shape=(self.num_heads, 1, 1),
         #     initial_value = initial_logic_value,
         #     trainable   = True
@@ -77,7 +78,7 @@ class WindowAttention(tf.keras.layers.Layer):
         self.logit_scale = tf.Variable(
             initial_value = initial_logic_value, 
             trainable     = True, 
-            name          = f'attn/logit_scale'
+            name          = 'attn.logit_scale'
         )
 
         # mlp to generate continuous relative position bias
@@ -88,53 +89,56 @@ class WindowAttention(tf.keras.layers.Layer):
         ])
 
         # get relative_coords_table
-        relative_coords_h = np.arange(-(self.window_size[0] - 1), self.window_size[0], dtype=np.float32)
-        relative_coords_w = np.arange(-(self.window_size[1] - 1), self.window_size[1], dtype=np.float32)
-        relative_coords_hw, relative_coords_ww = np.meshgrid(relative_coords_h, relative_coords_w, indexing='ij')
-        relative_coords_table = np.expand_dims(np.stack([relative_coords_hw, relative_coords_ww]).transpose([1, 2, 0]), axis=0)
-        if self.pretrained_window_size[0] > 0:
-            relative_coords_table[:, :, :, 0] /= (self.pretrained_window_size[0] - 1)
-            relative_coords_table[:, :, :, 1] /= (self.pretrained_window_size[1] - 1)
-        else:
-            relative_coords_table[:, :, :, 0] /= (self.window_size[0] - 1)
-            relative_coords_table[:, :, :, 1] /= (self.window_size[1] - 1)
-        relative_coords_table *= 8  # normalize to -8, 8
-        relative_coords_table = tf.math.sign(relative_coords_table) * np.log2(tf.math.abs(relative_coords_table) + 1.0) / np.log2(8)          # *
+        with tf.init_scope():
+            relative_coords_h = np.arange(-(self.window_size[0] - 1), self.window_size[0], dtype=np.float32)
+            relative_coords_w = np.arange(-(self.window_size[1] - 1), self.window_size[1], dtype=np.float32)
+            relative_coords_hw, relative_coords_ww = np.meshgrid(relative_coords_h, relative_coords_w, indexing='ij')
+            relative_coords_table = np.expand_dims(np.stack([relative_coords_hw, relative_coords_ww]).transpose([1, 2, 0]), axis=0)
+            if self.pretrained_window_size[0] > 0:
+                relative_coords_table[:, :, :, 0] /= (self.pretrained_window_size[0] - 1)
+                relative_coords_table[:, :, :, 1] /= (self.pretrained_window_size[1] - 1)
+            else:
+                relative_coords_table[:, :, :, 0] /= (self.window_size[0] - 1)
+                relative_coords_table[:, :, :, 1] /= (self.window_size[1] - 1)
+            relative_coords_table *= 8  # normalize to -8, 8
+            relative_coords_table = tf.math.sign(relative_coords_table) * np.log2(tf.math.abs(relative_coords_table) + 1.0) / np.log2(8)          # *
         self.relative_coords_table = tf.Variable(
-            initial_value=relative_coords_table, trainable=False, name=f'attn/relative_coords_table'
+            initial_value=relative_coords_table, trainable=False, name=f'attn.relative_coords_table'
         )
 
-        coords_h        = np.arange(self.window_size[0])
-        coords_w        = np.arange(self.window_size[1])
-        coords          = np.stack(np.meshgrid(coords_h, coords_w, indexing='ij'))
-        coords_flatten  = coords.reshape(2, -1)
-        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
-        relative_coords = relative_coords.transpose([1, 2, 0])
-        relative_coords[:, :, 0] += self.window_size[0] - 1
-        relative_coords[:, :, 1] += self.window_size[1] - 1
-        relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
-        relative_position_index = relative_coords.sum(-1).astype(np.int64)
-        relative_position_tensor = tf.convert_to_tensor(relative_position_index)
+        with tf.init_scope():
+            coords_h        = np.arange(self.window_size[0])
+            coords_w        = np.arange(self.window_size[1])
+            coords          = np.stack(np.meshgrid(coords_h, coords_w, indexing='ij'))
+            coords_flatten  = coords.reshape(2, -1)
+            relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
+            relative_coords = relative_coords.transpose([1, 2, 0])
+            relative_coords[:, :, 0] += self.window_size[0] - 1
+            relative_coords[:, :, 1] += self.window_size[1] - 1
+            relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
+            relative_position_index = relative_coords.sum(-1).astype(np.int64)
+            relative_position_tensor = tf.convert_to_tensor(relative_position_index)
         self.relative_position_index = tf.Variable(
-            initial_value=relative_position_tensor, trainable=False, name=f'attn/relative_position_index'
+            initial_value=relative_position_tensor, trainable=False, name='attn.relative_position_index'
         )
 
         if self.qkv_bias:
             q_bias = self.add_weight(
-                f'attn/q_bias',
-                shape       = (self.dim),
+                name        = 'attn.q_bias',
+                shape       = (self.dim,),
                 initializer = tf.initializers.zeros(),
                 trainable   = True
             )
-            k_init = tf.zeros_initializer()
-            k_bias = tf.Variable(
-                initial_value = k_init(shape=(self.dim), dtype=tf.float32), 
-                trainable     = False, 
-                name          = f'attn/k_bias'
-            )
+            with tf.init_scope():
+                k_init = tf.zeros_initializer()
+                k_bias = tf.Variable(
+                    initial_value = k_init(shape=(self.dim,), dtype=tf.float32), 
+                    trainable     = False, 
+                    name          = 'attn.k_bias'
+                )
             v_bias = self.add_weight(
-                f'attn/v_bias',
-                shape       = (self.dim),
+                name        = 'attn.v_bias',
+                shape       = (self.dim,),
                 initializer = tf.initializers.zeros(),
                 trainable   = True
             )

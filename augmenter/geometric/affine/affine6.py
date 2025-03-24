@@ -8,7 +8,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from ..resize import INTER_MODE
 
 
-def affine6(image, anglez=0, translate=(0, 0), scale=(1, 1), shear=0, resample='BILINEAR', fillcolor=(0, 0, 0)):
+def affine6(image, anglez=0, translate=(0, 0), scale=(1, 1), shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
     assert isinstance(translate, (tuple, list)) and len(translate) == 2, \
         "Argument translate should be a list or tuple of length 2"
 
@@ -51,9 +51,9 @@ def affine6(image, anglez=0, translate=(0, 0), scale=(1, 1), shear=0, resample='
     dst_img = cv2.warpAffine(image, 
                              affine_matrix, 
                              (cols, rows), 
-                             flags=INTER_MODE[resample],
+                             flags=INTER_MODE[interpolation],
                              borderMode=cv2.BORDER_CONSTANT, 
-                             borderValue=fillcolor)
+                             borderValue=fill_color)
     if gray_scale:
         dst_img = cv2.cvtColor(dst_img, cv2.COLOR_RGB2GRAY)
     return dst_img.astype(imgtype)
@@ -76,20 +76,20 @@ class Affine6(BaseTransform):
         shear (sequence or float or int): Range of shear to select from.
             If degrees is a number instead of sequence like (min, max), the range of degrees
             will be (-shear, +shear). Set to 0 to desactivate shear.
-        resample ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
-        fillcolor (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
+        interpolation ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
+        fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
 
-    def __init__(self, anglez, translate=(0, 0), scale=1, shear=0, resample='BILINEAR', fillcolor=(0, 0, 0)):
-        self.anglez    = anglez
-        self.translate = translate
-        self.scale     = scale
-        self.shear     = shear
-        self.resample  = resample
-        self.fillcolor = fillcolor
+    def __init__(self, anglez, translate=(0, 0), scale=1, shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
+        self.anglez        = anglez
+        self.translate     = translate
+        self.scale         = scale
+        self.shear         = shear
+        self.interpolation = interpolation
+        self.fill_color    = fill_color
 
     def image_transform(self, image):
-        return affine6(image, self.anglez, self.translate, self.scale, self.shear, self.resample, self.fillcolor)
+        return affine6(image, self.anglez, self.translate, self.scale, self.shear, self.interpolation, self.fill_color)
 
 
 class RandomAffine6(BaseRandomTransform):
@@ -109,11 +109,11 @@ class RandomAffine6(BaseRandomTransform):
         shear (sequence or float or int): Range of shear to select from.
             If degrees is a number instead of sequence like (min, max), the range of degrees
             will be (-shear, +shear). Set to 0 to desactivate shear.
-        resample ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
-        fillcolor (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
+        interpolation ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
+        fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
     
-    def __init__(self, anglez=0, translate=(0, 0), scale=(1, 1), shear=0, resample='BILINEAR', fillcolor=(0, 0, 0), prob=0.5):
+    def __init__(self, anglez=0, translate=(0, 0), scale=(1, 1), shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0), prob=0.5):
         if isinstance(anglez, numbers.Number):
             if anglez < 0:
                 raise ValueError("If anglez is a single number, it must be positive.")
@@ -148,9 +148,9 @@ class RandomAffine6(BaseRandomTransform):
                 "shear should be a list or tuple and it must be of length 2."
             self.shear = shear
             
-        self.resample  = resample
-        self.fillcolor = fillcolor
-        self.prob      = prob
+        self.interpolation = interpolation
+        self.fill_color    = fill_color
+        self.prob          = prob
 
     @staticmethod
     def get_params(img_size, anglez_range=(0, 0), translate=(0, 0), scale_ranges=(1, 1), shear_range=(0, 0)):
@@ -168,4 +168,4 @@ class RandomAffine6(BaseRandomTransform):
 
     def image_transform(self, image):
         ret = self.get_params(self.anglez, self.translate, self.scale, self.shear, image.shape)
-        return affine6(image, *ret, resample=self.resample, fillcolor=self.fillcolor)
+        return affine6(image, *ret, interpolation=self.interpolation, fill_color=self.fill_color)

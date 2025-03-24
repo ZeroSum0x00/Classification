@@ -38,7 +38,7 @@ from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import add
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_normalizer_from_name
+from models.layers import SplitWrapper, get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import _obtain_input_shape
 
 
@@ -60,7 +60,7 @@ def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26,
     x = get_normalizer_from_name(normalizer, name=f'{name}.pre_norm')(x)
     x = get_activation_from_name(activation, name=f'{name}.pre_activ')(x)
     
-    spx = tf.split(x, scale, axis=-1)
+    spx = SplitWrapper(num_or_size_splits=scale, axis=-1)(x)
     for i in range(nums):
         
         if i == 0 or downsample:

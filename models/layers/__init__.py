@@ -5,6 +5,7 @@ from .activations import (get_activation_from_name,
                           GELUQuick, GELULinear, 
                           AconC, MetaAconC, ELSA)
 from .normalizers import get_normalizer_from_name
+from .adaptive_average_pooling2d import AdaptiveAvgPooling2D
 from .stochastic_depth import (DropPath,
                                StochasticDepth, StochasticDepth2)
 from .channel_affine import ChannelAffine
@@ -22,3 +23,4 @@ from .transformer import (MLPBlock, ExtractPatches, ClassificationToken, CausalM
 from .repblock import RepVGGBlock, QARepVGGBlockV1, QARepVGGBlockV2
 from .sam_model import SAMModel
 from .selective_scan_model import SSM
+from .wrapper import *

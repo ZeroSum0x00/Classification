@@ -43,7 +43,9 @@ from tensorflow.keras.layers import multiply
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.utils import get_source_inputs, get_file
 
-from models.layers import get_activation_from_name, get_normalizer_from_name, DropPath, MLPBlock, SAMModel
+from models.layers import (OperatorWrapper, UnstackWrapper, DropPath,
+                           MLPBlock, SAMModel,
+                           get_activation_from_name, get_normalizer_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
@@ -64,8 +66,10 @@ def phase_aware_token_mixing(inputs, out_dim=-1, qkv_bias=False, output_dropout=
                     use_bias=qkv_bias,
                     name=name and name + "height_")(inputs)
 
-    height_cos = multiply([height, tf.cos(theta_h)])
-    height_sin = multiply([height, tf.sin(theta_h)])
+    theta_cos  = OperatorWrapper(operator="cos")(theta_h)
+    height_cos = multiply([height, theta_cos])
+    theta_sin  = OperatorWrapper(operator="sin")(theta_h)
+    height_sin = multiply([height, theta_sin])
     height = concatenate([height_cos, height_sin], axis=-1)
     height = Conv2D(filters=out_dim,
                     kernel_size=(1, 7),
@@ -89,8 +93,10 @@ def phase_aware_token_mixing(inputs, out_dim=-1, qkv_bias=False, output_dropout=
                    use_bias=qkv_bias,
                    name=name and name + "width_")(inputs)
 
-    width_cos = multiply([width, tf.cos(theta_w)])
-    width_sin = multiply([width, tf.sin(theta_w)])
+    theta_cos = OperatorWrapper(operator="cos")(theta_w)
+    width_cos = multiply([width, theta_cos])
+    theta_sin = OperatorWrapper(operator="sin")(theta_w)
+    width_sin = multiply([width, theta_sin])
 
     width = concatenate([width_cos, width_sin], axis=-1)
     width = Conv2D(filters=out_dim,
@@ -116,7 +122,8 @@ def phase_aware_token_mixing(inputs, out_dim=-1, qkv_bias=False, output_dropout=
                   name=name and name + "reweight_")(nn)
     nn = Reshape([1, 1, out_dim, 3])(nn)
     nn = Softmax(axis=-1, name=name and name + "attention_scores")(nn)
-    attn_height, attn_width, attn_channel = tf.unstack(nn, axis=-1)
+    
+    attn_height, attn_width, attn_channel = UnstackWrapper(axis=-1)(nn)
     attn_height = multiply([height, attn_height])
     attn_width = multiply([width, attn_width])
     attn_channel = multiply([channel, attn_channel])

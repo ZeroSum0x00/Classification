@@ -256,11 +256,10 @@ class BottleRep(CustomLayer):
             self.shortcut = True
             
         if self.scale_weight:
-            alpha_init = tf.ones_initializer()
-            self.alpha = tf.Variable(name="BottleRep/alpha",
-                                     initial_value=alpha_init(shape=(1,),
-                                     dtype=tf.float32),
-                                     trainable=True)
+            with tf.init_scope():
+                self.alpha = tf.Variable(name="BottleRep.alpha",
+                                         initial_value=tf.ones((1,), dtype=tf.float32),
+                                         trainable=True)
         else:
             self.alpha = 1.0
             
@@ -311,11 +310,10 @@ class BottleRep3(CustomLayer):
             self.shortcut = True
             
         if self.scale_weight:
-            alpha_init = tf.ones_initializer()
-            self.alpha = tf.Variable(name="BottleRep/alpha",
-                                     initial_value=alpha_init(shape=(1,),
-                                     dtype=tf.float32),
-                                     trainable=True)
+            with tf.init_scope():
+                self.alpha = tf.Variable(name="BottleRep.alpha",
+                                         initial_value=tf.ones((1,), dtype=tf.float32),
+                                         trainable=True)
         else:
             self.alpha = 1.0
             

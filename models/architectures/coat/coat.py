@@ -38,6 +38,7 @@ from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import Permute
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import concatenate
@@ -45,7 +46,8 @@ from tensorflow.keras.layers import add
 
 from tensorflow.keras.utils import get_source_inputs, get_file
 
-from models.layers import ClassToken, get_normalizer_from_name, get_activation_from_name
+from models.layers import (SplitWrapper, TransposeWrapper, ResizeWrapper,
+                           ClassToken, get_normalizer_from_name, get_activation_from_name)
 from utils.model_processing import _obtain_input_shape
 
 
@@ -72,11 +74,11 @@ class ConvPositionalEncoding(tf.keras.layers.Layer):
 
     def call(self, inputs, training=False):
         cls_token, img_token = inputs[:, :1], inputs[:, 1:]
-        img_token = tf.reshape(img_token, [-1, self.height, self.width, self.channel])
+        img_token = Reshape(target_shape=[self.height, self.width, self.channel])(img_token)
         x = tf.pad(img_token, self.pad)
         x = self.dconv(x, training=training)
         x = add([x, img_token])
-        x = tf.reshape(x, [-1, self.height * self.width, self.channel])
+        x = Reshape(target_shape=[self.height * self.width, self.channel])(x)
         x = concatenate([cls_token, x], axis=1)
         return x
 
@@ -135,10 +137,14 @@ def factor_attention_conv_relative_positional_encoding(inputs, shared_crpe=None,
     qk_scale = 1.0 / (float(key_dim) ** 0.5)
 
     qkv = Dense(dim * 3, use_bias=qkv_bias, name=name + "qkv")(inputs)
-    qq, kk, vv = tf.split(qkv, 3, axis=-1)
-    qq = tf.transpose(tf.reshape(qq, [-1, blocks, num_heads, key_dim]), [0, 2, 1, 3])
-    kk = tf.transpose(tf.reshape(kk, [-1, blocks, num_heads, key_dim]), [0, 2, 3, 1])
-    vv = tf.transpose(tf.reshape(vv, [-1, blocks, num_heads, key_dim]), [0, 2, 1, 3])
+    qq, kk, vv = SplitWrapper(num_or_size_splits=3, axis=-1)(qkv)
+
+    qq = Reshape(target_shape=[blocks, num_heads, key_dim])(qq)
+    qq = TransposeWrapper(perm=[0, 2, 1, 3])(qq)
+    kk = Reshape(target_shape=[blocks, num_heads, key_dim])(kk)
+    kk = TransposeWrapper(perm=[0, 2, 3, 1])(kk)
+    vv = Reshape(target_shape=[blocks, num_heads, key_dim])(vv)
+    vv = TransposeWrapper(perm=[0, 2, 1, 3])(vv)
 
     # Factorized attention.
     kk = get_activation_from_name('softmax')(kk)  # On `blocks` dimension
@@ -150,7 +156,7 @@ def factor_attention_conv_relative_positional_encoding(inputs, shared_crpe=None,
     # Merge and reshape.
     nn = add([factor_att * qk_scale, crpe_out])
     nn = Permute([2, 1, 3])(nn)
-    nn = Reshape([blocks, dim])(nn)
+    nn = Reshape(target_shape=[blocks, dim])(nn)
     nn = Dense(dim, name=name + "out")(nn)
     return nn
 
@@ -185,10 +191,10 @@ def serial_block(inputs, embed_dim, shared_cpe=None, shared_crpe=None, num_heads
 
 
 def resample(image, target_shape, class_token=None):
-    out_image = tf.image.resize(image, target_shape, method="bilinear")
+    out_image = ResizeWrapper(size=target_shape, method="bilinear")(image)
 
     if class_token is not None:
-        out_image = tf.reshape(out_image, [-1, out_image.shape[1] * out_image.shape[2], out_image.shape[-1]])
+        out_image = Reshape(target_shape=[out_image.shape[1] * out_image.shape[2], out_image.shape[-1]])(out_image)
         return concatenate([class_token, out_image], axis=1)
     else:
         return out_image
@@ -205,7 +211,8 @@ def parallel_block(inputs, shared_cpes=None, shared_crpes=None, block_heights=[]
         crpe_outs.append(crpe_out)
         height = block_heights[id] if len(block_heights) > id else int(float(crpe_out.shape[1] - 1) ** 0.5)
         width = (crpe_out.shape[1] - 1) // height
-        crpe_images.append(tf.reshape(crpe_out[:, 1:, :], [-1, height, width, crpe_out.shape[-1]]))
+        reshaped_crpe_out = Reshape(target_shape=[height, width, crpe_out.shape[-1]])(crpe_out[:, 1:, :])
+        crpe_images.append(reshaped_crpe_out)
         resample_shapes.append([height, width])
     crpe_stack = [
         crpe_outs[0] + resample(crpe_images[1], resample_shapes[0], crpe_outs[1][:, :1]) + resample(crpe_images[2], resample_shapes[0], crpe_outs[2][:, :1]),

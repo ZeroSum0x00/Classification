@@ -37,15 +37,17 @@ from tensorflow.keras.layers import Embedding
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.layers import GlobalMaxPooling2D
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.initializers import RandomUniform, TruncatedNormal
 from tensorflow.keras.utils import get_source_inputs, get_file
 
-from models.layers import (get_activation_from_name, get_normalizer_from_name, 
+from models.layers import (get_activation_from_name, get_normalizer_from_name,
                            ClassToken, PositionalIndex, SAMModel,
                            PatchConv2DWithResampleWeights, PositionalEmbedding,
-                           EnhanceSelfAttention, AttentionMLPBlock)
+                           EnhanceSelfAttention, AttentionMLPBlock,
+                           ReduceWrapper)
 from utils.model_processing import _obtain_input_shape, drop_connect_rates_split
 
 
@@ -190,9 +192,10 @@ def BEiT(vocab_size=0,  # [Text model] Set value > 0 for building text model
         x = get_normalizer_from_name('layer-norm', axis=-1, epsilon=norm_eps, name="out_ln")(x)
     elif use_cat_head:  # DINOv2
         x = get_normalizer_from_name('layer-norm', axis=-1, epsilon=norm_eps, name="out_ln")(x)
-        x = tf.concat([x[:, 0], tf.reduce_mean(x[:, 1:, :], axis=1)], axis=-1)
+        x_mean = ReduceWrapper(reduce_mode="mean", axis=1)(x[:, 1:, :])
+        x = Concatenate(axis=-1)([x[:, 0], x_mean])
     elif use_mean_pooling_head:
-        x = tf.reduce_mean(x[:, 1:, :], axis=1)
+        x = ReduceWrapper(reduce_mode="mean", axis=1)(x[:, 1:, :])
         x = get_normalizer_from_name('layer-norm', axis=-1, epsilon=norm_eps, name="out_ln")(x)
     else:  # FlexiViT
         x = get_normalizer_from_name('layer-norm', axis=-1, epsilon=norm_eps, name="out_ln")(x)

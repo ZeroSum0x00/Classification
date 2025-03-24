@@ -38,18 +38,19 @@ class SSM(tf.keras.layers.Layer):
         self.deltaBC_layer = Dense(self.dt_rank + 2 * self.d_state, use_bias=False)
         self.dt_proj_layer = Dense(self.dim_inner)
 
-        A_value = tf.range(1, self.d_state + 1, delta=1, dtype=tf.float32)
-        A_value = tf.expand_dims(A_value, axis=0)
-        A_value = tf.repeat(A_value, repeats=256, axis=0)
-        A_value = tf.math.log(A_value)
+        with tf.init_scope():
+            A_value = tf.range(1, self.d_state + 1, delta=1, dtype=tf.float32)
+            A_value = tf.expand_dims(A_value, axis=0)
+            A_value = tf.repeat(A_value, repeats=256, axis=0)
+            A_value = tf.math.log(A_value)
         self.A_log = tf.Variable(
             initial_value = A_value,
             trainable     = True,
-            name          = f'ssm/A_log'
+            name          = 'ssm.A_log'
         )
         self.D = self.add_weight(
-            f'ssm/D',
-            shape       = (self.dim_inner),
+            name        = 'ssm.D',
+            shape       = (self.dim_inner,),
             initializer = tf.initializers.ones(),
             trainable   = True
         )

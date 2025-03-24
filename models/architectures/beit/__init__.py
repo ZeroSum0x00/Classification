@@ -14,3 +14,4 @@ from .vit_beit import (ViT_BEiT, ViT_BEiT_Tiny16,
                        ViT_BEiT_Base32, ViT_BEiT_Large14,
                        ViT_BEiT_Large16, ViT_BEiT_Large32,
                        ViT_BEiT_Huge14, ViT_BEiT_Huge16, ViT_BEiT_Huge32)
+from .vit_text import ViT_Text_Large14

@@ -114,7 +114,7 @@ def DeiT(attention_block=None,
                                 activation=activation,
                                 norm_eps=norm_eps,
                                 drop_rate=drop_rate,
-                                name=f"Transformer/encoderblock_{n}")(x)
+                                name=f"Transformer.encoderblock_{n}")(x)
 
     x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="Transformer/encoder_norm")(x)
     x_head = Lambda(lambda v: v[:, 0], name="Extract_Predict_Token")(x)

@@ -120,7 +120,9 @@ def ViT_Text_Large14(vocab_size=49408,
                      norm_eps=1e-6,
                      drop_rate=0.1):
 
-    model = ViT_Text(num_layers=12,
+    model = ViT_Text(vocab_size=vocab_size,
+                     max_block_size=max_block_size,
+                     num_layers=12,
                      patch_size=14,
                      num_heads=12,
                      hidden_dim=768,

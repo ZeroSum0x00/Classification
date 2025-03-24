@@ -68,21 +68,21 @@ class RandomCrop(BaseRandomTransform):
             respectively.
         pad_if_needed (boolean): It will pad the image if smaller than the
             desired size to avoid raising an exception.
-        fill (number or tuple or dict, optional): Pixel fill value used when 
+        fill_color (number or tuple or dict, optional): Pixel fill_color value used when 
             the padding_mode is constant. Default is 0. If a tuple of length 3, 
-            it is used to fill R, G, B channels respectively.
+            it is used to fill_color R, G, B channels respectively.
         padding_mode (str, optional): Type of padding. Should be: constant, 
         edge, reflect or symmetric. Default is constant.
     """
 
-    def __init__(self, size, padding=0, pad_if_needed=False, fill=0, padding_mode='constant', prob=0.5):
+    def __init__(self, size, padding=0, pad_if_needed=False, fill_color=0, padding_mode='constant', prob=0.5):
         if isinstance(size, numbers.Number):
             self.size      = (int(size), int(size))
         else:
             self.size      = size
         self.padding       = padding
         self.pad_if_needed = pad_if_needed
-        self.fill          = fill
+        self.fill_color    = fill_color
         self.padding_mode  = padding_mode
         self.prob          = prob
 
@@ -105,15 +105,15 @@ class RandomCrop(BaseRandomTransform):
 
     def image_transform(self, image):
         if self.padding > 0:
-            image = pad(image, self.padding, fill=self.fill, padding_mode=self.padding_mode)
+            image = pad(image, self.padding, fill_color=self.fill_color, padding_mode=self.padding_mode)
 
         # pad the width if needed
         if self.pad_if_needed and image.shape[1] < self.size[1]:
-            image = pad(image, (int((1 + self.size[1] - image.shape[1]) / 2), 0), fill=self.fill, padding_mode=self.padding_mode)
+            image = pad(image, (int((1 + self.size[1] - image.shape[1]) / 2), 0), fill_color=self.fill_color, padding_mode=self.padding_mode)
 
         # pad the height if needed
         if self.pad_if_needed and image.shape[0] < self.size[0]:
-            image = pad(image, (0, int((1 + self.size[0] - image.shape[0]) / 2)), fill=self.fill, padding_mode=self.padding_mode)
+            image = pad(image, (0, int((1 + self.size[0] - image.shape[0]) / 2)), fill_color=self.fill_color, padding_mode=self.padding_mode)
 
         top, left, height, width = self.get_params(image, self.size)
         return crop(image, top, left, height, width)

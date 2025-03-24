@@ -14,13 +14,18 @@ class MetricHistory(tf.keras.callbacks.Callback):
                  result_path = None,
                  min_ratio   = 0.2,
                  save_best   = False,
-                 save_mode   = "model"):
+                 save_mode   = "weights",
+                 save_head   = True):
         super(MetricHistory, self).__init__()
         self.result_path       = result_path
         self.min_ratio         = min_ratio
         self.save_best         = save_best
         self.save_mode         = save_mode
+        self.save_head         = save_head
         self.metric_infomation = {}
+        
+        if self.save_mode not in ["model", "weights"]:
+            raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weights"].')
 
     def on_epoch_end(self, epoch, logs={}):
         save_weight_path = os.path.join(self.result_path, 'weights')
@@ -102,11 +107,11 @@ class MetricHistory(tf.keras.callbacks.Callback):
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.keras")
                             logger.info(f'Save best train {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.weights.h5")
                             logger.info(f'Save best train {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
 
                     if valid_value and valid_value > self.metric_infomation[metric_name]['valid_value'] and valid_value > self.min_ratio:
                         logger.info(f"Validation {metric_name} score increase {self.metric_infomation[metric_name]['valid_value']:.4f} to {valid_value:.4f}")
@@ -115,33 +120,33 @@ class MetricHistory(tf.keras.callbacks.Callback):
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.keras")
                             logger.info(f'Save best validation {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.weights.h5")
                             logger.info(f'Save best validation {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
 
                     if train_value == 1.0 and valid_value and valid_value > self.metric_infomation[metric_name]['valid_value']:
                         logger.info(f'Train {metric_name} is maximum, but validation {metric_name} increase to {valid_value:.4f}')
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.keras")
                             logger.info(f'Save best train {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.weights.h5")
                             logger.info(f'Save best train {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
 
                     if valid_value == 1.0 and valid_value and train_value > self.metric_infomation[metric_name]['train_value']:
                         logger.info(f'Validation {metric_name} is maximum, but train {metric_name} increase to {train_value:.4f}')
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.keras")
                             logger.info(f'Save best validation {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.weights.h5")
                             logger.info(f'Save best validation {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
 
                 elif metric_type == "decrease":
                     if train_value < self.metric_infomation[metric_name]['train_value'] and train_value < self.min_ratio:
@@ -153,11 +158,11 @@ class MetricHistory(tf.keras.callbacks.Callback):
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.keras")
                             logger.info(f'Save best train {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.weights.h5")
                             logger.info(f'Save best train {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
 
                     if valid_value and valid_value < self.metric_infomation[metric_name]['valid_value'] and valid_value < self.min_ratio:
                         if epoch == 0:
@@ -168,30 +173,30 @@ class MetricHistory(tf.keras.callbacks.Callback):
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.keras")
                             logger.info(f'Save best validation {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.weights.h5")
                             logger.info(f'Save best validation {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
 
                     if train_value == 0.0 and valid_value and valid_value < self.metric_infomation[metric_name]['valid_value']:
                         logger.info(f'Train {metric_name} is minimum, but validation {metric_name} decrease to {valid_value:.4f}')
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.keras")
                             logger.info(f'Save best train {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.weights.h5")
                             logger.info(f'Save best train {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)
 
                     if valid_value == 0.0 and valid_value and train_value < self.metric_infomation[metric_name]['train_value']:
                         logger.info(f'Validation {metric_name} is minimum, but train {metric_name} decrease to {train_value:.4f}')
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.keras")
                             logger.info(f'Save best validation {metric_name} model to {weight_path}')
-                            self.model.save_model(weight_path)
-                        elif self.save_mode == "weight":
+                            self.model.save_model(weight_path, save_head=self.save_head)
+                        elif self.save_mode == "weights":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.weights.h5")
                             logger.info(f'Save best validation {metric_name} weights to {weight_path}')
-                            self.model.save_weights(weight_path)
+                            self.model.save_weights(weight_path, save_head=self.save_head)

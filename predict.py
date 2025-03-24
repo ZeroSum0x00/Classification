@@ -86,6 +86,10 @@ def parse_args():
         help="Path to the model configuration YAML file. Default: ./configs/test/model.yaml"
     )
     parser.add_argument(
+        "--classes", type=str, default=None,
+        help="Path to the define classes file. Default: ./configs/test/classes.names"
+    )
+    parser.add_argument(
         "--weight_path", type=str, default=None,
         help="Path to the pre-trained weight file (optional). Default: None"
     )
@@ -99,20 +103,30 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    engine_config = load_config(args.engine_config)
-    data_config   = engine_config['Dataset']
-    model_config  = load_config(args.model_config)['Model']
+    model_config = None
+    classes = None
+    
+    if not args.weight_path.endswith(".keras"):
+        engine_config = load_config(args.engine_config)
+        data_config   = engine_config['Dataset']
+        model_config  = load_config(args.model_config)['Model']
 
-    saved_weight_path = os.path.dirname(os.path.dirname(args.weight_path))
-    class_file = os.path.join(saved_weight_path, "classes.names")
-    if os.path.isfile(class_file):
-        classes, num_classes = get_labels(class_file)
-    else:
-        if os.path.isdir(data_config['data_dir']):
-            classes, num_classes = get_labels(data_config['data_dir'])
+        if not args.classes:
+            saved_weight_path = os.path.dirname(os.path.dirname(args.weight_path))
+            class_file = os.path.join(saved_weight_path, "classes.names")
+            if os.path.isfile(class_file):
+                classes, num_classes = get_labels(class_file)
+            else:
+                if os.path.isdir(data_config['data_dir']):
+                    classes, num_classes = get_labels(data_config['data_dir'])
+                else:
+                    classes, num_classes = get_labels(10)
         else:
-            classes, num_classes = get_labels(10)
-
+            if isinstance(args.classes, (str, int)):
+                classes, num_classes = get_labels(args.classes)
+            else:
+                raise ValueError("Invalid classes input")
+                
     model = load_model(args.weight_path, model_config, classes)
 
 

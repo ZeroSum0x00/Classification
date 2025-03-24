@@ -106,24 +106,25 @@ class WindowAttention(tf.keras.layers.Layer):
         self.projection_dropout = Dropout(self.proj_drop)
 
         self.relative_position_bias_table = self.add_weight(
-            f'attn/relative_position_bias_table',
+            name        = 'attn.relative_position_bias_table',
             shape       = ((2 * self.window_size[0] - 1) * (2 * self.window_size[1] - 1), self.num_heads),
             initializer = tf.initializers.zeros(),
             trainable   = True
         )
-        coords_h        = np.arange(self.window_size[0])
-        coords_w        = np.arange(self.window_size[1])
-        coords          = np.stack(np.meshgrid(coords_h, coords_w, indexing='ij'))
-        coords_flatten  = coords.reshape(2, -1)
-        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
-        relative_coords = relative_coords.transpose([1, 2, 0])
-        relative_coords[:, :, 0] += self.window_size[0] - 1
-        relative_coords[:, :, 1] += self.window_size[1] - 1
-        relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
-        relative_position_index = relative_coords.sum(-1).astype(np.int64)
-        relative_position_tensor = tf.convert_to_tensor(relative_position_index)
+        with tf.init_scope():
+            coords_h        = np.arange(self.window_size[0])
+            coords_w        = np.arange(self.window_size[1])
+            coords          = np.stack(np.meshgrid(coords_h, coords_w, indexing='ij'))
+            coords_flatten  = coords.reshape(2, -1)
+            relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
+            relative_coords = relative_coords.transpose([1, 2, 0])
+            relative_coords[:, :, 0] += self.window_size[0] - 1
+            relative_coords[:, :, 1] += self.window_size[1] - 1
+            relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
+            relative_position_index = relative_coords.sum(-1).astype(np.int64)
+            relative_position_tensor = tf.convert_to_tensor(relative_position_index)
         self.relative_position_index = tf.Variable(
-            initial_value=relative_position_tensor, trainable=False, name=f'attn/relative_position_index'
+            initial_value=relative_position_tensor, trainable=False, name='attn.relative_position_index'
         )
 
     def call(self, inputs, mask=None):

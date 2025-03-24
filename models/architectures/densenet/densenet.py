@@ -142,9 +142,9 @@ def DenseNet(blocks,
             img_input = input_tensor
 
     x = ZeroPadding2D(padding=((3, 3), (3, 3)), name='padding_0')(img_input)
-    x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), use_bias=False, name='conv1/conv')(x)
-    x = get_normalizer_from_name('batch-norm', epsilon=1.001e-5, name='conv1/bn')(x)
-    x = get_activation_from_name('relu', name='conv1/activation')(x)
+    x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), use_bias=False, name='conv1.conv')(x)
+    x = get_normalizer_from_name('batch-norm', epsilon=1.001e-5, name='conv1.bn')(x)
+    x = get_activation_from_name('relu', name='conv1.activation')(x)
     x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name='pool1')(x)
     

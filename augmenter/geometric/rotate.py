@@ -10,7 +10,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
-def rotate(image, angle, resample='BILINEAR', expand=False, center=None, fill=None):
+def rotate(image, angle, interpolation='BILINEAR', expand=False, center=None, fill_color=None):
     rank_size = len(image.shape)
     imgtype = image.dtype
     if not is_numpy_image(image):
@@ -19,16 +19,16 @@ def rotate(image, angle, resample='BILINEAR', expand=False, center=None, fill=No
     point = center or (w // 2, h // 2)
     M = cv2.getRotationMatrix2D(point, angle=-angle, scale=1)
 
-    if fill:
-        if isinstance(fill, int):
-            if fill == -1:
-                fill_color = [random.randint(0, 255) for _ in range(rank_size)]
+    if fill_color:
+        if isinstance(fill_color, int):
+            if fill_color == -1:
+                color = [random.randint(0, 255) for _ in range(rank_size)]
             else:
-                fill_color = [fill for _ in range(rank_size)]
+                color = [fill_color for _ in range(rank_size)]
         else:
-            fill_color = fill
+            color = fill_color
     else:
-        fill_color = [0 for _ in range(rank_size)]
+        color = [0 for _ in range(rank_size)]
 
     if expand:
         if center is None:
@@ -44,7 +44,7 @@ def rotate(image, angle, resample='BILINEAR', expand=False, center=None, fill=No
             M[1, 2] += (nH / 2) - point[1]
 
             # perform the actual rotation and return the image
-            dst = cv2.warpAffine(image, M, (nW, nH), borderValue=fill_color)
+            dst = cv2.warpAffine(image, M, (nW, nH), borderValue=color)
         else:
             xx = []
             yy = []
@@ -57,9 +57,9 @@ def rotate(image, angle, resample='BILINEAR', expand=False, center=None, fill=No
             # adjust the rotation matrix to take into account translation
             M[0, 2] += (nw - w)/2
             M[1, 2] += (nh - h)/2
-            dst = cv2.warpAffine(image, M, (nw, nh), flags=INTER_MODE[resample], borderValue=fill_color)
+            dst = cv2.warpAffine(image, M, (nw, nh), flags=INTER_MODE[interpolation], borderValue=fill_color)
     else:
-        dst = cv2.warpAffine(image, M, (w, h), flags=INTER_MODE[resample], borderValue=fill_color)
+        dst = cv2.warpAffine(image, M, (w, h), flags=INTER_MODE[interpolation], borderValue=fill_color)
     return dst.astype(imgtype)
 
 
@@ -71,7 +71,7 @@ class Rotation(BaseTransform):
         degrees (sequence or float or int): Range of degrees to select from.
             If degrees is a number instead of sequence like (min, max), the range of degrees
             will be (-degrees, +degrees) clockwise order.
-        resample ({CV.Image.NEAREST, CV.Image.BILINEAR, CV.Image.BICUBIC}, optional):
+        interpolation ({CV.Image.NEAREST, CV.Image.BILINEAR, CV.Image.BICUBIC}, optional):
             An optional resampling filter.
         expand (bool, optional): Optional expansion flag.
             If true, expands the output to make it large enough to hold the entire rotated image.
@@ -82,15 +82,15 @@ class Rotation(BaseTransform):
             Default is the center of the image.
     """
 
-    def __init__(self, degrees, resample='BILINEAR', expand=False, center=None, fill=None):
+    def __init__(self, degrees, interpolation='BILINEAR', expand=False, center=None, fill_color=None):
         self.degrees  = degrees
-        self.resample = resample
-        self.expand   = expand
-        self.center   = center
-        self.fill     = fill
+        self.interpolation = interpolation
+        self.expand     = expand
+        self.center     = center
+        self.fill_color = fill_color
 
     def image_transform(self, image):
-        return rotate(image, self.degrees, self.resample, self.expand, self.center, self.fill)
+        return rotate(image, self.degrees, self.interpolation, self.expand, self.center, self.fill_color)
 
 
 class RandomRotation(BaseRandomTransform):
@@ -101,7 +101,7 @@ class RandomRotation(BaseRandomTransform):
         degrees (sequence or float or int): Range of degrees to select from.
             If degrees is a number instead of sequence like (min, max), the range of degrees
             will be (-degrees, +degrees) clockwise order.
-        resample ({CV.Image.NEAREST, CV.Image.BILINEAR, CV.Image.BICUBIC}, optional):
+        interpolation ({CV.Image.NEAREST, CV.Image.BILINEAR, CV.Image.BICUBIC}, optional):
             An optional resampling filter.
         expand (bool, optional): Optional expansion flag.
             If true, expands the output to make it large enough to hold the entire rotated image.
@@ -112,7 +112,7 @@ class RandomRotation(BaseRandomTransform):
             Default is the center of the image.
     """
 
-    def __init__(self, degrees, resample='BILINEAR', expand=False, center=None, fill=None, prob=0.5):
+    def __init__(self, degrees, interpolation='BILINEAR', expand=False, center=None, fill_color=None, prob=0.5):
         if isinstance(degrees, numbers.Number):
             if degrees < 0:
                 raise ValueError("If degrees is a single number, it must be positive.")
@@ -122,11 +122,11 @@ class RandomRotation(BaseRandomTransform):
                 raise ValueError("If degrees is a sequence, it must be of len 2.")
             self.degrees = degrees
 
-        self.resample = resample
-        self.expand   = expand
-        self.center   = center
-        self.fill     = fill
-        self.prob     = prob
+        self.interpolation = interpolation
+        self.expand     = expand
+        self.center     = center
+        self.fill_color = fill_color
+        self.prob       = prob
 
     @staticmethod
     def get_params(degrees):
@@ -134,4 +134,4 @@ class RandomRotation(BaseRandomTransform):
 
     def image_transform(self, image):
         angle = self.get_params(self.degrees)
-        return rotate(image, angle, self.resample, self.expand, self.center, self.fill)
+        return rotate(image, angle, self.interpolation, self.expand, self.center, self.fill_color)

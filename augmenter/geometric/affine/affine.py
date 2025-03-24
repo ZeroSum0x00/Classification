@@ -9,7 +9,7 @@ from ..resize import INTER_MODE
 from utils.auxiliary_processing import is_numpy_image
 
 
-def affine(image, angle=0, translate=(0, 0), scale=1, shear=0, resample='BILINEAR', fillcolor=(0, 0, 0)):
+def affine(image, angle=0, translate=(0, 0), scale=1, shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
     imgtype = image.dtype
     if not is_numpy_image(image):
         raise TypeError('img should be CV Image. Got {}'.format(type(image)))
@@ -38,9 +38,9 @@ def affine(image, angle=0, translate=(0, 0), scale=1, shear=0, resample='BILINEA
     dst_img = cv2.warpAffine(image, 
                              affine_matrix, 
                              (cols, rows), 
-                             flags=INTER_MODE[resample],
+                             flags=INTER_MODE[interpolation],
                              borderMode=cv2.BORDER_CONSTANT, 
-                             borderValue=fillcolor)
+                             borderValue=fill_color)
     if gray_scale:
         dst_img = cv2.cvtColor(dst_img, cv2.COLOR_RGB2GRAY)
     return dst_img.astype(imgtype)
@@ -63,20 +63,20 @@ class Affine(BaseTransform):
         shear (sequence or float or int, optional): Range of degrees to select from.
             If degrees is a number instead of sequence like (min, max), the range of degrees
             will be (-degrees, +degrees). Will not apply shear by default
-        resample ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
-        fillcolor (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
+        interpolation ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
+        fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
 
-    def __init__(self, degrees, translate=(0, 0), scale=1, shear=0, resample='BILINEAR', fillcolor=(0, 0, 0)):
+    def __init__(self, degrees, translate=(0, 0), scale=1, shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
         self.degrees   = degrees
         self.translate = translate
         self.scale     = scale
         self.shear     = shear
-        self.resample  = resample
-        self.fillcolor = fillcolor
+        self.interpolation  = interpolation
+        self.fill_color = fill_color
 
     def image_transform(self, image):
-        return affine(image, self.degrees, self.translate, self.scale, self.shear, self.resample, self.fillcolor)
+        return affine(image, self.degrees, self.translate, self.scale, self.shear, self.interpolation, self.fill_color)
 
 
 class RandomAffine(BaseRandomTransform):
@@ -96,11 +96,11 @@ class RandomAffine(BaseRandomTransform):
         shear (sequence or float or int, optional): Range of degrees to select from.
             If degrees is a number instead of sequence like (min, max), the range of degrees
             will be (-degrees, +degrees). Will not apply shear by default
-        resample ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
-        fillcolor (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
+        interpolation ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
+        fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
 
-    def __init__(self, degrees=0, translate=None, scale=None, shear=None, resample='BILINEAR', fillcolor=0, prob=0.5):
+    def __init__(self, degrees=0, translate=None, scale=None, shear=None, interpolation='BILINEAR', fill_color=0, prob=0.5):
         if isinstance(degrees, numbers.Number):
             if degrees < 0:
                 raise ValueError("If degrees is a single number, it must be positive.")
@@ -138,8 +138,8 @@ class RandomAffine(BaseRandomTransform):
         else:
             self.shear = shear
 
-        self.resample  = resample
-        self.fillcolor = fillcolor
+        self.interpolation  = interpolation
+        self.fill_color = fill_color
         self.prob      = prob
 
     @staticmethod
@@ -167,4 +167,4 @@ class RandomAffine(BaseRandomTransform):
 
     def image_transform(self, image):
         angle, translations, scale, shear = self.get_params(self.degrees, self.translate, self.scale, self.shear, image.shape)
-        return affine(image, angle, translations, scale, shear, resample=self.resample, fillcolor=self.fillcolor)
+        return affine(image, angle, translations, scale, shear, interpolation=self.interpolation, fill_color=self.fill_color)

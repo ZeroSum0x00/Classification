@@ -10,7 +10,7 @@ from .resize import INTER_MODE
 
 def perspective(img, fov=45, anglex=0, angley=0, anglez=0, 
                 translate=(0, 0), scale=(1, 1), shear=0,
-                resample='BILINEAR', fillcolor=(0, 0, 0)):
+                interpolation='BILINEAR', fill_color=(0, 0, 0)):
     imgtype = img.dtype
     gray_scale = False
 
@@ -91,9 +91,9 @@ def perspective(img, fov=45, anglex=0, angley=0, anglez=0,
     result_img = cv2.warpPerspective(img, 
                                      total_matrix, 
                                      (w, h), 
-                                     flags=INTER_MODE[resample],
+                                     flags=INTER_MODE[interpolation],
                                      borderMode=cv2.BORDER_CONSTANT, 
-                                     borderValue=fillcolor)
+                                     borderValue=fill_color)
     if gray_scale:
         result_img = cv2.cvtColor(result_img, cv2.COLOR_RGB2GRAY)
     return result_img.astype(imgtype)
@@ -122,12 +122,12 @@ class Perspective(BaseTransform):
             shear (sequence or float or int): Range of degrees for shear rote around axis to select from.
                 If degrees is a number instead of sequence like (min, max), the range of degrees
                 will be (-degrees, +degrees). Set to 0 to desactivate rotations.
-            resample ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
-            fillcolor (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
+            interpolation ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
+            fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
         """
 
     def __init__(self, fov=45, anglex=0, angley=0, anglez=0, translate=(0, 0), scale=(1, 1), 
-                 shear=0, resample='BILINEAR', fillcolor=(0, 0, 0)):
+                 shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
         self.fov    = fov
         self.anglex = anglex
         self.angley = angley
@@ -145,11 +145,11 @@ class Perspective(BaseTransform):
         self.scale = scale
 
         self.shear     = shear
-        self.resample  = resample
-        self.fillcolor = fillcolor
+        self.interpolation  = interpolation
+        self.fill_color = fill_color
 
     def image_transform(self, image):
-        return perspective(image, self.fov, self.anglex, self.angley, self.anglez, self.translate, self.scale, self.shear, self.resample, self.fillcolor)
+        return perspective(image, self.fov, self.anglex, self.angley, self.anglez, self.translate, self.scale, self.shear, self.interpolation, self.fill_color)
 
 
 class RandomPerspective(BaseRandomTransform):
@@ -175,13 +175,13 @@ class RandomPerspective(BaseRandomTransform):
             shear (sequence or float or int): Range of degrees for shear rote around axis to select from.
                 If degrees is a number instead of sequence like (min, max), the range of degrees
                 will be (-degrees, +degrees). Set to 0 to desactivate rotations.
-            resample ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
-            fillcolor (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
+            interpolation ({NEAREST, BILINEAR, BICUBIC}, optional): An optional resampling filter.
+            fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
         """
 
     def __init__(self, fov=0, anglex=0, angley=0, anglez=0, 
                  translate=(0, 0), scale=(1, 1), shear=0, 
-                 resample='BILINEAR', fillcolor=(0, 0, 0), prob=0.5):
+                 interpolation='BILINEAR', fill_color=(0, 0, 0), prob=0.5):
 
         assert all([isinstance(anglex, (tuple, list)) or anglex >= 0,
                     isinstance(angley, (tuple, list)) or angley >= 0,
@@ -206,8 +206,8 @@ class RandomPerspective(BaseRandomTransform):
             assert all([s > 0 for s in scale]), "scale values should be positive"
         self.scale = scale
 
-        self.resample  = resample
-        self.fillcolor = fillcolor
+        self.interpolation  = interpolation
+        self.fill_color = fill_color
         self.prob      = prob
 
     @staticmethod
@@ -231,4 +231,4 @@ class RandomPerspective(BaseRandomTransform):
 
     def image_transform(self, image):
         ret = self.get_params(self.fov, self.anglex, self.angley, self.anglez, self.translate, self.scale, self.shear, image.shape)
-        return perspective(image, *ret, resample=self.resample, fillcolor=self.fillcolor)
+        return perspective(image, *ret, interpolation=self.interpolation, fill_color=self.fill_color)

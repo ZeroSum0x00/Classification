@@ -235,13 +235,13 @@ class WindowAttention(tf.keras.layers.Layer):
         self.attention          = AddingDecomposedRelationPos(q_size, k_size)
         if self.use_rel_pos:
             self.rel_pos_h = self.add_weight(
-                f'attn/relative_position_height',
+                f'attn.relative_position_height',
                 shape       = ((2 * input_shape[1] - 1), self.head_dim),
                 initializer = tf.initializers.zeros(),
                 trainable   = True
             )
             self.rel_pos_w = self.add_weight(
-                f'attn/relative_position_width',
+                f'attn.relative_position_width',
                 shape       = ((2 * input_shape[2] - 1), self.head_dim),
                 initializer = tf.initializers.zeros(),
                 trainable   = True
@@ -342,7 +342,7 @@ def BasicLayer(
                     normalizer          = normalizer,
                     use_rel_pos         = use_rel_pos,
                     proj_drop           = proj_drop,
-                    name                = f"SwinTransformerBlock/block_{i}")(x)
+                    name                = f"SwinTransformerBlock.block_{i}")(x)
     return x
 
 

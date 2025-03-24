@@ -11,6 +11,7 @@ from callbacks import build_callbacks, Evaluate
 from data_utils import get_train_test_data, TFDataPipeline
 from utils.train_processing import create_folder_weights, find_max_batch_size, train_prepare
 from utils.config_processing import load_config
+from utils.logger import logger
 
 
 def train(engine_file_config, model_file_config):
@@ -27,8 +28,8 @@ def train(engine_file_config, model_file_config):
     if train_prepare(train_config.get('mode', 'graph'),
                      train_config.get('vram_usage', 'limit'),
                      num_gpu="0",
-                     init_seed=train_config['random_seed']):
-        TRAINING_TIME_PATH = create_folder_weights(train_config['save_weight_path'])
+                     init_seed=train_config.get("random_seed", 42)):
+        TRAINING_TIME_PATH = create_folder_weights(train_config.get("save_weight_path", "saved_weights"))
         shutil.copy(model_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(model_file_config)))
         shutil.copy(engine_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(engine_file_config)))
         
@@ -57,7 +58,7 @@ def train(engine_file_config, model_file_config):
                                                                                load_memory     = data_config['data_info'].get('load_memory', False),
                                                                                dataloader_mode = data_config.get('dataloader_mode', 'tf'),
                                                                                get_data_mode   = data_config.get('get_data_mode', 2),
-                                                                               num_workers     = train_config['num_workers'])
+                                                                               num_workers     = train_config.get('num_workers', 1))
         
         train_step = int(np.ceil(train_generator.N / batch_size))
         train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
@@ -67,6 +68,7 @@ def train(engine_file_config, model_file_config):
             valid_generator = valid_generator.get_dataset() if isinstance(valid_generator, TFDataPipeline) else valid_generator
 
         if test_generator:
+            test_step = int(np.ceil(test_generator.N / batch_size))
             test_generator  = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
 
         
@@ -94,16 +96,25 @@ def train(engine_file_config, model_file_config):
                       callbacks        = callbacks)
         else:
             model.fit(train_generator,
-                      steps_per_epoch  = train_step,
-                      epochs        = train_config['epoch']['end'],
-                      initial_epoch = train_config['epoch'].get('start', 0),
-                      callbacks     = callbacks)
+                      steps_per_epoch = train_step,
+                      epochs          = train_config['epoch']['end'],
+                      initial_epoch   = train_config['epoch'].get('start', 0),
+                      callbacks       = callbacks)
 
         if test_generator:
-            model.evaluate(test_generator)
+            model.evaluate(test_generator,
+                           steps = test_step)
 
-        model.save_weights(os.path.join(TRAINING_TIME_PATH, 'weights', 'last_weights.weights.h5'))
-
+        save_mode = train_config.get("model_save_mode", "weights")
+        save_head = train_config.get("model_save_head", True)
+        if save_mode.lower() == "model":
+            weight_path = os.path.join(TRAINING_TIME_PATH, "weights", "last_weights.keras")
+            logger.info(f'Save last model to {weight_path}')
+            model.save_model(weight_path, save_head=save_head)
+        elif save_mode.lower() == "weights":
+            weight_path = os.path.join(TRAINING_TIME_PATH, "weights", "last_weights.weights.h5")
+            logger.info(f'Save last weights to {weight_path}')
+            model.save_weights(weight_path, save_head=save_head)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a model with specified config files.")

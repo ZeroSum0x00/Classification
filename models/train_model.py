@@ -72,13 +72,13 @@ class TrainModel(tf.keras.Model):
     def predict(self, inputs):
         return self.architecture(inputs, training=False)
 
-    def save_weights(self, weight_path, save_head=True, save_format='tf', **kwargs):
+    def save_weights(self, weight_path, save_head=True, **kwargs):
         try:
             if save_head:
                 self.architecture.save_weights(weight_path, **kwargs)
                 logger.info(f"Full model weights saved to: {weight_path}")
             else:
-                backbone_path = weight_path.replace(".h5", "_backbone.h5")  # Đổi tên file cho backbone
+                backbone_path = weight_path.replace(".weights.h5", "_backbone.weights.h5")
                 self.architecture.backbone.save_weights(backbone_path, **kwargs)
                 logger.info(f"Backbone weights saved to: {backbone_path}")
         except Exception as e:
@@ -88,21 +88,26 @@ class TrainModel(tf.keras.Model):
         try:
             self.architecture.build(input_shape=self.image_size)
             self.architecture.built = True
-            self.architecture.load_weights(weight_path)
+            self.architecture.load_weights(weight_path, skip_mismatch=True)
             logger.info(f"Weights loaded from: {weight_path}")
         except Exception as e:
             logger.error(f"Failed to load weights: {e}")
 
-    def save_model(self, model_path):
+    def save_model(self, model_path, save_head=True):
         try:
-            self.architecture.save(model_path)  # Lưu dưới dạng SavedModel
-            logger.info(f"Model saved to: {model_path}")
+            if save_head:
+                self.architecture.save(model_path)
+                logger.info(f"Full model saved to: {model_path}")
+            else:
+                backbone_path = model_path.replace(".keras", "_backbone.keras")
+                self.architecture.backbone.save(backbone_path)
+                logger.info(f"Backbone saved to: {backbone_path}")
         except Exception as e:
             logger.error(f"Failed to save model: {e}")
 
     def load_model(self, model_path):
         try:
-            self.architecture = tf.keras.models.load_model(model_path)  # Load SavedModel
+            self.architecture = tf.keras.models.load_model(model_path)
             logger.info(f"Model loaded from: {model_path}")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")

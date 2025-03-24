@@ -25,7 +25,11 @@ def get_normalizer_from_name(norm_name, *args, **kwargs):
             from tensorflow.keras.layers import UnitNormalization
             return UnitNormalization(*args, **kwargs)
         elif norm_name in ['evn', 'evo', 'evonorm', 'evo-norm', 'evo-normalization', 'evo normalization']:
-            from models.layers import EvoNormalization
+            from .evo_normalization import EvoNormalization
             return EvoNormalization(*args, **kwargs)
+        elif norm_name in ["local-response", "local response", "local-response-norm", "local response norm", "local-response-normalization", "local response normalization"]:
+            from .local_response_normalization import LocalResponseNormalization
+            return LocalResponseNormalization(*args, **kwargs)
+            
     else:
         return LinearLayer(*args, **kwargs)
