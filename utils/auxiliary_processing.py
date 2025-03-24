@@ -1,6 +1,7 @@
 import cv2
 import importlib
 import numpy as np
+import tensorflow as tf
 
 
 def dynamic_import(module_name, global_vars=None):
