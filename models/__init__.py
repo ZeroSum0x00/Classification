@@ -1,5 +1,6 @@
 # train-test processing model
 import copy
+import tensorflow as tf
 from .train_model import TrainModel
 from .classifycation import CLS
 from .architectures import *
