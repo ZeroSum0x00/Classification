@@ -27,7 +27,7 @@ def train(engine_file_config, model_file_config):
 
     if train_prepare(train_config.get('mode', 'graph'),
                      train_config.get('vram_usage', 'limit'),
-                     num_gpu="0",
+                     num_gpu=train_config.get('num_gpus', 0),
                      init_seed=train_config.get("random_seed", 42)):
         TRAINING_TIME_PATH = create_folder_weights(train_config.get("save_weight_path", "saved_weights"))
         shutil.copy(model_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(model_file_config)))
