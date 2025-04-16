@@ -1664,7 +1664,7 @@ def DarkNetELAN4_xlarge(
     return model
 
 
-def DarkNetELAN4_large_backbone(
+def DarkNetELAN4_xlarge_backbone(
     inputs=[640, 640, 3],
     weights='imagenet',
     activation='silu',

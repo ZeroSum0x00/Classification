@@ -25,7 +25,7 @@ from .efficient_rep import (
     EfficientLite, EfficientLite_backbone,
     EfficientLite_small, EfficientLite_small_backbone,
     EfficientLite_medium, EfficientLite_medium_backbone,
-    EfficientLite_large, EfficientLite_large_backbone
+    EfficientLite_large, EfficientLite_large_backbone,
     EfficientRep, EfficientRep_backbone,
     EfficientRep_nano, EfficientRep_nano_backbone,
     EfficientRep6_nano, EfficientRep6_nano_backbone,
@@ -86,5 +86,5 @@ from .darknet_cib import (
     DarkNetCIB_medium, DarkNetCIB_medium_backbone,
     DarkNetCIB_base, DarkNetCIB_base_backbone,
     DarkNetCIB_large, DarkNetCIB_large_backbone,
-    DarkNetCIB_xlarge, DarkNetCIB_xlarge_backbone
+    DarkNetCIB_xlarge, DarkNetCIB_xlarge_backbone,
 )
