@@ -361,7 +361,6 @@ def RepVGG(
     width_multiplier=None,
     override_groups_map=None,
     use_se=False,
-    deploy=False,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -374,7 +373,8 @@ def RepVGG(
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ):
 
     if weights not in {"imagenet", None}:
@@ -538,11 +538,11 @@ def RepVGG_backbone(
     width_multiplier,
     override_groups_map=None,
     use_se=False,
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
@@ -551,12 +551,12 @@ def RepVGG_backbone(
         width_multiplier=width_multiplier,
         override_groups_map=override_groups_map,
         use_se=use_se,
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -583,10 +583,10 @@ def RepVGG_A0(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
 
     model = RepVGG(
@@ -594,7 +594,6 @@ def RepVGG_A0(
         width_multiplier=[0.75, 0.75, 0.75, 2.5],
         override_groups_map=None,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -608,26 +607,27 @@ def RepVGG_A0(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_A0_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_A0(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -653,10 +653,10 @@ def RepVGG_A1(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
 
     model = RepVGG(
@@ -664,7 +664,6 @@ def RepVGG_A1(
         width_multiplier=[1, 1, 1, 2.5],
         override_groups_map=None,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -678,26 +677,27 @@ def RepVGG_A1(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_A1_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_A1(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -723,10 +723,10 @@ def RepVGG_A2(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -734,7 +734,6 @@ def RepVGG_A2(
         width_multiplier=[1.5, 1.5, 1.5, 2.75],
         override_groups_map=None,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -748,26 +747,27 @@ def RepVGG_A2(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_A2_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_A2(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -793,10 +793,10 @@ def RepVGG_B0(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -804,7 +804,6 @@ def RepVGG_B0(
         width_multiplier=[1, 1, 1, 2.5],
         override_groups_map=None,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -818,26 +817,27 @@ def RepVGG_B0(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B0_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B0(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -863,10 +863,10 @@ def RepVGG_B1(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -874,7 +874,6 @@ def RepVGG_B1(
         width_multiplier=[2, 2, 2, 4],
         override_groups_map=None,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -888,26 +887,27 @@ def RepVGG_B1(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B1_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B1(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -933,10 +933,10 @@ def RepVGG_B1g2(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -944,7 +944,6 @@ def RepVGG_B1g2(
         width_multiplier=[2, 2, 2, 4],
         override_groups_map=g2_map,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -958,26 +957,27 @@ def RepVGG_B1g2(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B1g2_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B1g2(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -1003,10 +1003,10 @@ def RepVGG_B1g4(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -1014,7 +1014,6 @@ def RepVGG_B1g4(
         width_multiplier=[2, 2, 2, 4],
         override_groups_map=g4_map,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -1028,26 +1027,27 @@ def RepVGG_B1g4(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B1g4_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B1g4(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -1073,10 +1073,10 @@ def RepVGG_B2(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -1084,7 +1084,6 @@ def RepVGG_B2(
         width_multiplier=[2.5, 2.5, 2.5, 5],
         override_groups_map=None,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -1098,26 +1097,27 @@ def RepVGG_B2(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B2_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B2(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -1143,10 +1143,10 @@ def RepVGG_B2g2(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -1154,7 +1154,6 @@ def RepVGG_B2g2(
         width_multiplier=[2.5, 2.5, 2.5, 5],
         override_groups_map=g2_map,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -1168,26 +1167,27 @@ def RepVGG_B2g2(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B2g2_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B2g2(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -1213,10 +1213,10 @@ def RepVGG_B2g4(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -1224,7 +1224,6 @@ def RepVGG_B2g4(
         width_multiplier=[2.5, 2.5, 2.5, 5],
         override_groups_map=g4_map,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -1238,26 +1237,27 @@ def RepVGG_B2g4(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B2g4_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B2g4(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -1283,10 +1283,10 @@ def RepVGG_B3(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -1294,7 +1294,6 @@ def RepVGG_B3(
         width_multiplier=[3, 3, 3, 5],
         override_groups_map=None,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -1308,26 +1307,27 @@ def RepVGG_B3(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B3_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B3(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -1353,10 +1353,10 @@ def RepVGG_B3g2(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -1364,7 +1364,6 @@ def RepVGG_B3g2(
         width_multiplier=[3, 3, 3, 5],
         override_groups_map=g2_map,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -1378,26 +1377,27 @@ def RepVGG_B3g2(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B3g2_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B3g2(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [
@@ -1423,10 +1423,10 @@ def RepVGG_B3g4(
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1
+    drop_rate=0.1,
+    deploy=False,
 ) -> Model:
     
     model = RepVGG(
@@ -1434,7 +1434,6 @@ def RepVGG_B3g4(
         width_multiplier=[3, 3, 3, 5],
         override_groups_map=g4_map,
         use_se=False,
-        deploy=deploy,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -1448,26 +1447,27 @@ def RepVGG_B3g4(
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
+        deploy=deploy,
     )
     return model
 
 
 def RepVGG_B3g4_backbone(
-    deploy=False,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
+    deploy=False,
     custom_layers=[]
 ) -> Model:
 
     model = RepVGG_B3g4(
-        deploy=deploy,
         inputs=inputs,
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
+        deploy=deploy,
     )
     
     custom_layers = custom_layers or [

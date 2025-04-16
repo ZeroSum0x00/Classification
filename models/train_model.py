@@ -11,14 +11,14 @@ class TrainModel(tf.keras.Model):
         self, 
         architecture,
         classes=None,
-        image_size=(224, 224, 3),
+        inputs=(224, 224, 3),
         global_clipnorm=5.,
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.architecture = architecture
         self.classes = classes
-        self.image_size = image_size
+        self.inputs = inputs
         self.global_clipnorm = global_clipnorm
         self.total_loss_tracker = tf.keras.metrics.Mean(name="loss")
         self.model_param_call = {}
@@ -94,7 +94,7 @@ class TrainModel(tf.keras.Model):
 
     def load_weights(self, weight_path):
         try:
-            self.architecture.build(input_shape=self.image_size)
+            self.architecture.build(input_shape=self.inputs)
             self.architecture.built = True
             self.architecture.load_weights(weight_path, skip_mismatch=True)
             logger.info(f"Weights loaded from: {weight_path}")

@@ -48,7 +48,7 @@ def train(engine_file_config, model_file_config):
         train_generator, valid_generator, test_generator = get_train_test_data(
             data_dirs=data_config['data_dir'],
             classes=model.classes,
-            target_size=model_config['input_shape'],
+            target_size=model_config['inputs'],
             batch_size=batch_size,
             color_space=data_config['data_info'].get('color_space', 'RGB'),
             augmentor=data_config['data_augmentation'],

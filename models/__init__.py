@@ -9,7 +9,7 @@ from utils.auxiliary_processing import dynamic_import
 
 def build_models(config):
     config = copy.deepcopy(config)
-    input_shape = config.pop("input_shape")
+    inputs = config.pop("inputs")
     weight_path = config.pop("weight_path")
     load_weight_type = config.pop("load_weight_type")
     classes = config.pop('classes')
@@ -18,13 +18,13 @@ def build_models(config):
     architecture_name = architecture_config.pop("name")
 
     backbone_config = config['Backbone']
-    backbone_config['input_shape'] = input_shape
+    backbone_config['inputs'] = inputs
     if classes:
         if isinstance(classes, str):
             classes, num_classes = get_labels(classes)
         else:
             num_classes = len(classes)
-        backbone_config['classes'] = num_classes
+        backbone_config['num_classes'] = num_classes
 
     backbone_name = backbone_config.pop("name")
     backbone = dynamic_import(backbone_name, globals())(**backbone_config)
@@ -32,5 +32,5 @@ def build_models(config):
     architecture_config['backbone'] = backbone
     architecture = dynamic_import(architecture_name, globals())(**architecture_config)
 
-    model = TrainModel(architecture, classes=classes, image_size=input_shape, name=architecture_name)
+    model = TrainModel(architecture, classes=classes, inputs=inputs, name=architecture_name)
     return model
