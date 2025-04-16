@@ -42,51 +42,57 @@
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Conv2DTranspose, Dense, Dropout, MaxPooling2D,
+    GlobalMaxPooling2D, GlobalAveragePooling2D,
+    concatenate
+)
+from tensorflow.keras.regularizers import l2
 
 from .darknet53 import ConvolutionBlock
 from .darknet_c3 import SPPF
-from models.layers import get_activation_from_name, get_normalizer_from_name, ChannelShuffle, RepVGGBlock, ScaleWeight
-from utils.model_processing import _obtain_input_shape
+from ..vgg.repvgg import SEBlock, RepVGGBlock
+from models.layers import (
+    ChannelShuffle, ScaleWeight, LinearLayer,
+    get_activation_from_name, get_normalizer_from_name
+)
+from utils.model_processing import process_model_input, create_layer_instance
+
 
 
 class CustomLayer(tf.keras.layers.Layer):
-    def __init__(self,
-                 expansion    = 0.5,
-                 rep_block    = RepVGGBlock,
-                 sub_block    = None,
-                 scale_weight = False,
-                 iters        = 1,
-                 activation   = 'relu', 
-                 normalizer   = 'batch-norm', 
-                 training     = False,
-                 *args, 
-                 **kwargs):
-        super(CustomLayer, self).__init__(*args, **kwargs)
-        self.expansion    = expansion
-        self.rep_block    = rep_block
-        self.sub_block    = sub_block 
+    def __init__(
+        self,
+        expansion=0.5,
+        rep_block=RepVGGBlock,
+        sub_block=None,
+        scale_weight=False,
+        iters=1,
+        activation='relu',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        deploy=False,
+        *args, **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.expansion = expansion
+        self.rep_block = rep_block
+        self.sub_block = sub_block 
         self.scale_weight = scale_weight
-        self.iters        = iters
-        self.activation   = activation
-        self.normalizer   = normalizer
-        self.training     = training
+        self.iters = iters
+        self.activation = activation
+        self.normalizer = normalizer
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = regularizer_decay
+        self.norm_eps = norm_eps
+        self.deploy = deploy
 
 
 class CSPSPPF(CustomLayer):
@@ -95,32 +101,120 @@ class CSPSPPF(CustomLayer):
         CSP https://github.com/WongKinYiu/CrossStagePartialNetworks
     """
     
-    def __init__(self, 
-                 filters, 
-                 pool_size  = (5, 5),
-                 expansion  = 0.5,
-                 activation = 'relu', 
-                 normalizer = 'batch-norm', 
-                 *args, 
-                 **kwargs):
-        super(CSPSPPF, self).__init__(*args, **kwargs)
-        self.filters    = filters
-        self.pool_size  = pool_size
-        self.expansion  = expansion
-        self.activation = activation
-        self.normalizer = normalizer
-                     
+    def __init__(
+        self,
+        filters,
+        pool_size=(5, 5),
+        expansion=0.5,
+        activation='relu',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            expansion=expansion,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
+        self.filters = filters
+        self.pool_size = pool_size
+        
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv2 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, normalizer=self.normalizer)
-        self.conv3 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.pool  = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
-        self.conv4 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv5 = ConvolutionBlock(hidden_dim, 3, activation=self.activation, normalizer=self.normalizer)
-        self.conv6 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
-
-        self.shortcut = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
+        
+        self.conv1 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv2 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv3 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv4 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv5 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv6 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.shortcut = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.pool = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -158,50 +252,74 @@ class LinearAddBlock(CustomLayer):
         A CSLA block is a LinearAddBlock with is_csla=True
     '''
     
-    def __init__(self,
-                 filters,
-                 kernel_size,
-                 strides=1,
-                 padding="same",
-                 dilation=1,
-                 groups=1,
-                 is_csla=False,
-                 conv_scale_init=1.0,
-                 activation='relu', 
-                 normalizer='batch-norm',
-                 *args, 
-                 **kwargs):
-        super(LinearAddBlock, self).__init__(*args, **kwargs)
+    def __init__(
+        self,
+        filters,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        padding="same",
+        dilation=1,
+        groups=1,
+        is_csla=False,
+        conv_scale_init=1.0,
+        activation='relu',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
         self.filters = filters
-        self.kernel_size = kernel_size if isinstance(kernel_size, (list, tuple)) else (kernel_size, kernel_size)
-        self.strides = strides if isinstance(strides, (list, tuple)) else (strides, strides)
+        self.kernel_size = kernel_size
+        self.strides = strides
         self.padding = padding
         self.dilation = dilation
         self.groups = groups
         self.is_csla = is_csla
         self.conv_scale_init = conv_scale_init
-        self.activation = activation
-        self.normalizer = normalizer
         
     def build(self, input_shape):
-        self.activ = get_activation_from_name(self.activation)
-        self.norm = get_normalizer_from_name(self.normalizer)
-        self.conv  = Conv2D(filters=self.filters,
-                            kernel_size=self.kernel_size,
-                            strides=self.strides,
-                            padding=self.padding,
-                            use_bias=False)
+        self.conv  = Conv2D(
+            filters=self.filters,
+            kernel_size=self.kernel_size,
+            strides=self.strides,
+            padding=self.padding,
+            use_bias=False,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=l2(self.regularizer_decay),
+        )
+        
         self.scale_layer = ScaleWeight(self.conv_scale_init, use_bias=False)
-        self.conv_1x1 = Conv2D(filters=self.filters,
-                            kernel_size=(1, 1),
-                            strides=self.strides,
-                            padding='valid',
-                            use_bias=False)
+        
+        self.conv_1x1 = Conv2D(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=self.strides,
+            padding='valid',
+            use_bias=False,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=l2(self.regularizer_decay),
+        )
+        
         self.scale_1x1 = ScaleWeight(self.conv_scale_init, use_bias=False)
         
         if input_shape[-1] == self.filters and self.strides == (1, 1):
             self.scale_identity = ScaleWeight(1.0, use_bias=False)
-
+            
+        self.norm = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        self.activ = get_activation_from_name(self.activation)
         super().build(input_shape)
         
     def call(self, inputs, training=False):
@@ -235,20 +353,85 @@ class LinearAddBlock(CustomLayer):
 
 class BottleRep(CustomLayer):
     
-    def __init__(self, filters, rep_block=RepVGGBlock, scale_weight=False, training=False, *args, **kwargs):
-        super(BottleRep, self).__init__(*args, **kwargs)
-        self.filters      = filters
-        self.rep_block    = rep_block
-        self.scale_weight = scale_weight
-        self.training     = training
+    def __init__(
+        self,
+        filters,
+        rep_block=RepVGGBlock,
+        scale_weight=False,
+        activation="relu",
+        normalizer="batch-norm",
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        deploy=False,
+        *args, **kwargs
+    ):
+        super().__init__(
+            rep_block=rep_block,
+            scale_weight=scale_weight,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            deploy=deploy,
+            *args, **kwargs
+        )
+        self.filters = filters
 
     def build(self, input_shape):
-        if self.rep_block == ConvolutionBlock:
-            self.conv1 = self.rep_block(self.filters, kernel_size=3)
-            self.conv2 = self.rep_block(self.filters, kernel_size=3)
+        if self.rep_block != RepVGGBlock:
+            self.conv1 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+            )
+            
+            self.conv2 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+            )
         else:
-            self.conv1 = self.rep_block(self.filters, kernel_size=3, training=self.training)
-            self.conv2 = self.rep_block(self.filters, kernel_size=3, training=self.training)
+            self.conv1 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
+            
+            self.conv2 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
             
         if input_shape[-1] != self.filters:
             self.shortcut = False
@@ -280,29 +463,116 @@ class BottleRep(CustomLayer):
             "filters": self.filters,
             "rep_block": self.rep_block,
             "scale_weight": self.scale_weight,
-            "training": self.training
+            "deploy": self.deploy
         })
         return config
 
 
 class BottleRep3(CustomLayer):
     
-    def __init__(self, filters, rep_block=RepVGGBlock, scale_weight=False, training=False, *args, **kwargs):
-        super(BottleRep3, self).__init__(*args, **kwargs)
-        self.filters      = filters
-        self.rep_block    = rep_block
+    def __init__(
+        self,
+        filters,
+        rep_block=RepVGGBlock,
+        scale_weight=False,
+        activation="relu",
+        normalizer="batch-norm",
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        deploy=False,
+        *args, **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.filters = filters
+        self.rep_block = rep_block
         self.scale_weight = scale_weight
-        self.training     = training
+        self.activation = activation
+        self.normalizer = normalizer
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = regularizer_decay
+        self.norm_eps = norm_eps
+        self.deploy = deploy
 
     def build(self, input_shape):
-        if self.rep_block == RepVGGBlock:
-            self.conv1 = self.rep_block(self.filters, kernel_size=3, training=self.training)
-            self.conv2 = self.rep_block(self.filters, kernel_size=3, training=self.training)
-            self.conv3 = self.rep_block(self.filters, kernel_size=3, training=self.training)
+        if self.rep_block != RepVGGBlock:
+            self.conv1 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+            )
+            
+            self.conv2 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+            )
+            
+            self.conv3 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+            )
+            
         else:
-            self.conv1 = self.rep_block(self.filters, kernel_size=3)
-            self.conv2 = self.rep_block(self.filters, kernel_size=3)
-            self.conv3 = self.rep_block(self.filters, kernel_size=3)
+            self.conv1 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
+            
+            self.conv2 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
+            
+            self.conv3 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
             
         if input_shape[-1] != self.filters:
             self.shortcut = False
@@ -311,7 +581,7 @@ class BottleRep3(CustomLayer):
             
         if self.scale_weight:
             with tf.init_scope():
-                self.alpha = tf.Variable(name="BottleRep.alpha",
+                self.alpha = tf.Variable(name="bottleRep.alpha",
                                          initial_value=tf.ones((1,), dtype=tf.float32),
                                          trainable=True)
         else:
@@ -335,32 +605,102 @@ class BottleRep3(CustomLayer):
             "filters": self.filters,
             "rep_block": self.rep_block,
             "scale_weight": self.scale_weight,
-            "training": self.training
+            "deploy": self.deploy
         })
         return config
 
 
 class RepBlock(CustomLayer):
     
-    def __init__(self, filters, rep_block=RepVGGBlock, iters=1, training=False, *args, **kwargs):
-        super(RepBlock, self).__init__(*args, **kwargs)
-        self.filters   = filters
-        self.rep_block = rep_block
-        self.iters     = iters
-        self.training  = training
+    def __init__(
+        self,
+        filters,
+        rep_block=RepVGGBlock,
+        iters=1,
+        activation="relu",
+        normalizer="batch-norm",
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        deploy=False,
+        *args, **kwargs
+    ):
+        super().__init__(
+            rep_block=rep_block,
+            iters=iters,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            deploy=deploy,
+            *args, **kwargs
+        )
+        self.filters = filters
         self.sub_block = kwargs.get('sub_block', RepVGGBlock)
 
     def build(self, input_shape):
         if self.rep_block != BottleRep:
-            self.conv1 = self.rep_block(self.filters, kernel_size=3, training=self.training)
+            self.conv1 = self.rep_block(
+                filters=self.filters,
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
+            
             self.block = Sequential([
-                self.rep_block(self.filters, kernel_size=3, training=self.training) for i in range(self.iters - 1)
+                self.rep_block(
+                    filters=self.filters,
+                    kernel_size=(3, 3),
+                    strides=(1, 1),
+                    activation=self.activation,
+                    normalizer=self.normalizer,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    regularizer_decay=self.regularizer_decay,
+                    norm_eps=self.norm_eps,
+                    deploy=self.deploy,
+                )
+                for _ in range(self.iters - 1)
             ]) if self.iters > 1 else None
         else:
-            self.conv1 = self.rep_block(self.filters, rep_block=self.sub_block, scale_weight=True, training=self.training)
             self.iters = self.iters // 2
+            
+            self.conv1 = self.rep_block(
+                filters=self.filters,
+                rep_block=self.sub_block,
+                scale_weight=True,
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
+            
             self.block = Sequential([
-                self.rep_block(self.filters, rep_block=self.sub_block, scale_weight=True, training=self.training) for i in range(self.iters - 1)
+                self.rep_block(
+                    filters=self.filters,
+                    rep_block=self.sub_block,
+                    scale_weight=True,
+                    activation=self.activation,
+                    normalizer=self.normalizer,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    regularizer_decay=self.regularizer_decay,
+                    norm_eps=self.norm_eps,
+                    deploy=self.deploy,
+                )
+                for _ in range(self.iters - 1)
             ]) if self.iters > 1 else None
 
         super().build(input_shape)
@@ -377,43 +717,113 @@ class RepBlock(CustomLayer):
             "filters": self.filters,
             "rep_block": self.rep_block,
             "iters": self.iters,
-            "training": self.training,
+            "deploy": self.deploy,
         })
         return config
 
 
 class BepC3(CustomLayer):
     
-    def __init__(self, 
-                 filters, 
-                 rep_block=BottleRep,
-                 sub_block=None,
-                 expansion=0.5, 
-                 iters=1, 
-                 activation = 'relu', 
-                 normalizer = 'batch-norm', 
-                 training=False, 
-                 *args, 
-                 **kwargs):
-        super(BepC3, self).__init__(*args, **kwargs)
-        self.filters    = filters
-        self.rep_block  = rep_block
-        self.sub_block  = sub_block
-        self.expansion  = expansion
-        self.iters      = iters
-        self.activation = activation
-        self.normalizer = normalizer
-        self.training   = training
+    def __init__(
+        self,
+        filters,
+        rep_block=BottleRep,
+        sub_block=None,
+        expansion=0.5,
+        iters=1,
+        activation="relu",
+        normalizer="batch-norm",
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        deploy=False,
+        *args, **kwargs
+    ):
+        super().__init__(
+            expansion=expansion,
+            rep_block=rep_block,
+            sub_block=sub_block or RepVGGBlock,
+            iters=iters,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            deploy=deploy,
+            *args, **kwargs
+        )
+        self.filters = filters
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv2 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
+        
+        self.conv1 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv2 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv3 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
         if self.sub_block:
-            self.block = RepBlock(hidden_dim, rep_block=self.rep_block, sub_block=self.sub_block, iters=self.iters, training=self.training)
+            self.block = RepBlock(
+                filters=hidden_dim,
+                rep_block=self.rep_block,
+                sub_block=self.sub_block,
+                iters=self.iters,
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
+            
         else:
-            self.block = RepBlock(hidden_dim, rep_block=self.rep_block, iters=self.iters, training=self.training)
+            self.block = RepBlock(
+                filters=hidden_dim,
+                rep_block=self.rep_block,
+                iters=self.iters,
+                activation=self.activation,
+                normalizer=self.normalizer,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                regularizer_decay=self.regularizer_decay,
+                norm_eps=self.norm_eps,
+                deploy=self.deploy,
+            )
+            
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -432,38 +842,49 @@ class BepC3(CustomLayer):
             "iters": self.iters,
             "activation": self.activation,
             "normalizer": self.normalizer,
-            "training": self.training,
+            "deploy": self.deploy,
         })
         return config
 
 
 class MBLABlock(CustomLayer):
     
-    def __init__(self, 
-                 filters, 
-                 rep_block=BottleRep3,
-                 sub_block=None,
-                 expansion=0.5, 
-                 iters=1, 
-                 activation = 'relu', 
-                 normalizer = 'batch-norm', 
-                 training=False, 
-                 *args, 
-                 **kwargs):
-        super(MBLABlock, self).__init__(*args, **kwargs)
-        self.filters    = filters
-        self.rep_block  = rep_block
-        self.sub_block  = sub_block if sub_block else RepVGGBlock
-        self.expansion  = expansion
-        self.activation = activation
-        self.normalizer = normalizer
-        self.training   = training
-
+    def __init__(
+        self,
+        filters,
+        rep_block=BottleRep3,
+        sub_block=None,
+        expansion=0.5,
+        iters=1,
+        activation='relu',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        deploy=False,
+        *args, **kwargs
+    ):
+        
         iters = iters // 2
         if iters <= 0:
-            self.iters = 1
-        else:
-            self.iters = iters
+            iters = 1
+            
+        super().__init__(
+            expansion=expansion,
+            rep_block=rep_block,
+            sub_block=sub_block or RepVGGBlock,
+            iters=iters,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            deploy=deploy,
+            *args, **kwargs
+        )
+        self.filters = filters
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
@@ -476,13 +897,46 @@ class MBLABlock(CustomLayer):
             n_list = [0, extra_branch_steps, self.iters]
         self.branch_num = len(n_list)
 
-        self.conv1 = ConvolutionBlock(self.branch_num * hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
+        self.conv1 = ConvolutionBlock(
+            filters=self.branch_num * hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv2 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
         self.block = []
         for n_list_i in n_list[1:]:
-            self.block.append(
-                [self.rep_block(hidden_dim, self.sub_block, scale_weight=True, training=self.training) for i in range(n_list_i)]
-            )
+            self.block.append([
+                self.rep_block(
+                    filters=hidden_dim,
+                    rep_block=self.sub_block,
+                    scale_weight=True,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    regularizer_decay=self.regularizer_decay,
+                    norm_eps=self.norm_eps,
+                    deploy=self.deploy,
+                )
+                for _ in range(n_list_i)
+            ])
+            
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -506,33 +960,95 @@ class MBLABlock(CustomLayer):
             "iters": self.iters,
             "activation": self.activation,
             "normalizer": self.normalizer,
-            "training": self.training,
+            "deploy": self.deploy,
         })
         return config
 
 
 class BiFusion(CustomLayer):
     
-    def __init__(self, 
-                 filters, 
-                 activation = 'relu', 
-                 normalizer = 'batch-norm', 
-                 *args, 
-                 **kwargs):
-        super(BiFusion, self).__init__(*args, **kwargs)
-        self.filters    = filters
-        self.activation = activation
-        self.normalizer = normalizer
+    def __init__(
+        self,
+        filters,
+        activation='relu',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
+        self.filters = filters
         
     def build(self, input_shape):
-        self.conv1 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv2 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
-        self.upsample = Conv2DTranspose(self.filters, 
-                                        kernel_size=(1, 1),
-                                        strides=(1, 1),
-                                        padding='valid')
-        self.downsample = ConvolutionBlock(self.filters, 3, downsample=True, activation=self.activation, normalizer=self.normalizer)
+        self.conv1 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv2 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv3 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.upsample = Conv2DTranspose(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding='valid',
+            use_bias=True,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=l2(self.regularizer_decay),
+        )
+        
+        self.downsample = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -554,78 +1070,94 @@ class BiFusion(CustomLayer):
         return config
 
 
-class SEBlock(CustomLayer):
-    
-    def __init__(self, 
-                 expansion  = 0.5,
-                 activation = 'relu', 
-                 normalizer = None, 
-                 *args, 
-                 **kwargs):
-        super(SEBlock, self).__init__(*args, **kwargs)
-        self.expansion = expansion
-        self.activation = activation
-        self.normalizer = normalizer
-        
-    def build(self, input_shape):
-        bs = input_shape[-1]
-        hidden_dim = int(bs * self.expansion)
-        self.avg_pool = GlobalAveragePooling2D(keepdims=True)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv2 = ConvolutionBlock(bs, 1, activation='hard-sigmoid', normalizer=self.normalizer)
-        super().build(input_shape)
-
-    def call(self, inputs, training=False):
-        x = self.avg_pool(inputs)
-        x = self.conv1(x, training=training)        
-        x = self.conv2(x, training=training)
-        return x * inputs
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            "expansion": self.expansion,
-            "activation": self.activation,
-            "normalizer": self.normalizer,
-        })
-        return config
-
-
 class Lite_EffiBlockS1(CustomLayer):
     
-    def __init__(self, 
-                 filters, 
-                 strides=(1, 1),
-                 expansion = 1,
-                 activation = 'hard-swish', 
-                 normalizer = 'batch-norm', 
-                 *args, 
-                 **kwargs):
-        super(Lite_EffiBlockS1, self).__init__(*args, **kwargs)
-        self.filters    = filters
-        self.strides    = strides if isinstance(strides, (list, tuple)) else (strides, strides)
-        self.expansion  = expansion
-        self.activation = activation
-        self.normalizer = normalizer
-        
+    def __init__(
+        self,
+        filters,
+        strides=(1, 1),
+        expansion=1,
+        activation='hard-swish',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            expansion=expansion,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
+        self.filters = filters
+        self.strides = strides
+
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv_pw = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv_dw = self.convolution_block(hidden_dim, 3, self.strides, normalizer=self.normalizer)
-        self.se_block  = SEBlock(expansion=0.25)
-        self.conv = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, normalizer=self.normalizer)
+        
+        self.conv_pw = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv_dw = self.convolution_block(
+            filters=hidden_dim,
+            kernel_size=(3, 3),
+            strides=self.strides,
+        )
+        
+        self.conv = ConvolutionBlock(
+            filters=self.filters // 2,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.se_block  = SEBlock(
+            expansion=0.25,
+            activation=self.activation,
+            normalizer=None,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
         self.shuffle = ChannelShuffle(2)
+        
         super().build(input_shape)
 
-    def convolution_block(self, filters, kernel_size, strides, normalizer):
+    def convolution_block(self, filters, kernel_size, strides):
         return  Sequential([
                 Conv2D(filters=filters,
                        kernel_size=kernel_size,
                        strides=strides,
                        padding='same',
                        groups=filters,
-                       use_bias=False),
-                get_normalizer_from_name(normalizer),
+                       use_bias=False,
+                       kernel_initializer=self.kernel_initializer,
+                       bias_initializer=self.bias_initializer,
+                       kernel_regularizer=l2(self.regularizer_decay),
+                      ),
+                get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps),
         ])
 
         
@@ -650,50 +1182,126 @@ class Lite_EffiBlockS1(CustomLayer):
         return config
 
 
-class Lite_EffiBlockS2(CustomLayer):
-    
-    def __init__(self, 
-                 filters, 
-                 strides=(1, 1),
-                 expansion = 1,
-                 activation = 'hard-swish', 
-                 normalizer = 'batch-norm', 
-                 *args, 
-                 **kwargs):
-        super(Lite_EffiBlockS2, self).__init__(*args, **kwargs)
-        self.filters    = filters
-        self.strides    = strides if isinstance(strides, (list, tuple)) else (strides, strides)
-        self.expansion  = expansion
-        self.activation = activation
-        self.normalizer = normalizer
-        
+class Lite_EffiBlockS2(Lite_EffiBlockS1):
+    def __init__(
+        self,
+        filters,
+        strides=(1, 1),
+        expansion=1,
+        activation='hard-swish',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            filters=filters,
+            strides=strides,
+            expansion=expansion,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
+
     def build(self, input_shape):
         channel_dim = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
-        self.conv_dw_1 = self.convolution_block(channel_dim, 3, self.strides, normalizer=self.normalizer)
-        self.conv_1 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv_pw_2 = ConvolutionBlock(hidden_dim // 2, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv_dw_2 = self.convolution_block(hidden_dim // 2, 3, self.strides, normalizer=self.normalizer)
-        self.se_block  = SEBlock(expansion=0.25)
-        self.conv_2 = ConvolutionBlock(self.filters // 2, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv_pw_3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv_dw_3 = ConvolutionBlock(self.filters, 3, groups=self.filters, activation=self.activation, normalizer=self.normalizer)
-        super().build(input_shape)
 
-    def convolution_block(self, filters, kernel_size, strides, normalizer):
-        return  Sequential([
-                Conv2D(filters=filters,
-                       kernel_size=kernel_size,
-                       strides=strides,
-                       padding='same',
-                       groups=filters,
-                       use_bias=False),
-                get_normalizer_from_name(normalizer),
-        ])
+        self.conv_dw_1 = self.convolution_block(
+            filters=channel_dim,
+            kernel_size=(3, 3),
+            strides=self.strides,
+        )
+        
+        self.conv_1 = ConvolutionBlock(
+            filters=self.filters // 2,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+
+        self.conv_pw_2 = ConvolutionBlock(
+            filters=hidden_dim // 2,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+
+        self.conv_dw_2 = self.convolution_block(
+            filters=hidden_dim // 2,
+            kernel_size=(3, 3),
+            strides=self.strides,
+        )
+
+        self.se_block = SEBlock(
+            expansion=0.25,
+            activation=self.activation,
+            normalizer=None,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+
+        self.conv_2 = ConvolutionBlock(
+            filters=self.filters // 2,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+
+        self.conv_dw_3 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            groups=self.filters,
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+
+        self.conv_pw_3 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+
+        super().build(input_shape)
 
     def call(self, inputs, training=False):
         x1 = self.conv_dw_1(inputs, training=training)
         x1 = self.conv_1(x1, training=training)
+
         x2 = self.conv_pw_2(inputs, training=training)
         x2 = self.conv_dw_2(x2, training=training)
         x2 = self.se_block(x2, training=training)
@@ -709,59 +1317,86 @@ class Lite_EffiBlockS2(CustomLayer):
         config.update({
             "filters": self.filters,
             "strides": self.strides,
-            "expansion": self.expansion,
-            "activation": self.activation,
-            "normalizer": self.normalizer,
         })
         return config
 
 
+
 class DPBlock(CustomLayer):
     
-    def __init__(self, 
-                 filters, 
-                 kernel_size = (3, 3),
-                 strides     = (1, 1),
-                 padding     = "same",
-                 activation  = 'hard-swish', 
-                 normalizer  = 'batch-norm', 
-                 fuse        = False,
-                 *args, 
-                 **kwargs):
-        super(DPBlock, self).__init__(*args, **kwargs)
-        self.filters     = filters
-        self.kernel_size = kernel_size if isinstance(kernel_size, (list, tuple)) else (kernel_size, kernel_size)
-        self.strides     = strides if isinstance(strides, (list, tuple)) else (strides, strides)
-        self.padding     = padding
-        self.activation  = activation
-        self.normalizer  = normalizer
-        self.fuse        = fuse
+    def __init__(
+        self,
+        filters,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        padding="same",
+        fuse=False,
+        activation='hard-swish',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.padding = padding
+        self.fuse = fuse
         
     def build(self, input_shape):
         group = self.filters if input_shape[-1] % self.filters == 0 else 1
-        self.conv_dw_1 = Conv2D(filters=self.filters,
-                                kernel_size=self.kernel_size,
-                                strides=self.strides,
-                                padding=self.padding,
-                                groups=group)
-        self.norm_1    = get_normalizer_from_name(self.normalizer)
-        self.activ_1   = get_activation_from_name(self.activation)
-        self.conv_pw_1 = Conv2D(filters=self.filters,
-                                kernel_size=1,
-                                strides=1,
-                                padding="valid")
-        self.norm_2    = get_normalizer_from_name(self.normalizer)
-        self.activ_2   = get_activation_from_name(self.activation)
+        
+        self.conv_dw_1 = Conv2D(
+            filters=self.filters,
+            kernel_size=self.kernel_size,
+            strides=self.strides,
+            padding=self.padding,
+            groups=group,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=l2(self.regularizer_decay),
+        )
+        
+        self.norm_1 = get_normalizer_from_name(self.normalizer)
+        self.activ_1 = get_activation_from_name(self.activation)
+        
+        self.conv_pw_1 = Conv2D(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding="valid",
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=l2(self.regularizer_decay),
+        )
+        
+        self.norm_2 = get_normalizer_from_name(self.normalizer)
+        self.activ_2 = get_activation_from_name(self.activation)
         super().build(input_shape)
 
     def call(self, inputs, training=False):
         x = self.conv_dw_1(inputs, training=training)
+        
         if not self.fuse:
             x = self.norm_1(x, training=training)
+            
         x = self.activ_1(x, training=training)
         x = self.conv_pw_1(x, training=training)
+        
         if not self.fuse:
             x = self.norm_2(x, training=training)
+            
         x = self.activ_2(x, training=training)
         return x
 
@@ -781,27 +1416,63 @@ class DPBlock(CustomLayer):
 
 class DarknetBlock(CustomLayer):
     
-    def __init__(self, 
-                 filters, 
-                 kernel_size = (3, 3),
-                 expansion   = 0.5,
-                 activation  = 'hard-swish', 
-                 normalizer  = 'batch-norm', 
-                 fuse        = False,
-                 *args, 
-                 **kwargs):
-        super(DarknetBlock, self).__init__(*args, **kwargs)
-        self.filters     = filters
-        self.kernel_size = kernel_size if isinstance(kernel_size, (list, tuple)) else (kernel_size, kernel_size)
-        self.expansion   = expansion
-        self.activation  = activation
-        self.normalizer  = normalizer
-        self.fuse        = fuse
+    def __init__(
+        self,
+        filters,
+        kernel_size=(3, 3),
+        expansion=0.5,
+        fuse=False,
+        activation='hard-swish',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            expansion=expansion,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.fuse = fuse
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv2 = DPBlock(self.filters, self.kernel_size, 1, "same", activation=self.activation, normalizer=self.normalizer, fuse=self.fuse)
+        
+        self.conv1 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv2 = DPBlock(
+            filters=self.filters,
+            kernel_size=self.kernel_size,
+            strides=(1, 1),
+            padding="same",
+            fuse=self.fuse,
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -824,29 +1495,86 @@ class DarknetBlock(CustomLayer):
 
 class CSPBlock(CustomLayer):
     
-    def __init__(self, 
-                 filters, 
-                 kernel_size = (3, 3),
-                 expansion   = 0.5,
-                 activation  = 'hard-swish', 
-                 normalizer  = 'batch-norm', 
-                 fuse        = False,
-                 *args, 
-                 **kwargs):
-        super(CSPBlock, self).__init__(*args, **kwargs)
-        self.filters     = filters
-        self.kernel_size = kernel_size if isinstance(kernel_size, (list, tuple)) else (kernel_size, kernel_size)
-        self.expansion   = expansion
-        self.activation  = activation
-        self.normalizer  = normalizer
-        self.fuse        = fuse
+    def __init__(
+        self,
+        filters,
+        kernel_size=(3, 3),
+        expansion=0.5,
+        fuse=False,
+        activation='hard-swish',
+        normalizer='batch-norm',
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
+        super().__init__(
+            expansion=expansion,
+            activation=activation,
+            normalizer=normalizer,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            *args, **kwargs
+        )
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.fuse = fuse
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
-        self.conv1 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv2 = ConvolutionBlock(hidden_dim, 1, activation=self.activation, normalizer=self.normalizer)
-        self.conv3 = ConvolutionBlock(self.filters, 1, activation=self.activation, normalizer=self.normalizer)
-        self.block = DarknetBlock(hidden_dim, self.kernel_size, expansion=1.0, activation=self.activation, normalizer=self.normalizer, fuse=self.fuse)
+        
+        self.conv1 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv2 = ConvolutionBlock(
+            filters=hidden_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.conv3 = ConvolutionBlock(
+            filters=self.filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.block = DarknetBlock(
+            filters=hidden_dim,
+            kernel_size=self.kernel_size,
+            expansion=1.0,
+            fuse=self.fuse,
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -871,106 +1599,334 @@ class CSPBlock(CustomLayer):
         return config
 
 
-def EfficientRep(blocks=[RepVGGBlock, RepBlock],
-                 filters=[64, 128, 256, 512, 1024],
-                 layers=[6, 12, 18, 6],
-                 use_csp=True,
-                 csp_epsilon=1.0,
-                 include_top=True,
-                 weights='imagenet',
-                 input_tensor=None,
-                 input_shape=None,
-                 pooling=None,
-                 activation='silu',
-                 normalizer='batch-norm',
-                 final_activation="softmax",
-                 classes=1000,
-                 training=False):
+def EfficientLite(
+    feature_extractor,
+    fusion_layer,
+    pyramid_pooling,
+    filters,
+    num_blocks,
+    csp_scale=2,
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="hard-swish",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+):
+
+    if weights not in {"imagenet", None}:
+        raise ValueError('The `weights` argument should be either '
+                         '`None` (random initialization) or `imagenet` '
+                         '(pre-training on ImageNet).')
+
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
+
+    # if feature_extractor and feature_extractor.__name__ not in ["Focus", "Conv2D" "ConvolutionBlock", "GhostConv"]:
+    #     raise ValueError(f"Invalid feature_extractor: {feature_extractor}. Expected one of [Focus, Conv2D, ConvolutionBlock, GhostConv].")
+
+    # if fusion_layer and fusion_layer.__name__ not in ["ResidualBlock"]:
+    #     raise ValueError(f"Invalid fusion_layer: {fusion_layer}. Expected one of [ResidualBlock].")
+
+    # if pyramid_pooling and pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
+    #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
+
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+        "deploy": deploy,
+    }
     
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=640,
+        min_size=32,
+        weights=weights,
+    )
+    
+    if isinstance(feature_extractor, (tuple, list)):
+       extractor_block1, extractor_block2 = feature_extractor
+    else:
+        extractor_block1 = extractor_block2 = feature_extractor
+
+    if isinstance(fusion_layer, (list, tuple)):
+        fusion_block1, fusion_block2 = fusion_layer
+    else:
+        fusion_block1 = fusion_block2 = fusion_layer
+
+    if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
+        pyramid_pooling = [pyramid_pooling]
+
+    filters = filters if isinstance(filters, (tuple, list)) else [filters * channel_scale**i for i in range(len(num_blocks) + 1)]
+
+    x = inputs
+    for i in range(num_blocks[0]):
+        x = create_layer_instance(
+            extractor_block1,
+            filters=filters[0],
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            **layer_constant_dict,
+            name=f"stem.block{i + 1}",
+        )(x)
+
+    for i, j in enumerate(num_blocks[1:]):
+        x = create_layer_instance(
+            extractor_block2,
+            filters=filters[i + 1],
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            expansion=csp_scale,
+            **layer_constant_dict,
+            name=f"stage{i + 1}.block1",
+        )(x)
+        
+        for k in range(j - 1):
+            x = create_layer_instance(
+                fusion_block1 if i == 0 else fusion_block2,
+                filters=filters[i + 1],
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                expansion=csp_scale,
+                **layer_constant_dict,
+                name=f"stage{i + 1}.block{k + 2}",
+            )(x)
+            
+    if pyramid_pooling:
+        for l, pooling in enumerate(pyramid_pooling):
+            x = create_layer_instance(
+                pooling,
+                filters=int(filters[-1] * final_channel_scale),
+                **layer_constant_dict,
+                name=f"stage{i + 1}.block{k + l + 3}",
+            )(x)
+    else:
+        x = LinearLayer(name=f"stage{i + 1}.block{k + 3}")(x)
+
+    if include_head:
+        x = GlobalAveragePooling2D(name="global_avgpool")(x)
+        x = Dropout(rate=drop_rate)(x)
+        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
+        x = get_activation_from_name(final_activation)(x)
+    else:
+        if pooling == "avg":
+            x = GlobalAveragePooling2D()(x)
+        elif pooling == "max":
+            x = GlobalMaxPooling2D()(x)
+
+    if filters == [24, 32, 48, 96, 176]:
+        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite-Small')
+    elif filters == [24, 32, 64, 144, 288]:
+        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite-Medium')
+    elif filters == [24, 48, 96, 192, 384]:
+        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite-Large')
+    else:
+        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite')
+
+    return model
+
+
+def EfficientLite_backbone(
+    feature_extractor,
+    fusion_layer,
+    pyramid_pooling,
+    filters,
+    num_blocks,
+    csp_scale=2,
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="hard-swish",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+
+    model = EfficientLite(
+        feature_extractor=feature_extractor,
+        fusion_layer=fusion_layer,
+        pyramid_pooling=pyramid_pooling,
+        filters=filters,
+        num_blocks=num_blocks,
+        csp_scale=csp_scale,
+        channel_scale=channel_scale,
+        final_channel_scale=final_channel_scale,
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1" if i == 0 else f"stage{i}.block{j}"
+        for i, j in enumerate(num_blocks[:-1])
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep(
+    feature_extractor=RepVGGBlock,
+    fusion_layer=RepBlock,
+    pyramid_pooling=CSPSPPF,
+    filters=[64, 128, 256, 512, 1024],
+    num_blocks=[6, 12, 18, 6],
+    csp_scale=1.0,
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+):
+
     '''
         EfficientRep Backbone
         EfficientRep is handcrafted by hardware-aware neural network design.
         With rep-style struct, EfficientRep is friendly to high-computation hardware(e.g. GPU).
     '''
     
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=640,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    # if feature_extractor and feature_extractor.__name__ not in ["Focus", "Conv2D" "ConvolutionBlock", "GhostConv"]:
+    #     raise ValueError(f"Invalid feature_extractor: {feature_extractor}. Expected one of [Focus, Conv2D, ConvolutionBlock, GhostConv].")
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
+    # if fusion_layer and fusion_layer.__name__ not in ["ResidualBlock"]:
+    #     raise ValueError(f"Invalid fusion_layer: {fusion_layer}. Expected one of [ResidualBlock].")
+
+    # if pyramid_pooling and pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
+    #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
+
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+        "deploy": deploy,
+    }
+    
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=640,
+        min_size=32,
+        weights=weights,
+    )
+    
+    if isinstance(feature_extractor, (tuple, list)):
+       extractor_block1, extractor_block2 = feature_extractor
     else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+        extractor_block1 = extractor_block2 = feature_extractor
 
-    if use_csp:
-        channel_merge_layer = CSPSPPF
+    if isinstance(fusion_layer, (list, tuple)):
+        fusion_block1, fusion_block2 = fusion_layer
     else:
-        channel_merge_layer = SPPF
+        fusion_block1 = fusion_block2 = fusion_layer
 
-    if isinstance(blocks, (list, tuple)):
-        block1, block2 = blocks
-    else:
-        block1 = blocks
-        block2 = RepBlock
+    if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
+        pyramid_pooling = [pyramid_pooling]
 
-    if block1 == ConvolutionBlock:
-        x = block1(filters=filters[0], kernel_size=3, downsample=True, activation=activation, normalizer=normalizer, name='stem')(img_input)
-    else:
-        x = block1(filters=filters[0], kernel_size=3, strides=2, training=training, name='stem')(img_input)
+    filters = filters if isinstance(filters, (tuple, list)) else [filters * channel_scale**i for i in range(len(num_blocks))]
 
-    for i in range(len(layers)):
-        if block1 == ConvolutionBlock:
-            x = block1(filters=filters[i + 1], kernel_size=3, downsample=True, activation=activation, normalizer=normalizer, name=f'stage{i + 1}.block1')(x)
-        else:
-            x = block1(filters=filters[i + 1], kernel_size=3, strides=2, training=training, name=f'stage{i + 1}.block1')(x)
+    
+    x = inputs
+    for i in range(num_blocks[0]):
+        x = create_layer_instance(
+            extractor_block1,
+            filters=filters[0],
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            **layer_constant_dict,
+            name=f"stem.block{i + 1}",
+        )(x)
+
+    for i in range(len(num_blocks) - 1):
+        x = create_layer_instance(
+            extractor_block2,
+            filters=filters[i + 1],
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            **layer_constant_dict,
+            name=f"stage{i + 1}.block1",
+        )(x)
         
-        x = block2(filters=filters[i + 1], sub_block=block1, expansion=csp_epsilon, iters=layers[i], training=training, name=f'stage{i + 1}.block2')(x)
+        x = create_layer_instance(
+            fusion_block1 if i == 0 else fusion_block2,
+            filters=filters[i + 1],
+            iters=num_blocks[i + 1],
+            expansion=csp_scale,
+            **layer_constant_dict,
+            name=f"stage{i + 1}.block2",
+        )(x)
 
-    x = channel_merge_layer(filters=filters[-1], 
-                            pool_size=(5, 5),
-                            expansion=0.5,
-                            activation=activation, 
-                            normalizer=normalizer,
-                            name=f'stage{i + 1}.block3')(x)
-
-    if include_top:
-        # Classification block
-        x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+    if pyramid_pooling:
+        for k, pooling in enumerate(pyramid_pooling):
+            x = create_layer_instance(
+                pooling,
+                filters=int(filters[-1] * final_channel_scale),
+                **layer_constant_dict,
+                name=f"stage{i + 1}.block{k + 3}",
+            )(x)
+    else:
+        x = LinearLayer(name=f"stage{i + 1}.block3")(x)
+        
+    if include_head:
+        x = GlobalAveragePooling2D(name="global_avgpool")(x)
+        x = Dropout(rate=drop_rate)(x)
+        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
         x = get_activation_from_name(final_activation)(x)
     else:
-        if pooling == 'avg':
+        if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
+        elif pooling == "max":
             x = GlobalMaxPooling2D()(x)
-            
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
 
-    if block2 == MBLABlock:
+    if fusion_block1 == MBLABlock and fusion_block2 == MBLABlock:
         name = "MLBA"
-    else:
+    elif fusion_block1 == RepBlock and fusion_block2 == RepBlock:
         name = "Rep"
+    else:
+        name = "Mishmash"
         
     if filters[0] == 16:
         suffit = "nano"
@@ -984,976 +1940,109 @@ def EfficientRep(blocks=[RepVGGBlock, RepBlock],
         suffit = ""
 
     if len(filters) > 5:
-        model = Model(inputs, x, name=f'Efficient-{name}{len(filters)}-{suffit}')
+        model = Model(inputs=inputs, outputs=x, name=f'Efficient-{name}{len(filters)}-{suffit}')
     else:
-        model = Model(inputs, x, name=f'Efficient-{name}-{suffit}')
+        model = Model(inputs=inputs, outputs=x, name=f'Efficient-{name}-{suffit}')
 
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
     return model
 
 
-def EfficientRep_nano(blocks=[RepVGGBlock, RepBlock],
-                      use_csp=True,
-                      include_top=True,
-                      weights='imagenet',
-                      input_tensor=None,
-                      input_shape=None,
-                      pooling=None,
-                      activation='silu',
-                      normalizer='batch-norm',
-                      final_activation="softmax",
-                      classes=1000,
-                      training=False) -> Model:
+def EfficientRep_backbone(
+    feature_extractor,
+    fusion_layer,
+    pyramid_pooling,
+    filters,
+    num_blocks,
+    csp_scale=1.0,
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="silu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+
+    model = EfficientRep(
+        feature_extractor=feature_extractor,
+        fusion_layer=fusion_layer,
+        pyramid_pooling=pyramid_pooling,
+        filters=filters,
+        num_blocks=num_blocks,
+        csp_scale=csp_scale,
+        channel_scale=channel_scale,
+        final_channel_scale=final_channel_scale,
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1" if i == 0 else f"stage{i}.block2"
+        for i, j in enumerate(num_blocks[:-1])
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientLite_small(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="hard-swish",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
     
-    model = EfficientRep(blocks=blocks,
-                         filters=[16, 32, 64, 128, 256],
-                         layers=[2, 4, 6, 2],
-                         use_csp=use_csp,
-                         csp_epsilon=1.0,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
+    model = EfficientLite(
+        feature_extractor=[ConvolutionBlock, Lite_EffiBlockS2],
+        fusion_layer=Lite_EffiBlockS1,
+        pyramid_pooling=None,
+        filters=[24, 32, 48, 96, 176],
+        num_blocks=[1, 1, 3, 7, 3],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
     return model
 
 
-def EfficientRep_nano_backbone(input_shape=(640, 640, 3),
-                               include_top=False, 
-                               weights='imagenet', 
-                               activation='silu',
-                               normalizer='batch-norm',
-                               training=False,
-                               custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6n
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n_finetune.py
-    """
-    
-    model = EfficientRep_nano(include_top=include_top, 
-                              weights=weights,
-                              activation=activation,
-                              normalizer=normalizer,
-                              input_shape=input_shape,
-                              training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientRep6_nano(blocks=[RepVGGBlock, RepBlock],
-                       use_csp=True,
-                       include_top=True,
-                       weights='imagenet',
-                       input_tensor=None,
-                       input_shape=None,
-                       pooling=None,
-                       activation='silu',
-                       normalizer='batch-norm',
-                       final_activation="softmax",
-                       classes=1000,
-                       training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[16, 32, 64, 128, 192, 256],
-                         layers=[2, 4, 6, 2, 2],
-                         use_csp=use_csp,
-                         csp_epsilon=1.0,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientRep6_nano_backbone(input_shape=(1280, 1280, 3),
-                                include_top=False, 
-                                weights='imagenet', 
-                                activation='silu',
-                                normalizer='batch-norm',
-                                training=False,
-                                custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6n6
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n6.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n6_finetune.py
-    """
-    
-    model = EfficientRep6_nano(include_top=include_top, 
-                               weights=weights,
-                               activation=activation,
-                               normalizer=normalizer,
-                               input_shape=input_shape,
-                               training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block2").output
-        y_64 = model.get_layer("stage5.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_64], name=model.name + '_backbone')
-
-
-def EfficientRep_small(blocks=[RepVGGBlock, RepBlock],
-                       use_csp=True,
-                       include_top=True,
-                       weights='imagenet',
-                       input_tensor=None,
-                       input_shape=None,
-                       pooling=None,
-                       activation='silu',
-                       normalizer='batch-norm',
-                       final_activation="softmax",
-                       classes=1000,
-                       training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[32, 64, 128, 256, 512],
-                         layers=[2, 4, 6, 2],
-                         use_csp=use_csp,
-                         csp_epsilon=1.0,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientRep_small_backbone(input_shape=(640, 640, 3),
-                                include_top=False, 
-                                weights='imagenet', 
-                                activation='silu',
-                                normalizer='batch-norm',
-                                training=False,
-                                custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6s
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s_finetune.py
-    """
-    
-    model = EfficientRep_small(include_top=include_top, 
-                               weights=weights,
-                               activation=activation,
-                               normalizer=normalizer,
-                               input_shape=input_shape,
-                               training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientRep6_small(blocks=[RepVGGBlock, RepBlock],
-                        use_csp=True,
-                        include_top=True,
-                        weights='imagenet',
-                        input_tensor=None,
-                        input_shape=None,
-                        pooling=None,
-                        activation='silu',
-                        normalizer='batch-norm',
-                        final_activation="softmax",
-                        classes=1000,
-                        training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[32, 64, 128, 256, 384, 512],
-                         layers=[2, 4, 6, 2, 2],
-                         use_csp=use_csp,
-                         csp_epsilon=1.0,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientRep6_small_backbone(input_shape=(1280, 1280, 3),
-                                 include_top=False, 
-                                 weights='imagenet', 
-                                 activation='silu',
-                                 normalizer='batch-norm',
-                                 training=False,
-                                 custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6s6
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s6.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s6_finetune.py
-    """
-    
-    model = EfficientRep6_small(include_top=include_top, 
-                                weights=weights,
-                                activation=activation,
-                                normalizer=normalizer,
-                                input_shape=input_shape,
-                                training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block2").output
-        y_64 = model.get_layer("stage5.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_64], name=model.name + '_backbone')
-
-
-def EfficientRep_medium(blocks=[RepVGGBlock, BepC3],
-                        use_csp=False,
-                        csp_epsilon=2/3,
-                        include_top=True,
-                        weights='imagenet',
-                        input_tensor=None,
-                        input_shape=None,
-                        pooling=None,
-                        activation='silu',
-                        normalizer='batch-norm',
-                        final_activation="softmax",
-                        classes=1000,
-                        training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[48, 96, 192, 384, 768],
-                         layers=[4, 7, 11, 4],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientRep_medium_backbone(input_shape=(640, 640, 3),
-                                 include_top=False, 
-                                 weights='imagenet', 
-                                 activation='silu',
-                                 normalizer='batch-norm',
-                                 training=False,
-                                 custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6m
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m_finetune.py
-    """
-    
-    model = EfficientRep_medium(include_top=include_top, 
-                                weights=weights,
-                                activation=activation,
-                                normalizer=normalizer,
-                                input_shape=input_shape,
-                                training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientRep6_medium(blocks=[RepVGGBlock, BepC3],
-                         use_csp=False,
-                         csp_epsilon=2/3,
-                         include_top=True,
-                         weights='imagenet',
-                         input_tensor=None,
-                         input_shape=None,
-                         pooling=None,
-                         activation='silu',
-                         normalizer='batch-norm',
-                         final_activation="softmax",
-                         classes=1000,
-                         training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[48, 96, 192, 384, 576, 768],
-                         layers=[4, 7, 11, 4, 4],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientRep6_medium_backbone(input_shape=(1280, 1280, 3),
-                                  include_top=False, 
-                                  weights='imagenet', 
-                                  activation='silu',
-                                  normalizer='batch-norm',
-                                  training=False,
-                                  custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6m6
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m6.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m6_finetune.py
-    """
-    
-    model = EfficientRep6_medium(include_top=include_top, 
-                                 weights=weights,
-                                 activation=activation,
-                                 normalizer=normalizer,
-                                 input_shape=input_shape,
-                                 training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block2").output
-        y_64 = model.get_layer("stage5.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_64], name=model.name + '_backbone')
-
-
-def EfficientRep_large(blocks=[ConvolutionBlock, BepC3],
-                       use_csp=False,
-                       csp_epsilon=1/2,
-                       include_top=True,
-                       weights='imagenet',
-                       input_tensor=None,
-                       input_shape=None,
-                       pooling=None,
-                       activation='silu',
-                       normalizer='batch-norm',
-                       final_activation="softmax",
-                       classes=1000,
-                       training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[64, 128, 256, 512, 1024],
-                         layers=[6, 12, 18, 6],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientRep_large_backbone(input_shape=(640, 640, 3),
-                                include_top=False, 
-                                weights='imagenet', 
-                                activation='silu',
-                                normalizer='batch-norm',
-                                training=False,
-                                custom_layers=None) -> Model:
-
-    """
-        - Used in YOLOv6l
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l_finetune.py
-    """
-
-    model = EfficientRep_large(include_top=include_top, 
-                               weights=weights,
-                               activation=activation,
-                               normalizer=normalizer,
-                               input_shape=input_shape,
-                               training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientRep6_large(blocks=[ConvolutionBlock, BepC3],
-                       use_csp=False,
-                       csp_epsilon=1/2,
-                       include_top=True,
-                       weights='imagenet',
-                       input_tensor=None,
-                       input_shape=None,
-                       pooling=None,
-                       activation='silu',
-                       normalizer='batch-norm',
-                       final_activation="softmax",
-                       classes=1000,
-                       training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[64, 128, 256, 512, 768, 1024],
-                         layers=[6, 12, 18, 6, 6],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientRep6_large_backbone(input_shape=(1280, 1280, 3),
-                                 include_top=False, 
-                                 weights='imagenet', 
-                                 activation='silu',
-                                 normalizer='batch-norm',
-                                 training=False,
-                                 custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6l6
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l6.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l6_finetune.py
-    """
-    
-    model = EfficientRep6_large(include_top=include_top, 
-                                weights=weights,
-                                activation=activation,
-                                normalizer=normalizer,
-                                input_shape=input_shape,
-                                training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block2").output
-        y_64 = model.get_layer("stage5.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_64], name=model.name + '_backbone')
-
-
-def EfficientMBLA_small(blocks=[ConvolutionBlock, MBLABlock],
-                        use_csp=False,
-                        csp_epsilon=1/2,
-                        include_top=True,
-                        weights='imagenet',
-                        input_tensor=None,
-                        input_shape=None,
-                        pooling=None,
-                        activation='silu',
-                        normalizer='batch-norm',
-                        final_activation="softmax",
-                        classes=1000,
-                        training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[32, 64, 128, 256, 512],
-                         layers=[2, 4, 4, 2],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientMBLA_small_backbone(input_shape=(640, 640, 3),
-                                 include_top=False, 
-                                 weights='imagenet', 
-                                 activation='silu',
-                                 normalizer='batch-norm',
-                                 training=False,
-                                 custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6 MBLA version small
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6s_mbla.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6s_mbla_finetune.py
-    """
-    
-    model = EfficientMBLA_small(include_top=include_top, 
-                                weights=weights,
-                                activation=activation,
-                                normalizer=normalizer,
-                                input_shape=input_shape,
-                                training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientMBLA_medium(blocks=[ConvolutionBlock, MBLABlock],
-                         use_csp=False,
-                         csp_epsilon=1/2,
-                         include_top=True,
-                         weights='imagenet',
-                         input_tensor=None,
-                         input_shape=None,
-                         pooling=None,
-                         activation='silu',
-                         normalizer='batch-norm',
-                         final_activation="softmax",
-                         classes=1000,
-                         training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[48, 96, 192, 384, 768],
-                         layers=[2, 4, 4, 2],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientMBLA_medium_backbone(input_shape=(640, 640, 3),
-                                  include_top=False, 
-                                  weights='imagenet', 
-                                  activation='silu',
-                                  normalizer='batch-norm',
-                                  training=False,
-                                  custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6 MBLA version medium
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6m_mbla.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6m_mbla_finetune.py
-    """
-    
-    model = EfficientMBLA_medium(include_top=include_top, 
-                                 weights=weights,
-                                 activation=activation,
-                                 normalizer=normalizer,
-                                 input_shape=input_shape,
-                                 training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientMBLA_large(blocks=[ConvolutionBlock, MBLABlock],
-                        use_csp=False,
-                        csp_epsilon=1/2,
-                        include_top=True,
-                        weights='imagenet',
-                        input_tensor=None,
-                        input_shape=None,
-                        pooling=None,
-                        activation='silu',
-                        normalizer='batch-norm',
-                        final_activation="softmax",
-                        classes=1000,
-                        training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[64, 128, 256, 512, 1024,],
-                         layers=[2, 4, 4, 2],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientMBLA_large_backbone(input_shape=(640, 640, 3),
-                                 include_top=False, 
-                                 weights='imagenet', 
-                                 activation='silu',
-                                 normalizer='batch-norm',
-                                 training=False,
-                                 custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6 MBLA version large
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6l_mbla.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6l_mbla_finetune.py
-    """
-    
-    model = EfficientMBLA_large(include_top=include_top, 
-                                weights=weights,
-                                activation=activation,
-                                normalizer=normalizer,
-                                input_shape=input_shape,
-                                training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientMBLA_xlarge(blocks=[ConvolutionBlock, MBLABlock],
-                         use_csp=False,
-                         csp_epsilon=1/2,
-                         include_top=True,
-                         weights='imagenet',
-                         input_tensor=None,
-                         input_shape=None,
-                         pooling=None,
-                         activation='silu',
-                         normalizer='batch-norm',
-                         final_activation="softmax",
-                         classes=1000,
-                         training=False) -> Model:
-    
-    model = EfficientRep(blocks=blocks,
-                         filters=[64, 128, 256, 512, 1024,],
-                         layers=[4, 8, 8, 4],
-                         use_csp=use_csp,
-                         csp_epsilon=csp_epsilon,
-                         include_top=include_top,
-                         weights=weights, 
-                         input_tensor=input_tensor, 
-                         input_shape=input_shape, 
-                         pooling=pooling, 
-                         activation=activation,
-                         normalizer=normalizer,
-                         final_activation=final_activation,
-                         classes=classes,
-                         training=training)
-    return model
-
-
-def EfficientMBLA_xlarge_backbone(input_shape=(640, 640, 3),
-                                  include_top=False, 
-                                  weights='imagenet', 
-                                  activation='silu',
-                                  normalizer='batch-norm',
-                                  training=False,
-                                  custom_layers=None) -> Model:
-    
-    """
-        - Used in YOLOv6 MBLA version xlarge
-        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
-        - Reference:
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6x_mbla.py
-            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6x_mbla_finetune.py
-    """
-    
-    model = EfficientMBLA_xlarge(include_top=include_top, 
-                                 weights=weights,
-                                 activation=activation,
-                                 normalizer=normalizer,
-                                 input_shape=input_shape,
-                                 training=training)
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block2").output
-        y_8 = model.get_layer("stage2.block2").output
-        y_16 = model.get_layer("stage3.block2").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
-
-
-def EfficientLite(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
-                  filters=[24, 32, 64, 128, 256],
-                  filters_expansion=2,
-                  layers=[1, 3, 7, 3],
-                  include_top=True,
-                  weights='imagenet',
-                  input_tensor=None,
-                  input_shape=None,
-                  pooling=None,
-                  activation='hard-swish',
-                  normalizer='batch-norm',
-                  final_activation="softmax",
-                  classes=1000,
-                  training=False):
-
-    if weights not in {'imagenet', None}:
-        raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization) or `imagenet` '
-                         '(pre-training on ImageNet).')
-
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=640,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
-
-    x = ConvolutionBlock(filters[0], 3, downsample=True, activation=activation, normalizer=normalizer, name='stem')(img_input)
-
-    for layer_idx, layer in enumerate(layers):
-        for idx in range(layer):
-            if idx == 0:
-                x = blocks[0](filters=filters[layer_idx + 1], strides=(2, 2), expansion=filters_expansion, name=f'stage{layer_idx + 1}.block{idx + 1}')(x)
-            else:
-                x = blocks[1](filters=filters[layer_idx + 1], strides=(1, 1), expansion=filters_expansion, name=f'stage{layer_idx + 1}.block{idx + 1}')(x)
-
-    if include_top:
-        # Classification block
-        x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D()(x)
-            
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    if filters == [24, 32, 48, 96, 176]:
-        model = Model(inputs, x, name=f'Efficient-Lite-small')
-    elif filters == [24, 32, 64, 144, 288]:
-        model = Model(inputs, x, name=f'Efficient-Lite-medium')
-    elif filters == [24, 48, 96, 192, 384]:
-        model = Model(inputs, x, name=f'Efficient-Lite-large')
-    else:
-        model = Model(inputs, x, name=f'Efficient-Lite')
-        
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
-    return model
-
-
-def EfficientLite_small(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
-                        include_top=True,
-                        weights='imagenet',
-                        input_tensor=None,
-                        input_shape=None,
-                        pooling=None,
-                        activation='hard-swish',
-                        normalizer='batch-norm',
-                        final_activation="softmax",
-                        classes=1000) -> Model:
-    
-    model = EfficientLite(blocks=blocks,
-                          filters=[24, 32, 48, 96, 176],
-                          filters_expansion=0.5,
-                          layers=[1, 3, 7, 3],
-                          include_top=include_top,
-                          weights=weights, 
-                          input_tensor=input_tensor, 
-                          input_shape=input_shape, 
-                          pooling=pooling, 
-                          activation=activation,
-                          normalizer=normalizer,
-                          final_activation=final_activation,
-                          classes=classes)
-    return model
-
-
-def EfficientLite_small_backbone(input_shape=(640, 640, 3),
-                                 include_top=False, 
-                                 weights='imagenet', 
-                                 activation='hard-swish',
-                                 normalizer='batch-norm',
-                                 custom_layers=None) -> Model:
+def EfficientLite_small_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
 
     """
         - Used in YOLOv6 lite version small
@@ -1963,59 +2052,79 @@ def EfficientLite_small_backbone(input_shape=(640, 640, 3),
             https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_s_finetune.py
     """
 
-    model = EfficientLite_small(include_top=include_top, 
-                                weights=weights,
-                                activation=activation,
-                                normalizer=normalizer,
-                                input_shape=input_shape)
+    model = EfficientLite_small(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block1").output
-        y_8 = model.get_layer("stage2.block3").output
-        y_16 = model.get_layer("stage3.block7").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block1",
+        "stage2.block3",
+        "stage3.block7",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
-def EfficientLite_medium(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
-                         include_top=True,
-                         weights='imagenet',
-                         input_tensor=None,
-                         input_shape=None,
-                         pooling=None,
-                         activation='hard-swish',
-                         normalizer='batch-norm',
-                         final_activation="softmax",
-                         classes=1000) -> Model:
+def EfficientLite_medium(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="hard-swish",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
     
-    model = EfficientLite(blocks=blocks,
-                          filters=[24, 32, 64, 144, 288],
-                          filters_expansion=0.5,
-                          layers=[1, 3, 7, 3],
-                          include_top=include_top,
-                          weights=weights, 
-                          input_tensor=input_tensor, 
-                          input_shape=input_shape, 
-                          pooling=pooling, 
-                          activation=activation,
-                          normalizer=normalizer,
-                          final_activation=final_activation,
-                          classes=classes)
+    model = EfficientLite(
+        feature_extractor=[ConvolutionBlock, Lite_EffiBlockS2],
+        fusion_layer=Lite_EffiBlockS1,
+        pyramid_pooling=None,
+        filters=[24, 32, 64, 144, 288],
+        num_blocks=[1, 1, 3, 7, 3],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
     return model
 
 
-def EfficientLite_medium_backbone(input_shape=(640, 640, 3),
-                                  include_top=False, 
-                                  weights='imagenet', 
-                                  activation='hard-swish',
-                                  normalizer='batch-norm',
-                                  custom_layers=None) -> Model:
+def EfficientLite_medium_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
 
     """
         - Used in YOLOv6 lite version medium
@@ -2025,59 +2134,79 @@ def EfficientLite_medium_backbone(input_shape=(640, 640, 3),
             https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_m_finetune.py
     """
 
-    model = EfficientLite_medium(include_top=include_top, 
-                                 weights=weights,
-                                 activation=activation,
-                                 normalizer=normalizer,
-                                 input_shape=input_shape)
+    model = EfficientLite_medium(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block1").output
-        y_8 = model.get_layer("stage2.block3").output
-        y_16 = model.get_layer("stage3.block7").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block1",
+        "stage2.block3",
+        "stage3.block7",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
-def EfficientLite_large(blocks=[Lite_EffiBlockS2, Lite_EffiBlockS1],
-                        include_top=True,
-                        weights='imagenet',
-                        input_tensor=None,
-                        input_shape=None,
-                        pooling=None,
-                        activation='hard-swish',
-                        normalizer='batch-norm',
-                        final_activation="softmax",
-                        classes=1000) -> Model:
+def EfficientLite_large(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="hard-swish",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
     
-    model = EfficientLite(blocks=blocks,
-                          filters=[24, 48, 96, 192, 384],
-                          filters_expansion=0.5,
-                          layers=[1, 3, 7, 3],
-                          include_top=include_top,
-                          weights=weights, 
-                          input_tensor=input_tensor, 
-                          input_shape=input_shape, 
-                          pooling=pooling, 
-                          activation=activation,
-                          normalizer=normalizer,
-                          final_activation=final_activation,
-                          classes=classes)
+    model = EfficientLite(
+        feature_extractor=[ConvolutionBlock, Lite_EffiBlockS2],
+        fusion_layer=Lite_EffiBlockS1,
+        pyramid_pooling=None,
+        filters=[24, 48, 96, 192, 384],
+        num_blocks=[1, 1, 3, 7, 3],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
     return model
 
 
-def EfficientLite_large_backbone(input_shape=(640, 640, 3),
-                                 include_top=False, 
-                                 weights='imagenet', 
-                                 activation='hard-swish',
-                                 normalizer='batch-norm',
-                                 custom_layers=None) -> Model:
+def EfficientLite_large_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
 
     """
         - Used in YOLOv6 lite version large
@@ -2087,21 +2216,1010 @@ def EfficientLite_large_backbone(input_shape=(640, 640, 3),
             https://github.com/meituan/YOLOv6/blob/main/configs/yolov6_lite/yolov6_lite_l_finetune.py
     """
 
-    model = EfficientLite_large(include_top=include_top, 
-                                weights=weights,
-                                activation=activation,
-                                normalizer=normalizer,
-                                input_shape=input_shape)
+    model = EfficientLite_large(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name=model.name + '_backbone')
-    else:
-        y_2 = model.get_layer("stem").output
-        y_4 = model.get_layer("stage1.block1").output
-        y_8 = model.get_layer("stage2.block3").output
-        y_16 = model.get_layer("stage3.block7").output
-        y_32 = model.get_layer("stage4.block3").output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32], name=model.name + '_backbone')
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block1",
+        "stage2.block3",
+        "stage3.block7",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep_nano(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=RepVGGBlock,
+        fusion_layer=RepBlock,
+        pyramid_pooling=CSPSPPF,
+        filters=16,
+        num_blocks=[1, 2, 4, 6, 2],
+        csp_scale=1.0,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep_nano_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6n
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n_finetune.py
+    """
+    
+    model = EfficientRep_nano(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep6_nano(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=RepVGGBlock,
+        fusion_layer=RepBlock,
+        pyramid_pooling=CSPSPPF,
+        filters=[16, 32, 64, 128, 192, 256],
+        num_blocks=[1, 2, 4, 6, 2, 2],
+        csp_scale=1.0,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep6_nano_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6n6
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6n6_finetune.py
+    """
+    
+    model = EfficientRep6_nano(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+        "stage4.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep_small(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=RepVGGBlock,
+        fusion_layer=RepBlock,
+        pyramid_pooling=CSPSPPF,
+        filters=32,
+        num_blocks=[1, 2, 4, 6, 2],
+        csp_scale=1.0,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep_small_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6s
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s_finetune.py
+    """
+    
+    model = EfficientRep_small(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep6_small(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=RepVGGBlock,
+        fusion_layer=RepBlock,
+        pyramid_pooling=CSPSPPF,
+        filters=[32, 64, 128, 256, 384, 512],
+        num_blocks=[1, 2, 4, 6, 2, 2],
+        csp_scale=1.0,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep6_small_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6s6
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6s6_finetune.py
+    """
+    
+    model = EfficientRep6_small(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+        "stage4.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep_medium(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=RepVGGBlock,
+        fusion_layer=BepC3,
+        pyramid_pooling=SPPF,
+        filters=48,
+        num_blocks=[1, 4, 7, 11, 4],
+        csp_scale=2/3,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep_medium_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6m
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m_finetune.py
+    """
+    
+    model = EfficientRep_medium(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep6_medium(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=RepVGGBlock,
+        fusion_layer=BepC3,
+        pyramid_pooling=SPPF,
+        filters=[48, 96, 192, 384, 576, 768],
+        num_blocks=[1, 4, 7, 11, 4, 4],
+        csp_scale=2/3,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep6_medium_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6m6
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6m6_finetune.py
+    """
+    
+    model = EfficientRep6_medium(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+        "stage4.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep_large(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=ConvolutionBlock,
+        fusion_layer=BepC3,
+        pyramid_pooling=SPPF,
+        filters=64,
+        num_blocks=[1, 6, 12, 18, 6],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep_large_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+
+    """
+        - Used in YOLOv6l
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l_finetune.py
+    """
+
+    model = EfficientRep_large(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientRep6_large(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=ConvolutionBlock,
+        fusion_layer=BepC3,
+        pyramid_pooling=SPPF,
+        filters=[64, 128, 256, 512, 768, 1024],
+        num_blocks=[1, 6, 12, 18, 6, 6],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientRep6_large_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6l6
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32, 64
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l6.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/yolov6l6_finetune.py
+    """
+    
+    model = EfficientRep6_large(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+        "stage4.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientMBLA_small(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=ConvolutionBlock,
+        fusion_layer=MBLABlock,
+        pyramid_pooling=SPPF,
+        filters=32,
+        num_blocks=[1, 2, 4, 4, 2],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientMBLA_small_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6 MBLA version small
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6s_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6s_mbla_finetune.py
+    """
+    
+    model = EfficientMBLA_small(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientMBLA_medium(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=ConvolutionBlock,
+        fusion_layer=MBLABlock,
+        pyramid_pooling=SPPF,
+        filters=48,
+        num_blocks=[1, 2, 4, 4, 2],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientMBLA_medium_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6 MBLA version medium
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6m_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6m_mbla_finetune.py
+    """
+    
+    model = EfficientMBLA_medium(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientMBLA_large(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=ConvolutionBlock,
+        fusion_layer=MBLABlock,
+        pyramid_pooling=SPPF,
+        filters=64,
+        num_blocks=[1, 2, 4, 4, 2],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientMBLA_large_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6 MBLA version large
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6l_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6l_mbla_finetune.py
+    """
+    
+    model = EfficientMBLA_large(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def EfficientMBLA_xlarge(
+    inputs=[640, 640, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="silu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    deploy=False,
+) -> Model:
+    
+    model = EfficientRep(
+        feature_extractor=ConvolutionBlock,
+        fusion_layer=MBLABlock,
+        pyramid_pooling=SPPF,
+        filters=64,
+        num_blocks=[1, 4, 8, 8, 4],
+        csp_scale=0.5,
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+        deploy=deploy,
+    )
+    return model
+
+
+def EfficientMBLA_xlarge_backbone(
+    inputs=[640, 640, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    deploy=False,
+    custom_layers=[],
+) -> Model:
+    
+    """
+        - Used in YOLOv6 MBLA version xlarge
+        - In YOLOv6, feature extractor downsample percentage is: 4, 8, 16, 32
+        - Reference:
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6x_mbla.py
+            https://github.com/meituan/YOLOv6/blob/main/configs/mbla/yolov6x_mbla_finetune.py
+    """
+    
+    model = EfficientMBLA_xlarge(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        deploy=deploy,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.block1",
+        "stage1.block2",
+        "stage2.block2",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")

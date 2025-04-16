@@ -39,7 +39,14 @@ def load_model(weight_path, model_config=None, classes=None):
 
     
 
-def predict(image, model, classes, augmentor, normalizer, color_space="RGB"):
+def predict(
+    image,
+    model,
+    classes,
+    augmentor,
+    normalizer,
+    color_space="RGB",
+):
     if not isinstance(image, np.ndarray):
         image = cv2.imread(image)
 
@@ -55,7 +62,15 @@ def predict(image, model, classes, augmentor, normalizer, color_space="RGB"):
     return top1, predict
 
 
-def predict_folder(images, model, classes, augmentor, normalizer, color_space="RGB", batch_size=32):    
+def predict_folder(
+    images,
+    model,
+    classes,
+    augmentor,
+    normalizer,
+    color_space="RGB",
+    batch_size=32,
+):
     true_count  = 0
     total_count = len(images)
 
@@ -109,30 +124,29 @@ if __name__ == "__main__":
     args = parse_args()
     model_config = None
     classes = None
+    engine_config = load_config(args.engine_config)
+    data_config = engine_config['Dataset']
     
     if not args.weight_path.endswith(".keras"):
-        engine_config = load_config(args.engine_config)
-        data_config   = engine_config['Dataset']
         model_config  = load_config(args.model_config)['Model']
 
-        if not args.classes:
-            saved_weight_path = os.path.dirname(os.path.dirname(args.weight_path))
-            class_file = os.path.join(saved_weight_path, "classes.names")
-            if os.path.isfile(class_file):
-                classes, num_classes = get_labels(class_file)
-            else:
-                if os.path.isdir(data_config['data_dir']):
-                    classes, num_classes = get_labels(data_config['data_dir'])
-                else:
-                    classes, num_classes = get_labels(10)
+    if not args.classes:
+        saved_weight_path = os.path.dirname(os.path.dirname(args.weight_path))
+        class_file = os.path.join(saved_weight_path, "classes.names")
+        if os.path.isfile(class_file):
+            classes, num_classes = get_labels(class_file)
         else:
-            if isinstance(args.classes, (str, int)):
-                classes, num_classes = get_labels(args.classes)
+            if os.path.isdir(data_config['data_dir']):
+                classes, num_classes = get_labels(data_config['data_dir'])
             else:
-                raise ValueError("Invalid classes input")
-                
-    model = load_model(args.weight_path, model_config, classes)
+                classes, num_classes = get_labels(10)
+    else:
+        if isinstance(args.classes, (str, int)):
+            classes, num_classes = get_labels(args.classes)
+        else:
+            raise ValueError("Invalid classes input")
 
+    model = load_model(args.weight_path, model_config, classes)
 
     augmentor = data_config["data_augmentation"].get('inference')
     if augmentor and isinstance(augmentor, (tuple, list)):
@@ -147,21 +161,25 @@ if __name__ == "__main__":
 
     # files = get_files(args.data_path, ALLOW_IMAGE_EXTENSIONS)
     # for fi in files:
-    #     top1, pred = predict(os.path.join(args.data_path, fi),
-    #                          model=model,
-    #                          classes=classes,
-    #                          augmentor=augmentor,
-    #                          normalizer=normalizer,
-    #                          color_space=color_space)
+    #     top1, pred = predict(
+    #         os.path.join(args.data_path, fi),
+    #         model=model,
+    #         classes=classes,
+    #         augmentor=augmentor,
+    #         normalizer=normalizer,
+    #         color_space=color_space,
+    #     )
     #     print(top1)
     
     image_names = [sorted(get_files(os.path.join(args.data_path, cls), ALLOW_IMAGE_EXTENSIONS, cls)) for cls in classes]
     flattened_files = tuple(os.path.join(args.data_path, item) for sublist in image_names for item in sublist)
 
-    predict_folder(flattened_files,
-                   model=model,
-                   classes=classes,
-                   augmentor=augmentor,
-                   normalizer=normalizer,
-                   color_space=color_space,
-                   batch_size=args.batch_size)
+    predict_folder(
+        flattened_files,
+        model=model,
+        classes=classes,
+        augmentor=augmentor,
+        normalizer=normalizer,
+        color_space=color_space,
+        batch_size=args.batch_size,
+    )

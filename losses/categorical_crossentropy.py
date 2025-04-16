@@ -3,14 +3,18 @@ from tensorflow.keras import losses
 from tensorflow.keras import backend as K
 
 class CategoricalCrossentropy(losses.Loss):
-    def __init__(self, 
-                 from_logits=False,
-                 label_smoothing=0.0,
-                 reduction='sum_over_batch_size', 
-                 name=None):
+    def __init__(
+        self, 
+        from_logits=False,
+        label_smoothing=0.0,
+        reduction='sum_over_batch_size', 
+        name=None,
+    ):
         super(CategoricalCrossentropy, self).__init__(reduction=reduction, name=name)
-        self.losses = losses.CategoricalCrossentropy(from_logits=from_logits,
-                                                     label_smoothing=label_smoothing)
+        self.losses = losses.CategoricalCrossentropy(
+            from_logits=from_logits,
+            label_smoothing=label_smoothing,
+        )
         self.invariant_name = "categorical_crossentropy"
         self.coefficient = 1
 

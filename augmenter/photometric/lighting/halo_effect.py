@@ -48,37 +48,39 @@ def halo_effect(image, radius=0.5, alpha=0.8):
     halo_kernel = halo_kernel.astype(np.uint16)
 
     if random.random() < .5:
-        halo_kernel += ring(x,
-                            y,
-                            h,
-                            w,
-                            avg_dim,
-                            k_size_norm=random.uniform(.1, .25),
-                            ring_thickness_norm=random.uniform(0.008, 0.015),
-                            radius=radius)
+        halo_kernel += ring(
+            x=x,
+            y=y,
+            h=h,
+            w=w,
+            max_dim=avg_dim,
+            k_size_norm=random.uniform(.1, .25),
+            ring_thickness_norm=random.uniform(0.008, 0.015),
+            radius=radius,
+        )
 
     if random.random() < .5:
-        halo_kernel += ring(x,
-                            y,
-                            h,
-                            w,
-                            avg_dim,
-                            k_size_norm=random.uniform(.3, .5),
-                            ring_thickness_norm=random.uniform(0.05, 0.2),
-                            radius=radius)
+        halo_kernel += ring(
+            x=x,
+            y=y,
+            h=h,
+            w=w,
+            max_dim=avg_dim,
+            k_size_norm=random.uniform(.3, .5),
+            ring_thickness_norm=random.uniform(0.05, 0.2),
+            radius=radius,
+        )
 
     halo_kernel = np.clip(halo_kernel, 0, 255).astype(np.uint8)
     halo_kernel = cv2.cvtColor(halo_kernel, cv2.COLOR_GRAY2RGB)
-
     dst = cv2.addWeighted(image, 1.0, halo_kernel, alpha, 0.0)
-
     return cv2.resize(dst, (w, h), interpolation=cv2.INTER_CUBIC)
 
 
 class HaloEffect(BaseTransform):
     def __init__(self, radius=0.5, alpha=0.8):
         self.radius = radius
-        self.alpha  = alpha
+        self.alpha = alpha
 
     def image_transform(self, image):
         return halo_effect(image, self.radius, self.alpha)
@@ -86,8 +88,8 @@ class HaloEffect(BaseTransform):
 class RandomHaloEffect(BaseRandomTransform):
     def __init__(self, radius=0.5, alpha=0.8, prob=0.5):
         self.radius = radius
-        self.alpha  = alpha
-        self.prob   = prob
+        self.alpha = alpha
+        self.prob = prob
 
     def image_transform(self, image):
         return halo_effect(image, self.radius, self.alpha)

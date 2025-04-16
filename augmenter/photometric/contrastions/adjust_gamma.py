@@ -22,7 +22,7 @@ def adjust_gamma(img, gamma, gain=1):
 class AdjustGamma(BaseTransform):
     def __init__(self, gamma, gain=1):
         self.gamma = gamma
-        self.gain  = gain
+        self.gain = gain
 
     def image_transform(self, image):
         return adjust_gamma(image, self.gamma, self.gain)
@@ -35,8 +35,8 @@ class RandomAdjustGamma(BaseRandomTransform):
             raise ValueError('Gamma should be a non-negative real number')
 
         self.gamma = gamma
-        self.gain  = gain
-        self.prob  = prob
+        self.gain = gain
+        self.prob = prob
 
     @staticmethod
     def get_params(gamma):

@@ -1,15 +1,21 @@
+import inspect
 import warnings
 import numpy as np
 
+import tensorflow as tf
 from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Input
+from tensorflow.keras.backend import is_keras_tensor
 
 
-def _obtain_input_shape(input_shape,
-                        default_size,
-                        min_size,
-                        data_format,
-                        require_flatten,
-                        weights=None):
+def _obtain_input_shape(
+    input_shape,
+    default_size,
+    min_size,
+    data_format,
+    require_flatten,
+    weights=None,
+):
     """
     Taken from:
     https://github.com/keras-team/keras-applications/blob/master/keras_applications/imagenet_utils.py
@@ -102,6 +108,58 @@ def _obtain_input_shape(input_shape,
                              'you should specify a static `input_shape`. '
                              'Got `input_shape=' + str(input_shape) + '`')
     return input_shape
+
+
+def process_model_input(
+    input_data,
+    include_head=True,
+    default_size=224,
+    min_size=32,
+    weights=None,
+):
+    if isinstance(input_data, (list, tuple)):
+        if len(input_data) == 2:
+            input_data = (*input_data, 3)
+
+        input_shape = _obtain_input_shape(
+            input_shape=input_data,
+            default_size=default_size,
+            min_size=min_size,
+            data_format=K.image_data_format(),
+            require_flatten=include_head,
+            weights=weights
+        )
+        return Input(shape=input_shape)
+
+    elif K.is_keras_tensor(input_data):
+        return Input(tensor=input_data)
+
+    elif isinstance(input_data, tf.Tensor):
+        return input_data
+
+    else:
+        raise TypeError(f"Unsupported input type: {type(input_data)}")
+
+
+def create_layer_instance(block, *args, **kwargs):
+    layer_name = kwargs.pop("name", None)
+
+    if inspect.isclass(block):
+        valid_params = inspect.signature(block.__init__).parameters
+    elif inspect.isfunction(block):
+        valid_params = inspect.signature(block).parameters
+    else:
+        raise ValueError("block must be either a class or a function")
+        
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_params}
+    return block(*args, **filtered_kwargs, name=layer_name)
+
+
+def compute_padding(kernel_size, dilation_rate):
+    k = np.array(kernel_size if isinstance(kernel_size, (list, tuple)) else [kernel_size, kernel_size])
+    d = np.array(dilation_rate if isinstance(dilation_rate, (list, tuple)) else [dilation_rate, dilation_rate])
+    padding = ((k - 1) * d) // 2
+    return int(padding[0]), int(padding[1])
 
 
 def correct_pad(inputs, kernel_size):

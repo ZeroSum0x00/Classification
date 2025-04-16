@@ -7,16 +7,25 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
-def radial_gradient(image, 
-                    inner_color=150,
-                    outer_color=30,
-                    center=None,
-                    max_distance=None,
-                    rect=False,
-                    random_distance=False):
+def radial_gradient(
+    image, 
+    inner_color=150,
+    outer_color=30,
+    center=None,
+    max_distance=None,
+    rect=False,
+    random_distance=False,
+):
   
-    def apply_radial(img, center, max_distance, inner_color, outer_color, rect=False):
-        tmp = np.full(img.shape, outer_color, dtype=np.uint8)
+    def apply_radial(
+        image,
+        center,
+        max_distance,
+        inner_color,
+        outer_color,
+        rect=False,
+    ):
+        tmp = np.full(image.shape, outer_color, dtype=np.uint8)
         tmp_height, tmp_width = tmp.shape[:2]
         kernel = None
 
@@ -29,32 +38,43 @@ def radial_gradient(image,
         if rect:
             if random.getrandbits(1):
                 dist = random.randint(10, int(.2 * tmp_width))
-                cv2.rectangle(tmp, (center[0] - dist, 0), (center[0] + dist, tmp_height),
-                              inner_color,
-                              thickness=cv2.FILLED)
+                cv2.rectangle(
+                    tmp,
+                    (center[0] - dist, 0),
+                    (center[0] + dist, tmp_height),
+                    inner_color,
+                    thickness=cv2.FILLED,
+                )
                 k_size = dist if dist % 2 == 1 else dist - 1
                 kernel = (k_size, 1)
             else:
                 dist = random.randint(10, int(.2 * tmp_height))
-                cv2.rectangle(tmp, (0, center[1] - dist), (tmp_width, center[1] + dist),
-                              inner_color,
-                              thickness=cv2.FILLED)
+                cv2.rectangle(
+                    tmp,
+                    (0, center[1] - dist),
+                    (tmp_width, center[1] + dist),
+                    inner_color,
+                    thickness=cv2.FILLED,
+                )
                 k_size = dist if dist % 2 == 1 else dist - 1
                 kernel = (1, k_size)
         else:
-            cv2.circle(tmp, (center[0] + left, center[1] + top),
-                       int(max_distance / 1.5),
-                       inner_color,
-                       thickness=cv2.FILLED)
+            cv2.circle(
+                tmp,
+                (center[0] + left, center[1] + top),
+                int(max_distance / 1.5),
+                inner_color,
+                thickness=cv2.FILLED,
+            )
 
         kernel = kernel if kernel else (max_distance, max_distance)
         tmp = cv2.blur(tmp, kernel, borderType=cv2.BORDER_CONSTANT)
         tmp = tmp[top:tmp.shape[0] - bottom, left:tmp.shape[1] - right]
 
-        return np.clip(img.astype(np.uint16) + tmp.astype(np.uint16), 0, 255).astype(np.uint8)
+        return np.clip(image.astype(np.uint16) + tmp.astype(np.uint16), 0, 255).astype(np.uint8)
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError('image should be image. Got {}'.format(type(image)))
     
     im_height, im_width, im_depth = image.shape
     inner_color = im_depth * [inner_color]
@@ -76,34 +96,43 @@ def radial_gradient(image,
                                          (corner[1] - center[1])**2)
                     max_distance = max(distance, max_distance)
 
-    return apply_radial(image,
-                        center,
-                        int(max_distance),
-                        inner_color,
-                        outer_color,
-                        rect=rect)
+    return apply_radial(
+        image=image,
+        center=center,
+        max_distance=int(max_distance),
+        inner_color=inner_color,
+        outer_color=outer_color,
+        rect=rect,
+    )
     
 
 class RadialGradient(BaseTransform):
-    def __init__(self,
-                 inner_color=150,
-                 outer_color=30,
-                 center=None,
-                 max_distance=None,
-                 rect=False,
-                 random_distance=False):
-        self.inner_color     = inner_color
-        self.outer_color     = outer_color
-        self.center          = center
-        self.max_distance    = max_distance
-        self.rect            = rect
+    def __init__(
+        self,
+        inner_color=150,
+        outer_color=30,
+        center=None,
+        max_distance=None,
+        rect=False,
+        random_distance=False,
+    ):
+        self.inner_color = inner_color
+        self.outer_color = outer_color
+        self.center = center
+        self.max_distance = max_distance
+        self.rect = rect
         self.random_distance = random_distance
 
     def image_transform(self, image):
-        return radial_gradient(image, self.inner_color, 
-                               self.outer_color, self.center, 
-                               self.max_distance, self.rect, 
-                               self.random_distance)
+        return radial_gradient(
+            image=image,
+            inner_color=self.inner_color, 
+            outer_color=self.outer_color,
+            center=self.center, 
+            max_distance=self.max_distance,
+            rect=self.rect, 
+            random_distance=self.random_distance,
+        )
 
 
 class RandomRadialGradient(BaseRandomTransform):
@@ -115,16 +144,21 @@ class RandomRadialGradient(BaseRandomTransform):
                  rect=False,
                  random_distance=False,
                  prob=0.5):
-        self.inner_color     = inner_color
-        self.outer_color     = outer_color
-        self.center          = center
-        self.max_distance    = max_distance
-        self.rect            = rect
+        self.inner_color = inner_color
+        self.outer_color = outer_color
+        self.center = center
+        self.max_distance = max_distance
+        self.rect = rect
         self.random_distance = random_distance
-        self.prob            = prob
+        self.prob = prob
 
     def image_transform(self, image):
-        return radial_gradient(image, self.inner_color, 
-                               self.outer_color, self.center, 
-                               self.max_distance, self.rect, 
-                               self.random_distance)
+        return radial_gradient(
+            image=image,
+            inner_color=self.inner_color, 
+            outer_color=self.outer_color,
+            center=self.center, 
+            max_distance=self.max_distance,
+            rect=self.rect, 
+            random_distance=self.random_distance,
+        )

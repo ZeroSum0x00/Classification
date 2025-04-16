@@ -10,11 +10,20 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
-def rotate(image, angle, interpolation='BILINEAR', expand=False, center=None, fill_color=None):
+def rotate(
+    image,
+    angle,
+    expand=False,
+    center=None,
+    fill_color=None,
+    interpolation='BILINEAR',
+):
     rank_size = len(image.shape)
     imgtype = image.dtype
+    
     if not is_numpy_image(image):
         raise TypeError('Image should be CV Image. Got {}'.format(type(image)))
+        
     h, w, _ = image.shape
     point = center or (w // 2, h // 2)
     M = cv2.getRotationMatrix2D(point, angle=-angle, scale=1)
@@ -82,15 +91,29 @@ class Rotation(BaseTransform):
             Default is the center of the image.
     """
 
-    def __init__(self, degrees, interpolation='BILINEAR', expand=False, center=None, fill_color=None):
-        self.degrees  = degrees
-        self.interpolation = interpolation
-        self.expand     = expand
-        self.center     = center
+    def __init__(
+        self,
+        degrees,
+        expand=False,
+        center=None,
+        fill_color=None,
+        interpolation='BILINEAR',
+    ):
+        self.degrees = degrees
+        self.expand = expand
+        self.center = center
         self.fill_color = fill_color
+        self.interpolation = interpolation
 
     def image_transform(self, image):
-        return rotate(image, self.degrees, self.interpolation, self.expand, self.center, self.fill_color)
+        return rotate(
+            image=image,
+            angle=self.degrees,
+            expand=self.expand,
+            center=self.center,
+            fill_color=self.fill_color,
+            interpolation=self.interpolation,
+        )
 
 
 class RandomRotation(BaseRandomTransform):
@@ -112,7 +135,15 @@ class RandomRotation(BaseRandomTransform):
             Default is the center of the image.
     """
 
-    def __init__(self, degrees, interpolation='BILINEAR', expand=False, center=None, fill_color=None, prob=0.5):
+    def __init__(
+        self,
+        degrees,
+        expand=False,
+        center=None,
+        fill_color=None,
+        interpolation='BILINEAR',
+        prob=0.5,
+    ):
         if isinstance(degrees, numbers.Number):
             if degrees < 0:
                 raise ValueError("If degrees is a single number, it must be positive.")
@@ -122,11 +153,11 @@ class RandomRotation(BaseRandomTransform):
                 raise ValueError("If degrees is a sequence, it must be of len 2.")
             self.degrees = degrees
 
-        self.interpolation = interpolation
-        self.expand     = expand
-        self.center     = center
+        self.expand = expand
+        self.center = center
         self.fill_color = fill_color
-        self.prob       = prob
+        self.interpolation = interpolation
+        self.prob = prob
 
     @staticmethod
     def get_params(degrees):
@@ -134,4 +165,11 @@ class RandomRotation(BaseRandomTransform):
 
     def image_transform(self, image):
         angle = self.get_params(self.degrees)
-        return rotate(image, angle, self.interpolation, self.expand, self.center, self.fill_color)
+        return rotate(
+            image=image,
+            angle=angle,
+            expand=self.expand,
+            center=self.center,
+            fill_color=self.fill_color,
+            interpolation=self.interpolation,
+        )

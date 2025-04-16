@@ -9,7 +9,15 @@ from ..resize import INTER_MODE
 from utils.auxiliary_processing import is_numpy_image
 
 
-def affine(image, angle=0, translate=(0, 0), scale=1, shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
+def affine(
+    image,
+    angle=0,
+    translate=(0, 0),
+    scale=1,
+    shear=0,
+    interpolation='BILINEAR',
+    fill_color=(0, 0, 0)
+):
     imgtype = image.dtype
     if not is_numpy_image(image):
         raise TypeError('img should be CV Image. Got {}'.format(type(image)))
@@ -67,7 +75,15 @@ class Affine(BaseTransform):
         fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
 
-    def __init__(self, degrees, translate=(0, 0), scale=1, shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
+    def __init__(
+        self,
+        degrees,
+        translate=(0, 0),
+        scale=1,
+        shear=0,
+        interpolation='BILINEAR',
+        fill_color=(0, 0, 0),
+    ):
         self.degrees   = degrees
         self.translate = translate
         self.scale     = scale
@@ -76,7 +92,15 @@ class Affine(BaseTransform):
         self.fill_color = fill_color
 
     def image_transform(self, image):
-        return affine(image, self.degrees, self.translate, self.scale, self.shear, self.interpolation, self.fill_color)
+        return affine(
+            image,
+            self.degrees,
+            self.translate,
+            self.scale,
+            self.shear,
+            self.interpolation,
+            self.fill_color,
+        )
 
 
 class RandomAffine(BaseRandomTransform):
@@ -100,7 +124,16 @@ class RandomAffine(BaseRandomTransform):
         fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
 
-    def __init__(self, degrees=0, translate=None, scale=None, shear=None, interpolation='BILINEAR', fill_color=0, prob=0.5):
+    def __init__(
+        self,
+        degrees=0,
+        translate=None,
+        scale=None,
+        shear=None,
+        interpolation='BILINEAR',
+        fill_color=0,
+        prob=0.5,
+    ):
         if isinstance(degrees, numbers.Number):
             if degrees < 0:
                 raise ValueError("If degrees is a single number, it must be positive.")
@@ -140,7 +173,7 @@ class RandomAffine(BaseRandomTransform):
 
         self.interpolation  = interpolation
         self.fill_color = fill_color
-        self.prob      = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(degrees, translate, scale_ranges, shears, img_size):
@@ -166,5 +199,19 @@ class RandomAffine(BaseRandomTransform):
         return angle, translations, scale, shear
 
     def image_transform(self, image):
-        angle, translations, scale, shear = self.get_params(self.degrees, self.translate, self.scale, self.shear, image.shape)
-        return affine(image, angle, translations, scale, shear, interpolation=self.interpolation, fill_color=self.fill_color)
+        angle, translations, scale, shear = self.get_params(
+            self.degrees,
+            self.translate,
+            self.scale,
+            self.shear,
+            image.shape,
+        )
+        return affine(
+            image=image,
+            angle=angle,
+            translate=translations,
+            scale=scale,
+            shear=shear,
+            interpolation=self.interpolation,
+            fill_color=self.fill_color,
+        )

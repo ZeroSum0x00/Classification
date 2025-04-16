@@ -6,7 +6,12 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
-def dirt_effect_modification(image, blur_kernel=(3, 3), emboss_kernel_size=None, alpha=None):
+def dirt_effect_modification(
+    image,
+    blur_kernel=(3, 3),
+    emboss_kernel_size=None,
+    alpha=None,
+):
     
     def create_emboss_kernel_top_down(size):
         assert size % 2 == 1, "Kernel must be of an uneven size!"
@@ -42,20 +47,41 @@ def dirt_effect_modification(image, blur_kernel=(3, 3), emboss_kernel_size=None,
 
 
 class DirtEffectModification(BaseTransform):
-    def __init__(self, blur_kernel=(3, 3), emboss_kernel_size=None, alpha=None):
-        self.blur_kernel        = blur_kernel
+    def __init__(
+        self,
+        blur_kernel=(3, 3),
+        emboss_kernel_size=None,
+        alpha=None,
+    ):
+        self.blur_kernel = blur_kernel
         self.emboss_kernel_size = emboss_kernel_size
-        self.alpha              = alpha
+        self.alpha = alpha
 
     def image_transform(self, image):
-        return dirt_effect_modification(image, self.blur_kernel, self.emboss_kernel_size, self.alpha)
+        return dirt_effect_modification(
+            image=image,
+            blur_kernel=self.blur_kernel,
+            emboss_kernel_size=self.emboss_kernel_size,
+            alpha=self.alpha,
+        )
 
 class RandomDirtEffectModification(BaseRandomTransform):
-    def __init__(self, blur_kernel=(3, 3), emboss_kernel_size=None, alpha=None, prob=0.5):
-        self.blur_kernel        = blur_kernel
+    def __init__(
+        self,
+        blur_kernel=(3, 3),
+        emboss_kernel_size=None,
+        alpha=None,
+        prob=0.5,
+    ):
+        self.blur_kernel = blur_kernel
         self.emboss_kernel_size = emboss_kernel_size
-        self.alpha              = alpha
-        self.prob               = prob
+        self.alpha = alpha
+        self.prob = prob
 
     def image_transform(self, image):
-        return dirt_effect_modification(image, self.blur_kernel, self.emboss_kernel_size, self.alpha)
+        return dirt_effect_modification(
+            image=image,
+            blur_kernel=self.blur_kernel,
+            emboss_kernel_size=self.emboss_kernel_size,
+            alpha=self.alpha,
+        )

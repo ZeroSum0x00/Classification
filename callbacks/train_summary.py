@@ -7,16 +7,15 @@ from utils.logger import logger
 
 
 class TrainSummary(tf.keras.callbacks.Callback):
-    def __init__(self,
-                 file_path):
+    def __init__(self, file_path):
         super(TrainSummary, self).__init__()
         self.file_path = file_path
         folder_path = os.path.dirname(file_path)
         if not os.path.exists(folder_path):
             os.mkdir(folder_path)
-        self.start_time  = 0
-        self.stop_time   = 0
-        self.delta_time  = 0
+        self.start_time = 0
+        self.stop_time = 0
+        self.delta_time = 0
         self.loss_infomation = {}
         self.metric_infomation = {}                 
 

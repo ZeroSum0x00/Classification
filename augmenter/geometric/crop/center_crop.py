@@ -4,7 +4,12 @@ from ..pad import pad
 from augmenter.base_transform import BaseTransform
 
 
-def center_crop(image, size, fill_color=0, padding_mode='constant'):
+def center_crop(
+    image,
+    size,
+    fill_color=0,
+    padding_mode='constant',
+):
     if isinstance(size, numbers.Number):
         size = (int(size), int(size))
 
@@ -39,10 +44,20 @@ class CenterCrop(BaseTransform):
             made.
     """
 
-    def __init__(self, size, fill_color=0, padding_mode='constant'):
+    def __init__(
+        self,
+        size,
+        fill_color=0,
+        padding_mode='constant',
+    ):
         self.size         = size
         self.fill_color   = fill_color
         self.padding_mode = padding_mode
 
     def image_transform(self, image):
-        return center_crop(image, self.size, fill_color=self.fill_color, padding_mode=self.padding_mode)
+        return center_crop(
+            image,
+            self.size,
+            fill_color=self.fill_color,
+            padding_mode=self.padding_mode,
+        )

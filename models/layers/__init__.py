@@ -20,7 +20,7 @@ from .transformer import (MLPBlock, ExtractPatches, ClassificationToken, CausalM
                           MultiHeadSelfAttention, TransformerBlock,
                           PositionalEncodingFourierRot1D, PositionalEncodingFourierRot,
                           MultiHeadRelativePositionalEmbedding, AttentionMLPBlock, EnhanceSelfAttention)
-from .repblock import RepVGGBlock, QARepVGGBlockV1, QARepVGGBlockV2
+from .custom_repblock import QARepVGGBlockV1, QARepVGGBlockV2
 from .sam_model import SAMModel
 from .selective_scan_model import SSM
 from .wrapper import *

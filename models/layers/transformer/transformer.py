@@ -1,11 +1,11 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.backend as K
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import add
+from tensorflow.keras.layers import (
+    Conv2D, Dense, Dropout, Reshape, add
+)
+from tensorflow.keras.regularizers import l2
+
 from ..channel_affine import ChannelAffine
 from ..stochastic_depth import DropPath
 from ..add_bias import BiasLayer
@@ -41,9 +41,9 @@ class ClassToken(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         self.token_init = tf.keras.initializers.TruncatedNormal(stddev=0.2)
-        self.class_tokens = self.add_weight(name="tokens", 
-                                            shape=(1, 1, input_shape[-1]), 
-                                            initializer=self.token_init, 
+        self.class_tokens = self.add_weight(name="tokens",
+                                            shape=(1, 1, input_shape[-1]),
+                                            initializer=self.token_init,
                                             trainable=True)
         super().build(input_shape)
 
@@ -191,45 +191,122 @@ class PositionalEmbedding(tf.keras.layers.Layer):
 class MultiHeadSelfAttention(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
     
-    def __init__(self, 
-                 num_heads, 
-                 num_embeds      = -1,
-                 q_bias          = True, 
-                 kv_bias         = False,
-                 use_causal_mask = False, 
-                 return_weight   = False, 
-                 drop_rate       = 0., 
-                 *args, **kwargs):
+    def __init__(
+        self,
+        num_heads,
+        num_embeds=-1,
+        q_bias=True,
+        kv_bias=False,
+        use_causal_mask=False,
+        kernel_initializer="glorot_uniform",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        drop_rate=0.,
+        *args, **kwargs
+    ):
         super(MultiHeadSelfAttention, self).__init__(*args, **kwargs)
-        self.num_heads       = num_heads
-        self.num_embeds      = num_embeds
-        self.q_bias          = q_bias
-        self.kv_bias         = kv_bias
+        self.num_heads = num_heads
+        self.num_embeds = num_embeds
+        self.q_bias = q_bias
+        self.kv_bias = kv_bias
         self.use_causal_mask = use_causal_mask
-        self.return_weight   = return_weight
-        self.drop_rate       = drop_rate
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = regularizer_decay
+        self.drop_rate = drop_rate
         
     def build(self, input_shape):
-        query_shape = input_shape[0] if isinstance(input_shape, (list, tuple)) else input_shape
+        if isinstance(input_shape, (list, tuple)):  
+            if all(isinstance(shape, (list, tuple)) for shape in input_shape):
+                query_shape = input_shape[0]
+            else:  
+                query_shape = input_shape
+        elif isinstance(input_shape, tf.TensorShape):  
+            query_shape = input_shape.as_list()
+        else:  
+            raise ValueError(f"Invalid input_shape type: {type(input_shape)}. Expected list, tuple, or TensorShape.")
+        
+        if not isinstance(query_shape, (list, tuple)) or len(query_shape) < 2:
+            raise ValueError(f"Invalid query_shape: {query_shape}. Expected at least 2D tensor.")
+        
         hidden_size = self.num_embeds if self.num_embeds != -1 else query_shape[-1]
+
         if hidden_size % self.num_heads != 0:
             raise ValueError(
                 f"embedding dimension = {hidden_size} should be divisible by number of heads = {self.num_heads}"
             )
         self.hidden_size = hidden_size
         self.projection_dim = hidden_size // self.num_heads
-        if isinstance(input_shape, (list, tuple)):
-            if len(input_shape) == 2:
-                self.query_project = Dense(hidden_size, use_bias=self.q_bias)
-                self.keyvalue_project = Dense(hidden_size * 2, use_bias=self.kv_bias)
-            else:
-                self.query_project = Dense(hidden_size, use_bias=self.q_bias)
-                self.key_project = Dense(hidden_size, use_bias=self.kv_bias)
-                self.value_project = Dense(hidden_size, use_bias=self.kv_bias)
-        else:
-            self.qkv_projection = Dense(hidden_size * 3, use_bias=self.q_bias)
 
-        self.combine_heads = Dense(hidden_size, use_bias=self.q_bias)
+        if isinstance(input_shape, (list, tuple)) and all(isinstance(shape, (list, tuple)) for shape in input_shape):
+            if len(input_shape) == 2:
+                self.query_project = Dense(
+                    units=hidden_size,
+                    use_bias=self.q_bias,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    kernel_regularizer=l2(self.regularizer_decay),
+                )
+                
+                self.keyvalue_project = Dense(
+                    units=hidden_size * 2,
+                    use_bias=self.kv_bias,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    kernel_regularizer=l2(self.regularizer_decay),
+                )
+                
+            elif len(input_shape) == 3:
+                self.query_project = Dense(
+                    units=hidden_size,
+                    use_bias=self.q_bias,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    kernel_regularizer=l2(self.regularizer_decay),
+                )
+                
+                self.key_project = Dense(
+                    units=hidden_size,
+                    use_bias=self.kv_bias,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    kernel_regularizer=l2(self.regularizer_decay),
+                )
+                
+                self.value_project = Dense(
+                    units=hidden_size,
+                    use_bias=self.kv_bias,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    kernel_regularizer=l2(self.regularizer_decay),
+                )
+                
+            else:
+                self.qkv_projection = Dense(
+                    units=hidden_size * 3,
+                    use_bias=self.q_bias,
+                    kernel_initializer=self.kernel_initializer,
+                    bias_initializer=self.bias_initializer,
+                    kernel_regularizer=l2(self.regularizer_decay),
+                )
+                
+        else:
+            self.qkv_projection = Dense(
+                units=hidden_size * 3,
+                                        use_bias=self.q_bias,
+                                        kernel_initializer=self.kernel_initializer,
+                                        bias_initializer=self.bias_initializer,
+                                        kernel_regularizer=l2(self.regularizer_decay))
+
+
+        self.combine_heads = Dense(
+            units=hidden_size,
+            use_bias=self.q_bias,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=l2(self.regularizer_decay),
+        )
+        
         self.final_dropout = Dropout(rate=self.drop_rate)
 
         if self.use_causal_mask:
@@ -263,7 +340,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.projection_dim))
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
-    def call(self, inputs, attn_mask=None, training=False):
+    def call(self, inputs, attn_mask=None, training=False, return_weight=False):
         if hasattr(self, 'key_project') and hasattr(self, 'value_project'):
             query, key, value = inputs
             query = self.query_project(query, training=training)
@@ -292,7 +369,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         concat_attention = tf.reshape(attention, (batch_size, -1, self.hidden_size))
         output = self.combine_heads(concat_attention, training=training)
         output = self.final_dropout(output, training=training)
-        if self.return_weight:
+        if return_weight:
             return output, weights
         else:
             return output, None
@@ -303,7 +380,6 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
                 "num_heads": self.num_heads,
                 "num_embeds": self.num_embeds,
                 "use_causal_mask": self.use_causal_mask,
-                "return_weight": self.return_weight,
                 "drop_rate": self.drop_rate,
         })
         return config
@@ -315,42 +391,78 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable()
 class MLPBlock(tf.keras.layers.Layer):
-    def __init__(self, 
-                 mlp_dim, 
-                 out_dim    = -1, 
-                 use_conv   = False, 
-                 use_bias   = True, 
-                 use_gated  = False, 
-                 activation = 'gelu', 
-                 normalizer = None, 
-                 drop_rate=0.1, 
-                 *args, **kwargs):
+    def __init__(
+        self,
+        mlp_dim,
+        out_dim=-1,
+        use_conv=False,
+        use_bias=True,
+        use_gated=False,
+        activation='gelu',
+        normalizer=None,
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        drop_rate=0.1,
+        *args, **kwargs
+    ):
         super(MLPBlock, self).__init__(*args, **kwargs)
-        self.mlp_dim    = mlp_dim
-        self.out_dim    = out_dim
-        self.use_conv   = use_conv
-        self.use_bias   = use_bias
-        self.use_gated  = use_gated
+        self.mlp_dim = mlp_dim
+        self.out_dim = out_dim
+        self.use_conv = use_conv
+        self.use_bias = use_bias
+        self.use_gated = use_gated
         self.activation = activation
         self.normalizer = normalizer
-        self.drop_rate  = drop_rate
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = regularizer_decay
+        self.norm_eps = norm_eps
+        self.drop_rate = drop_rate
     
     def build(self, input_shape):
         hidden_dim = self.mlp_dim * 2 if self.use_gated else self.mlp_dim
         if not self.use_conv:
-            self.linear1 = Dense(hidden_dim, use_bias=self.use_bias)
-            self.linear2 = Dense(self.out_dim if self.out_dim > 0 else input_shape[-1], use_bias=self.use_bias)
+            self.linear1 = Dense(
+                units=hidden_dim,
+                use_bias=self.use_bias,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                kernel_regularizer=l2(self.regularizer_decay),
+            )
+            
+            self.linear2 = Dense(
+                units=self.out_dim if self.out_dim > 0 else input_shape[-1],
+                use_bias=self.use_bias,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                kernel_regularizer=l2(self.regularizer_decay),
+            )
+            
         else:
-            self.linear1 = Conv2D(filters=hidden_dim, 
-                                  kernel_size=(1, 1), 
-                                  strides=(1, 1),
-                                  use_bias=self.use_bias)
-            self.linear2 = Conv2D(self.out_dim if self.out_dim > 0 else input_shape[-1],
-                                  kernel_size=(1, 1), 
-                                  strides=(1, 1),
-                                  use_bias=self.use_bias)
+            self.linear1 = Conv2D(
+                filters=hidden_dim,
+                kernel_size=(1, 1),
+                strides=(1, 1),
+                use_bias=self.use_bias,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                kernel_regularizer=l2(self.regularizer_decay),
+            )
+            
+            self.linear2 = Conv2D(
+                filters=self.out_dim if self.out_dim > 0 else input_shape[-1],
+                kernel_size=(1, 1),
+                strides=(1, 1),
+                use_bias=self.use_bias,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                kernel_regularizer=l2(self.regularizer_decay),
+            )
+            
         if self.normalizer:
-            self.norm = get_normalizer_from_name(self.normalizer)
+            self.norm = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
             
         self.activation = get_activation_from_name(self.activation)
         self.dropout = Dropout(self.drop_rate)
@@ -395,37 +507,48 @@ class MLPBlock(tf.keras.layers.Layer):
 @tf.keras.utils.register_keras_serializable()
 class AttentionMLPBlock(tf.keras.layers.Layer):
     
-    def __init__(self, 
-                 attention_layer,
-                 mlp_ratio=4, 
-                 layer_scale=0.1, 
-                 use_gated_mlp=False,
-                 activation='gelu',
-                 normalizer='layer-norm',
-                 use_mlp_norm=False, 
-                 norm_eps=1e-6,
-                 drop_rate=0.1,
-                 drop_prob=0.0, 
-                 *args, 
-                 **kwargs):
+    def __init__(
+        self,
+        attention_layer,
+        mlp_ratio=4,
+        layer_scale=0.1,
+        use_gated_mlp=False,
+        activation='gelu',
+        normalizer='layer-norm',
+        use_mlp_norm=False,
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        drop_rate=0.1,
+        drop_prob=0.0,
+        *args, **kwargs
+    ):
         super(AttentionMLPBlock, self).__init__(*args, **kwargs)
         self.attention_layer = attention_layer
-        self.mlp_ratio       = mlp_ratio
-        self.layer_scale     = layer_scale
-        self.use_gated_mlp   = use_gated_mlp
-        self.activation      = activation
-        self.normalizer      = normalizer
-        self.mlp_normalizer  = normalizer if use_mlp_norm else None
-        self.norm_eps        = norm_eps
-        self.drop_rate       = drop_rate
-        self.drop_prob       = drop_prob
+        self.mlp_ratio = mlp_ratio
+        self.layer_scale = layer_scale
+        self.use_gated_mlp = use_gated_mlp
+        self.activation = activation
+        self.normalizer = normalizer
+        self.mlp_normalizer = normalizer if use_mlp_norm else None
+        self.norm_eps = norm_eps
+        self.drop_rate = drop_rate
+        self.drop_prob = drop_prob
 
     def build(self, input_shape):
-        self.mlp_block   = MLPBlock(mlp_dim=int(input_shape[-1] * self.mlp_ratio), 
-                                    use_gated=self.use_gated_mlp, 
-                                    activation=self.activation, 
-                                    normalizer=self.mlp_normalizer, 
-                                    drop_rate=self.drop_rate)
+        self.mlp_block = MLPBlock(
+            mlp_dim=int(input_shape[-1] * self.mlp_ratio),
+            use_gated=self.use_gated_mlp,
+            activation=self.activation,
+            normalizer=self.mlp_normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+            drop_rate=self.drop_rate,
+        )
+        
         self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         
@@ -457,30 +580,32 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
 class TransformerBlock(tf.keras.layers.Layer):
     "Link: https://arxiv.org/pdf/1706.03762.pdf"
 
-    def __init__(self, 
-                 attention_block = None,
-                 mlp_block       = None,
-                 activation      = 'gelu', 
-                 normalizer      = None, 
-                 norm_eps        = 1e-6, 
-                 drop_rate       = 0.1, 
-                 *args, **kwargs):
+    def __init__(
+        self,
+        attention_block=None,
+        mlp_block=None,
+        activation='gelu',
+        normalizer=None,
+        norm_eps=1e-6,
+        drop_rate=0.1,
+        *args, **kwargs
+    ):
         super(TransformerBlock, self).__init__(*args, **kwargs)
         self.attention_block = attention_block
-        self.mlp_block       = mlp_block
-        self.activation      = activation
-        self.normalizer      = normalizer
-        self.norm_eps        = norm_eps
-        self.drop_rate       = drop_rate
+        self.mlp_block = mlp_block
+        self.activation = activation
+        self.normalizer = normalizer
+        self.norm_eps = norm_eps
+        self.drop_rate = drop_rate
     
     def build(self, input_shape):
         self.layernorm1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.layernorm2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.dropout_layer = Dropout(self.drop_rate)
 
-    def call(self, inputs, training=False):
+    def call(self, inputs, training=False, return_weight=False):
         x = self.layernorm1(inputs, training=training)
-        x, weights = self.attention_block(x, training=training)
+        x, weights = self.attention_block(x, training=training, return_weight=return_weight)
         x = self.dropout_layer(x, training=training)
         x = x + inputs
         y = self.layernorm2(x, training=training)
@@ -530,7 +655,7 @@ class PositionalEncodingFourierRot1D(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-                "temperature": self.temperature, 
+                "temperature": self.temperature,
                 "max_block_size": self.max_block_size
         })
         return config
@@ -538,14 +663,22 @@ class PositionalEncodingFourierRot1D(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable()
 class PositionalEncodingFourierRot(tf.keras.layers.Layer):
-    def __init__(self, num_heads=-1, attn_height=-1, cls_token=True, temperature=1e4, ref_feature_shape=16, *args, **kwargs):
+    def __init__(
+        self,
+        num_heads=-1,
+        attn_height=-1,
+        cls_token=True,
+        temperature=1e4,
+        ref_feature_shape=16,
+        *args, **kwargs
+    ):
         super(PositionalEncodingFourierRot, self).__init__(*args, **kwargs)
-        self.num_heads         = num_heads
-        self.attn_height       = attn_height
-        self.cls_token         = cls_token
-        self.temperature       = float(temperature)
+        self.num_heads = num_heads
+        self.attn_height = attn_height
+        self.cls_token = cls_token
+        self.temperature = float(temperature)
         self.ref_feature_shape = ref_feature_shape
-        self.cls_token_len     = 1 if cls_token else 0
+        self.cls_token_len = 1 if cls_token else 0
 
     def build(self, input_shape):
         self.channels = input_shape[-1]
@@ -598,10 +731,10 @@ class PositionalEncodingFourierRot(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-                "attn_height": self.attn_height, 
+                "attn_height": self.attn_height,
                 "num_heads": self.num_heads,
-                "cls_token": self.cls_token, 
-                "temperature": self.temperature, 
+                "cls_token": self.cls_token,
+                "temperature": self.temperature,
                 "ref_feature_shape": self.ref_feature_shape
         })
         return config
@@ -611,9 +744,9 @@ class PositionalEncodingFourierRot(tf.keras.layers.Layer):
 class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
     def __init__(self, num_heads=-1, attn_height=-1, cls_token=True, *args, **kwargs):
         super(MultiHeadRelativePositionalEmbedding, self).__init__(*args, **kwargs)
-        self.num_heads      = num_heads
-        self.attn_height    = attn_height
-        self.cls_token      = cls_token
+        self.num_heads = num_heads
+        self.attn_height = attn_height
+        self.cls_token = cls_token
 
         if cls_token:
             self.cls_token_len = 1
@@ -632,9 +765,9 @@ class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
         num_heads = attn_shape[1] if self.num_heads == -1 else self.num_heads
         num_relative_distance = (2 * height - 1) * (2 * width - 1) + self.cls_token_pos_len
         pos_shape = (num_heads, num_relative_distance)
-        self.positional_embedding = self.add_weight(name="positional_embedding", 
-                                                    shape=pos_shape, 
-                                                    initializer="zeros", 
+        self.positional_embedding = self.add_weight(name="positional_embedding",
+                                                    shape=pos_shape,
+                                                    initializer="zeros",
                                                     trainable=True)
 
         hh, ww = np.meshgrid(range(height), range(width))
@@ -669,7 +802,7 @@ class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
     def get_config(self):
         base_config = super().get_config()
         base_config.update({
-                "attn_height": self.attn_height, 
+                "attn_height": self.attn_height,
                 "num_heads": self.num_heads,
                 "cls_token": self.cls_token
         })
@@ -722,35 +855,42 @@ class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable()
 class EnhanceSelfAttention(tf.keras.layers.Layer):
-    def __init__(self, 
-                 num_heads, 
-                 key_dim=0,
-                 attn_height=-1,
-                 qk_scale=-1,
-                 qv_bias=True,
-                 qkv_bias=False,
-                 return_weight=True,
-                 return_bias=False,
-                 pos_emb=False,
-                 rotate_pos_emb=False,
-                 text_max_block_size=0,
-                 attn_dropout=0,
-                 *args, 
-                 **kwargs):
+    def __init__(
+        self,
+        num_heads,
+        key_dim=0,
+        attn_height=-1,
+        qk_scale=-1,
+        qv_bias=True,
+        qkv_bias=False,
+        return_weight=True,
+        return_bias=False,
+        pos_emb=False,
+        rotate_pos_emb=False,
+        text_max_block_size=0,
+        attn_dropout=0,
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        *args, **kwargs
+    ):
         super(EnhanceSelfAttention, self).__init__(*args, **kwargs)
-        self.num_heads           = num_heads
-        self.key_dim             = key_dim
-        self.attn_height         = attn_height
-        self.qk_scale            = qk_scale
-        self.qv_bias             = qv_bias
-        self.qkv_bias            = qkv_bias
-        self.return_weight       = return_weight
-        self.return_bias         = return_bias
-        self.pos_emb             = pos_emb
-        self.rotate_pos_emb      = rotate_pos_emb
+        self.num_heads = num_heads
+        self.key_dim = key_dim
+        self.attn_height = attn_height
+        self.qk_scale = qk_scale
+        self.qv_bias = qv_bias
+        self.qkv_bias = qkv_bias
+        self.return_weight = return_weight
+        self.return_bias = return_bias
+        self.pos_emb = pos_emb
+        self.rotate_pos_emb = rotate_pos_emb
         self.text_max_block_size = text_max_block_size
-        self.attn_dropout        = attn_dropout
-
+        self.attn_dropout = attn_dropout
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = regularizer_decay
+        
     def build(self, input_shape):
         self.bs, self.bb, self.cc = input_shape
         self.key_dim = self.key_dim if self.key_dim > 0 else self.cc // self.num_heads
@@ -758,7 +898,13 @@ class EnhanceSelfAttention(tf.keras.layers.Layer):
         is_text_inputs = self.text_max_block_size > 0
                 
         self.qkv_bias, self.qv_bias = (True, False) if self.qkv_bias else (False, self.qv_bias)
-        self.qkv_project = Dense(embed_dim * 3, use_bias=self.qkv_bias)
+        self.qkv_project = Dense(
+            units=embed_dim * 3,
+            use_bias=self.qkv_bias,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=l2(self.regularizer_decay),
+        )
         
         if self.qv_bias:
             self.query_bias = BiasLayer()
@@ -768,7 +914,7 @@ class EnhanceSelfAttention(tf.keras.layers.Layer):
             self.rope_layer = PositionalEncodingFourierRot1D(max_block_size=self.text_max_block_size)
         elif self.rotate_pos_emb:
             self.rope_layer = PositionalEncodingFourierRot(num_heads=self.num_heads,
-                                                           attn_height=self.attn_height, 
+                                                           attn_height=self.attn_height,
                                                            cls_token=True)
         else:
             self.rope_layer = None
@@ -784,7 +930,13 @@ class EnhanceSelfAttention(tf.keras.layers.Layer):
             self.drop_layer = Dropout(self.attn_dropout)
 
         if self.return_weight:
-            self.project_weight = Dense(self.cc, use_bias=self.return_bias)
+            self.project_weight = Dense(
+                units=self.cc,
+                use_bias=self.return_bias,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                kernel_regularizer=l2(self.regularizer_decay),
+            )
             
     def scaled_dot_product_attention(self, query, key, value):
         scale_ratio = self.qk_scale if self.qk_scale > 0 else (1.0 / (float(query.shape[-1]) ** 0.5))

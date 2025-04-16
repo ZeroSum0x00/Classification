@@ -12,26 +12,28 @@ from utils.logger import logger
 
 
 class Evaluate(tf.keras.callbacks.Callback):
-    def __init__(self, 
-                 result_path    = None,
-                 sample_weight  = None,
-                 min_ratio      = 0.2,
-                 save_best      = True,
-                 save_mode      = "weights",
-                 save_head      = True,
-                 show_frequency = 100):
+    def __init__(
+        self, 
+        result_path=None,
+        sample_weight=None,
+        min_ratio=0.2,
+        save_best=True,
+        save_mode="weights",
+        save_head=True,
+        show_frequency=100,
+    ):
         super(Evaluate, self).__init__()
-        self.result_path    = result_path
-        self.sample_weight  = sample_weight
-        self.min_ratio      = min_ratio
-        self.save_best      = save_best
-        self.save_mode      = save_mode
-        self.save_head      = save_head
+        self.result_path = result_path
+        self.sample_weight = sample_weight
+        self.min_ratio = min_ratio
+        self.save_best = save_best
+        self.save_mode = save_mode
+        self.save_head = save_head
         self.show_frequency = show_frequency
-        self.epoches        = [0]
-        self.metric_values  = [0]
-        self.current_value  = 0.0
-        self.eval_dataset   = None
+        self.epoches = [0]
+        self.metric_values = [0]
+        self.current_value = 0.0
+        self.eval_dataset = None
         
         if self.save_mode not in ["model", "weights"]:
             raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weights"].')
@@ -58,11 +60,15 @@ class Evaluate(tf.keras.callbacks.Callback):
 
                 predictions = tuple(item for sublist in predictions for item in sublist)
                 gts = tuple(item for sublist in gts for item in sublist)
-                report_dict = classification_report(gts,
-                                                    predictions,
-                                                    target_names=self.classes,
-                                                    sample_weight=self.sample_weight,
-                                                    print_report=True)
+                
+                report_dict = classification_report(
+                    y_true=gts,
+                    y_pred=predictions,
+                    target_names=self.classes,
+                    sample_weight=self.sample_weight,
+                    print_report=True,
+                )
+                
                 class_report, sum_report = report_dict
                 accuracy = sum_report.pop("accuracy", 0)
                 self.metric_values.append(accuracy)
@@ -87,14 +93,18 @@ class Evaluate(tf.keras.callbacks.Callback):
                 f = plt.figure()
                 max_height = np.max(self.metric_values)
                 max_width  = np.max(self.epoches)
-                value_above_line(f,
-                                 x=self.epoches,
-                                 y=self.metric_values,
-                                 i=np.argmax(self.metric_values),
-                                 max_size=[max_height, max_width],
-                                 linewidth=2,
-                                 line_color='red',
-                                 label='acc mean')
+                
+                value_above_line(
+                    f=f,
+                    x=self.epoches,
+                    y=self.metric_values,
+                    i=np.argmax(self.metric_values),
+                    max_size=[max_height, max_width],
+                    linewidth=2,
+                    line_color='red',
+                    label='acc mean',
+                )
+                
                 plt.grid(True)
                 plt.xlabel('Epoch')
                 plt.ylabel('Evaluate accuracy')

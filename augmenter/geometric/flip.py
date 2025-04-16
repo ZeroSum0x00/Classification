@@ -28,10 +28,10 @@ class Flip(BaseTransform):
     """
 
     def __init__(self, mode='horizontal'):
-        self.mode            = mode
+        self.mode = mode
         self.horizontal_list = ['horizontal', 'h']
-        self.vertical_list   = ['vertical', 'v']
-        self.mix_list        = ['synthetic', 's']
+        self.vertical_list = ['vertical', 'v']
+        self.mix_list = ['synthetic', 's']
 
     def image_transform(self, image):
         if self.mode.lower() in self.horizontal_list or self.mode.lower() in self.mix_list:
@@ -65,7 +65,7 @@ class RandomFlip(BaseRandomTransform):
     def __init__(self, mode='horizontal', prob=0.5):
         self.mode = mode
         self.prob = prob
-        self.aug  = Flip(mode=self.mode)
+        self.aug = Flip(mode=self.mode)
 
     def image_transform(self, image):
         image = self.aug(image)

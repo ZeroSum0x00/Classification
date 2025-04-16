@@ -22,7 +22,13 @@ def check_targets(y_true, y_pred):
     return y_type, y_true, y_pred
 
 
-def multilabel_confusion_matrix(y_true, y_pred, sample_weight=None, labels=None, samplewise=False):
+def multilabel_confusion_matrix(
+    y_true,
+    y_pred,
+    sample_weight=None,
+    labels=None,
+    samplewise=False,
+):
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
 

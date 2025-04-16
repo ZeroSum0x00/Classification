@@ -75,7 +75,15 @@ class RandomCrop(BaseRandomTransform):
         edge, reflect or symmetric. Default is constant.
     """
 
-    def __init__(self, size, padding=0, pad_if_needed=False, fill_color=0, padding_mode='constant', prob=0.5):
+    def __init__(
+        self,
+        size,
+        padding=0,
+        pad_if_needed=False,
+        fill_color=0,
+        padding_mode='constant',
+        prob=0.5,
+    ):
         if isinstance(size, numbers.Number):
             self.size      = (int(size), int(size))
         else:
@@ -105,15 +113,30 @@ class RandomCrop(BaseRandomTransform):
 
     def image_transform(self, image):
         if self.padding > 0:
-            image = pad(image, self.padding, fill_color=self.fill_color, padding_mode=self.padding_mode)
+            image = pad(
+                image=image,
+                padding=self.padding,
+                fill_color=self.fill_color,
+                padding_mode=self.padding_mode,
+            )
 
         # pad the width if needed
         if self.pad_if_needed and image.shape[1] < self.size[1]:
-            image = pad(image, (int((1 + self.size[1] - image.shape[1]) / 2), 0), fill_color=self.fill_color, padding_mode=self.padding_mode)
+            image = pad(
+                image=image,
+                padding=(int((1 + self.size[1] - image.shape[1]) / 2), 0),
+                fill_color=self.fill_color,
+                padding_mode=self.padding_mode,
+            )
 
         # pad the height if needed
         if self.pad_if_needed and image.shape[0] < self.size[0]:
-            image = pad(image, (0, int((1 + self.size[0] - image.shape[0]) / 2)), fill_color=self.fill_color, padding_mode=self.padding_mode)
+            image = pad(
+                image=image,
+                padding=(0, int((1 + self.size[0] - image.shape[0]) / 2)),
+                fill_color=self.fill_color,
+                padding_mode=self.padding_mode,
+            )
 
         top, left, height, width = self.get_params(image, self.size)
         return crop(image, top, left, height, width)

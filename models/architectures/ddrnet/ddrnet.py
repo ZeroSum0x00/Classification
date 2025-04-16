@@ -3,18 +3,15 @@
     - The following table comparing the params of the DDRNet in Pytorch Source 
     with Tensorflow convert Source on size 224 x 224 x 3:
       
-       ---------------------------------------------------------------------
-      |    Library     |     Model Name      |    Params      |  Greater    |
-      |-------------------------------------------------------|-------------|
-      |   Pytorch      |    DDRNet23-slim    |   7,574,664    |     _       |
-      |   Tensorflow   |    DDRNet23-slim    |   7,968,264    |    4.94(%)  |
-      |----------------|---------------------|----------------|-------------|
-      |   Pytorch      |       DDRNet23      |   28,216,616   |     _       |
-      |   Tensorflow   |       DDRNet23      |   29,759,528   |    5.2(%)   |
-      |----------------|---------------------|----------------|-------------|
-      |   Pytorch      |       DDRNet39      |   40,130,344   |     _       |
-      |   Tensorflow   |       DDRNet39      |   36,921,896   |    ?????    |
-       ---------------------------------------------------------------------
+       --------------------------------------
+      |     Model Name      |    Params      |
+      |--------------------------------------|
+      |    DDRNet23-slim    |    7,589,256   |
+      |--------------------------------------|
+      |       DDRNet23      |   28,245,800   |
+      |--------------------------------------|
+      |       DDRNet39      |   40,170,280   |
+       --------------------------------------
 
   # Reference:
     - [Deep Dual-resolution Networks for Real-time and Accurate Semantic 
@@ -23,559 +20,1137 @@
 
 """
 
-from __future__ import print_function
-
-import warnings
-
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import UpSampling2D
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
-from utils.model_processing import _obtain_input_shape, correct_pad
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, UpSampling2D, Flatten, Dense, Dropout,
+    GlobalMaxPooling2D, GlobalAveragePooling2D, add
+)
+from tensorflow.keras.regularizers import l2
+
 from models.layers import get_activation_from_name, get_normalizer_from_name
-try:
-    from tensorflow.keras.layers.experimental import SyncBatchNormalization as BatchNorm
-except ImportError:
-    print('Can\'t import SyncBatchNormalization, using BatchNormalization')
-    from tensorflow.keras.layers import BatchNormalization as BatchNorm
-
-    
-# TF_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels.h5'
-# TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels_notop.h5'
+from utils.model_processing import create_layer_instance, process_model_input, correct_pad
 
 
-def BasicBlock(input_tensor, filters, kernel_size=3, strides=1, downsaple=False, activation='relu', normalizer='batch-norm', norm_eps=1e-6):
+
+def BasicBlock(
+    inputs,
+    filters,
+    kernel_size=3,
+    strides=1,
+    residual=False,
+    activation="relu",
+    normalizer="batch-norm",
+    disable_final_activ=False,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"basic_block_{K.get_uid('basic_block')}"
+
     filter1, filter2 = filters
-    shortcut = input_tensor
+    shortcut = inputs
 
-    x = Conv2D(filters=filter1, kernel_size=kernel_size, strides=strides, padding='same', kernel_initializer='he_normal', use_bias=False)(input_tensor)
-    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name(activation)(x)
+    x = Conv2D(
+        filters=filter1,
+        kernel_size=kernel_size,
+        strides=strides,
+        padding="same",
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv1"
+    )(inputs)
 
-    x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=(1, 1), padding='same', kernel_initializer='he_normal', use_bias=False)(x)
-    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm1")(x)
+    x = get_activation_from_name(activation, name=f"{name}.activ1")(x)
 
-    if downsaple:
-        shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-        shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
+    x = Conv2D(
+        filters=filter2,
+        kernel_size=kernel_size,
+        strides=(1, 1),
+        padding="same",
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv2"
+    )(x)
 
-    x = add([x, shortcut])
-    x = get_activation_from_name(activation)(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm2")(x)
+
+    if residual:
+        shortcut = Conv2D(
+            filters=filter2,
+            kernel_size=(1, 1),
+            strides=strides,
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+            name=f"{name}.shortcut_conv"
+        )(shortcut)
+
+        shortcut = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.shortcut_norm")(shortcut)
+
+    x = add([x, shortcut], name=f"{name}.fusion")
+
+    if not disable_final_activ:
+        x = get_activation_from_name(activation, name=f"{name}.activ")(x)
+
     return x
 
 
-def Bottleneck(input_tensor, filters, kernel_size, strides, downsaple=False, activation='relu', normalizer='batch-norm', norm_eps=1e-6):
+def Bottleneck(
+    inputs,
+    filters,
+    kernel_size,
+    strides,
+    residual=False,
+    activation="relu",
+    normalizer="batch-norm",
+    disable_final_activ=False,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"bottleneck_block_{K.get_uid('bottleneck')}"
+
     filter1, filter2, filter3 = filters
-    shortcut = input_tensor
+    shortcut = inputs
 
-    x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(input_tensor)
-    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name(activation)(x)
+    x = Conv2D(
+        filters=filter1,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv1"
+    )(inputs)
 
-    x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=strides, padding='same', kernel_initializer='he_normal', use_bias=False)(x)
-    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name(activation)(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm1")(x)
+    x = get_activation_from_name(activation, name=f"{name}.activ1")(x)
 
-    x = Conv2D(filters=filter3, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(x)
-    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
+    x = Conv2D(
+        filters=filter2,
+        kernel_size=kernel_size,
+        strides=strides,
+        padding="same",
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv2"
+    )(x)
 
-    if downsaple:
-        shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, kernel_initializer='he_normal', use_bias=False)(shortcut)
-        shortcut = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(shortcut)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm2")(x)
+    x = get_activation_from_name(activation, name=f"{name}.activ2")(x)
 
-    x = add([x, shortcut])
-    x = get_activation_from_name(activation)(x)
+    x = Conv2D(
+        filters=filter3,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv3"
+    )(x)
+
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm3")(x)
+
+    if residual:
+        shortcut = Conv2D(
+            filters=filter3,
+            kernel_size=(1, 1),
+            strides=strides,
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+            name=f"{name}.shortcut_conv"
+        )(shortcut)
+
+        shortcut = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.shortcut_norm")(shortcut)
+
+    x = add([x, shortcut], name=f"{name}.fusion")
+
+    if not disable_final_activ:
+        x = get_activation_from_name(activation, name=f"{name}.activ")(x)
+
     return x
 
 
-def bilateral_fusion(low_branch, high_branch, filters, up_size=2, activation='relu', normalizer='batch-norm', norm_eps=1e-6):
-    filter1, filter2 = filters
+def bilateral_fusion(
+    low_branch,
+    high_branch,
+    up_size=2,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"bilateral_fusion_block_{K.get_uid('bilateral_fusion')}"
 
-    x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(low_branch)
-    x = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name(activation)(x)
-    x = UpSampling2D(size=up_size, interpolation='bilinear')(x)
-    x = add([high_branch, x])
+    filters = high_branch.shape[-1]
+    x = Conv2D(
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.high_branch.conv"
+    )(low_branch)
+
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.high_branch.norm")(x)
+    x = UpSampling2D(size=up_size, interpolation="bilinear", name=f"{name}.high_branch.up")(x)
+    x = add([high_branch, x], name=f"{name}.high_branch.fusion")
 
     y = high_branch
     for i in range(up_size // 2):
-        y = Conv2D(filters=filter2, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(y)
-        y = get_normalizer_from_name(normalizer, momentum=0.1, epsilon=norm_eps)(y)
-        y = get_activation_from_name(activation)(y)
-    y = add([low_branch, y])
+        y = Conv2D(
+            filters=filters * 2**(i+1),
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+            name=f"{name}.low_branch.conv{i + 1}"
+        )(y)
+
+        y = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.low_branch.norm{i + 1}")(y)
+
+        if i != (up_size // 2) - 1:
+            y = get_activation_from_name(activation, name=f"{name}.low_branch.activ{i + 1}")(y)
+
+    y = add([low_branch, y], name=f"{name}.low_branch.fusion")
     return y, x
 
 
-def DDRNet23_slim(include_top=True, 
-                  weights='imagenet',
-                  input_tensor=None, 
-                  input_shape=None,
-                  pooling=None,
-                  final_activation="softmax",
-                  classes=1000,
-                  norm_eps=1e-6) -> Model:
+def DDRNet23(
+    filters,
+    num_blocks,
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer=None,
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
                       
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-    if K.image_data_format() == 'channels_last':
-        bn_axis = -1
-    else:
-        bn_axis = 1
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    # Branch conv1
-    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name('relu')(x)
-                      
-    # Branch conv2
-    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name('relu')(x)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
 
-    x = BasicBlock(x, [32, 32], 3, 1, True)
-    x = BasicBlock(x, [32, 32], 3, 1, False)
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights,
+    )
 
-    # Branch conv3
-    x = BasicBlock(x, [64, 64], 3, 2, True)
-    x = BasicBlock(x, [64, 64], 3, 1, False)
 
-    # Branch conv4
-    ## low branch
-    low_branch = BasicBlock(x, [128, 128], 3, 2, True)
-    low_branch = BasicBlock(low_branch, [128, 128], 3, 1, False)
+    # Stage 0:
+    x = Sequential([
+        Conv2D(
+            filters=filters,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name="stem")(inputs)
 
-    ## high branch
-    high_branch = BasicBlock(x, [64, 64], 3, 1, True)
-    high_branch = BasicBlock(high_branch, [64, 64], 3, 1, False)
 
-    ## bilateral fusion branch
-    low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [64, 128])
+    # Stage 1:
+    for i in range(num_blocks[0]):
+        x = create_layer_instance(
+            BasicBlock,
+            inputs=x,
+            filters=[filters, filters],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ = (i != 0),
+            **layer_constant_dict,
+            name=f"stage1.block{i + 1}"
+        )
 
-    # Branch conv5_1
-    ## low branch
-    low_branch = get_activation_from_name('relu')(low_branch)
-    low_branch = BasicBlock(low_branch, [256, 256], 3, 2, True)
-    low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
+    x = get_activation_from_name(activation, name="stage1.final_activ")(x)
 
-    ## high branch
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = BasicBlock(high_branch, [64, 64], 3, 1, True)
-    high_branch = BasicBlock(high_branch, [64, 64], 3, 1, False)
 
-    ## bilateral fusion branch
-    low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [64, 256], 4)
+    # Stage 2:
+    for i in range(num_blocks[1]):
+        strides = (2, 2) if i == 0 else (1, 1)
+        residual = (i == 0)
+        disable_final_activ = (i != 0)
 
-    ## low branch
-    low_branch = get_activation_from_name('relu')(low_branch)
-    low_branch = Bottleneck(low_branch, [256, 256, 512], 3, 1, True)
+        x = create_layer_instance(
+            BasicBlock,
+            inputs=x,
+            filters=[filters * channel_scale, filters * channel_scale],
+            kernel_size=(3, 3),
+            strides=strides,
+            residual=residual,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage2.block{i + 1}"
+        )
 
-    ## high branch
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Bottleneck(high_branch, [64, 64, 128], 3, 1, True)
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    x = get_activation_from_name(activation, name="stage2.final_activ")(x)
 
-    # Branch conv5_2
-    outputs = add([low_branch, high_branch])
-    outputs = get_activation_from_name('relu')(outputs)
-    outputs = Conv2D(filters=1024, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
-    outputs = get_activation_from_name('relu')(outputs)
+    
+    # Stage 3:
+    low_branch = x
+    for i in range(num_blocks[2]):
+        strides = (2, 2) if i == 0 else (1, 1)
+        residual = (i == 0)
+        disable_final_activ = (i != 0)
 
-    if include_top:
+        low_branch = create_layer_instance(
+            BasicBlock,
+            inputs=low_branch,
+            filters=[filters * channel_scale**2, filters * channel_scale**2],
+            kernel_size=(3, 3),
+            strides=strides,
+            residual=residual,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage3.low_branch.block{i + 1}"
+        )
+
+    low_branch = get_activation_from_name(activation, name="stage3.low_branch.final_activ")(low_branch)
+
+    high_branch = x
+    for i in range(2):
+        disable_final_activ = (i != 0)
+
+        high_branch = create_layer_instance(
+            BasicBlock,
+            inputs=high_branch,
+            filters=[filters * channel_scale, filters * channel_scale],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage3.high_branch.block{i + 1}"
+        )
+
+    high_branch = get_activation_from_name(activation, name="stage3.high_branch.final_activ")(high_branch)
+
+    low_branch, high_branch = create_layer_instance(
+        bilateral_fusion,
+        low_branch=low_branch,
+        high_branch=high_branch,
+        up_size=2,
+        **layer_constant_dict,
+        name="stage3.bilateral_fusion"
+    )
+
+
+    # Stage 4:
+    low_branch = get_activation_from_name(activation, name="stage4.low_branch.first_activ")(low_branch)
+
+    for i in range(num_blocks[2]):
+        strides = (2, 2) if i == 0 else (1, 1)
+        residual = (i == 0)
+        disable_final_activ = (i != 0)
+
+        low_branch = create_layer_instance(
+            BasicBlock,
+            inputs=low_branch,
+            filters=[filters * channel_scale**3, filters * channel_scale**3],
+            strides=strides,
+            residual=residual,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage4.low_branch.block{i + 1}"
+        )
+
+    high_branch = get_activation_from_name(activation, name="stage4.high_branch.first_activ")(high_branch)
+
+    for i in range(2):
+        disable_final_activ = (i != 0)
+
+        high_branch = create_layer_instance(
+            BasicBlock,
+            inputs=high_branch,
+            filters=[filters * channel_scale, filters * channel_scale],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage4.high_branch.block{i + 1}"
+        )
+
+    low_branch, high_branch = create_layer_instance(
+        bilateral_fusion,
+        low_branch=low_branch,
+        high_branch=high_branch,
+        up_size=4,
+        **layer_constant_dict,
+        name="stage4.bilateral_fusion"
+    )
+
+
+    # Stage 5:
+    low_branch = get_activation_from_name(activation, name="stage5.low_branch.first_activ")(low_branch)
+
+    for i in range(num_blocks[4]):
+        low_branch = create_layer_instance(
+            Bottleneck,
+            inputs=low_branch,
+            filters=[filters * channel_scale**3, filters * channel_scale**3, filters * channel_scale**4],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=True,
+            **layer_constant_dict,
+            name=f"stage5.low_branch.block{i + 1}"
+        )
+
+    high_branch = get_activation_from_name(activation, name="stage5.high_branch.first_activ")(high_branch)
+
+    for i in range(num_blocks[4]):
+        high_branch = create_layer_instance(
+            Bottleneck,
+            inputs=high_branch,
+            filters=[filters * channel_scale, filters * channel_scale, filters * channel_scale**2],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=True,
+            **layer_constant_dict,
+            name=f"stage5.high_branch.block{i + 1}"
+        )
+
+    high_branch = Sequential([
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters * channel_scale**3,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters * channel_scale**4,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name=f"stage5.high_branch.block{i + 2}")(high_branch)
+
+    outputs = add([low_branch, high_branch], name="stage5.fusion")
+    outputs = Sequential([
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters * channel_scale**5 * final_channel_scale,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"stage5.merger")(outputs)
+
+    if include_head:
         outputs = GlobalAveragePooling2D()(outputs)
         outputs = Flatten()(outputs)
-        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
+        outputs = Dropout(rate=drop_rate)(outputs)
+        outputs = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            name="predictions"
+        )(outputs)
         outputs = get_activation_from_name(final_activation)(outputs)
     else:
-        if pooling == 'avg':
-            outputs = GlobalAveragePooling2D(name='avg_pool')(outputs)
-        elif pooling == 'max':
-            outputs = GlobalMaxPooling2D(name='max_pool')(outputs)
+        if pooling == "avg":
+            outputs = GlobalAveragePooling2D(name="avg_pool")(outputs)
+        elif pooling == "max":
+            outputs = GlobalMaxPooling2D(name="max_pool")(outputs)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-        
-    # Create model.
-    model = Model(inputs=img_input, outputs=outputs, name='DDRNet-23-slim')
-                      
-    # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            weights_path = None
-        else:
-            weights_path = None
-            
-        if weights_path is not None:
-            model.load_weights(weights_path)
-            
-    elif weights is not None:
-        model.load_weights(weights)
-        
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model = Model(inputs=inputs, outputs=outputs, name="DDRNet-23-slim")
+    
     return model
 
 
-def DDRNet23(include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             norm_eps=1e-6) -> Model:
-                 
-    if weights not in {'imagenet', None}:
+def DDRNet23_backbone(
+    filters,
+    num_blocks,
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[],
+) -> Model:
+
+    model = DDRNet23(
+        filters=filters,
+        num_blocks=num_blocks,
+        channel_scale=channel_scale,
+        final_channel_scale=final_channel_scale,
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.final_activ",
+        "stage2.final_activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def DDRNet23_slim(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = DDRNet23(
+        filters=32,
+        num_blocks=[2, 2, 2, 2, 1],
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+    )
+    return model
+
+
+def DDRNet23_slim_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[],
+) -> Model:
+
+    model = DDRNet23_slim(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.final_activ",
+        "stage2.final_activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def DDRNet23_base(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = DDRNet23(
+        filters=64,
+        num_blocks=[2, 2, 2, 2, 1],
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+    )
+    return model
+
+
+def DDRNet23_base_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[],
+) -> Model:
+
+    model = DDRNet23_base(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.final_activ",
+        "stage2.final_activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def DDRNet39(
+    filters=64,
+    num_blocks=[3, 4, 6, 3, 1],
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer=None,
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
+
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
+
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
+
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights,
+    )
+
+    
+    # Stage 0:
+    x = Sequential([
+        Conv2D(
+            filters=filters,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name="stem")(inputs)
+
+
+    # Stage 1:
+    for i in range(num_blocks[0]):
+        x = create_layer_instance(
+            BasicBlock,
+            inputs=x,
+            filters=[filters, filters],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ = (i != 0),
+            **layer_constant_dict,
+            name=f"stage1.block{i + 1}"
+        )
+
+    x = get_activation_from_name(activation, name="stage1.final_activ")(x)
+
+    for i in range(num_blocks[1]):
+        strides = (2, 2) if i == 0 else (1, 1)
+        residual = (i == 0)
+        disable_final_activ = (i != 0)
+
+        x = create_layer_instance(
+            BasicBlock,
+            inputs=x,
+            filters=[filters * channel_scale, filters * channel_scale],
+            kernel_size=(3, 3),
+            strides=strides,
+            residual=residual,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage2.block{i + 1}"
+        )
+
+    x = get_activation_from_name(activation, name="stage2.final_activ")(x)
+
+    
+    # Stage 3:
+    low_branch = x
+    for i in range(num_blocks[2] // 2):
+        strides = (2, 2) if i == 0 else (1, 1)
+        residual = (i == 0)
+        disable_final_activ = (i != 0)
+
+        low_branch = create_layer_instance(
+            BasicBlock,
+            inputs=low_branch,
+            filters=[filters * channel_scale**2, filters * channel_scale**2],
+            kernel_size=(3, 3),
+            strides=strides,
+            residual=residual,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage3.low_branch.block{i + 1}"
+        )
+
+    low_branch = get_activation_from_name(activation, name="stage3.low_branch.final_activ")(low_branch)
+
+    high_branch = x
+    for i in range(num_blocks[2] // 2):
+        disable_final_activ = (i != 0)
+
+        high_branch = create_layer_instance(
+            BasicBlock,
+            inputs=high_branch,
+            filters=[filters * channel_scale, filters * channel_scale],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage3.high_branch.block{i + 1}"
+        )
         
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-    if K.image_data_format() == 'channels_last':
-        bn_axis = -1
-    else:
-        bn_axis = 1
+    high_branch = get_activation_from_name(activation, name="stage3.high_branch.final_activ")(high_branch)
 
-    # Branch conv1
-    x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name('relu')(x)
+    low_branch, high_branch = create_layer_instance(
+        bilateral_fusion,
+        low_branch=low_branch,
+        high_branch=high_branch,
+        up_size=2,
+        **layer_constant_dict,
+        name="stage3.bilateral_fusion"
+    )
 
-    # Branch conv2
-    x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name('relu')(x)
 
-    x = BasicBlock(x, [64, 64], 3, 1, True)
-    x = BasicBlock(x, [64, 64], 3, 1, False)
+    # Stage 4:
+    low_branch = get_activation_from_name(activation, name="stage4.low_branch.first_activ")(low_branch)
 
-    # Branch conv3
-    x = BasicBlock(x, [128, 128], 3, 2, True)
-    x = BasicBlock(x, [128, 128], 3, 1, False)
+    for i in range(num_blocks[2] // 2):
+        disable_final_activ = (i != 0)
 
-    # Branch conv4
-    ## low branch
-    low_branch = BasicBlock(x, [256, 256], 3, 2, True)
-    low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
+        low_branch = create_layer_instance(
+            BasicBlock,
+            inputs=low_branch,
+            filters=[filters * channel_scale**2, filters * channel_scale**2],
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage4.low_branch.block{i + 1}"
+        )
 
-    ## high branch
-    high_branch = BasicBlock(x, [128, 128], 3, 1, True)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
+    high_branch = get_activation_from_name(activation, name="stage4.high_branch.first_activ")(high_branch)
 
-    ## bilateral fusion branch
-    low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 256])
+    for i in range(num_blocks[2] // 2):
+        disable_final_activ = (i != 0)
 
-    # Branch conv5_1
-    ## low branch
-    low_branch = get_activation_from_name('relu')(low_branch)
-    low_branch = BasicBlock(low_branch, [512, 512], 3, 2, True)
-    low_branch = BasicBlock(low_branch, [512, 512], 3, 1, False)
+        high_branch = create_layer_instance(
+            BasicBlock,
+            inputs=high_branch,
+            filters=[filters * channel_scale, filters * channel_scale],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage4.high_branch.block{i + 1}"
+        )
 
-    ## high branch
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, True)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
+    low_branch, high_branch = create_layer_instance(
+        bilateral_fusion,
+        low_branch=low_branch,
+        high_branch=high_branch,
+        up_size=2,
+        **layer_constant_dict,
+        name="stage4.bilateral_fusion"
+    )
 
-    ## bilateral fusion branch
-    low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 512], 4)
 
-    ## low branch
-    low_branch = get_activation_from_name('relu')(low_branch)
-    low_branch = Bottleneck(low_branch, [512, 512, 1024], 3, 1, True)
+    # Stage 5:
+    low_branch = get_activation_from_name(activation, name="stage5.low_branch.first_activ")(low_branch)
 
-    ## high branch
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Bottleneck(high_branch, [128, 128, 256], 3, 1, True)
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Conv2D(filters=1024, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
+    for i in range(num_blocks[3]):
+        strides = (2, 2) if i == 0 else (1, 1)
+        residual = (i == 0)
+        disable_final_activ = (i != 0)
 
-    # Branch conv5_2
-    outputs = add([low_branch, high_branch])
-    outputs = get_activation_from_name('relu')(outputs)
-    outputs = Conv2D(filters=2048, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = get_activation_from_name('relu')(outputs)
+        low_branch = create_layer_instance(
+            BasicBlock,
+            inputs=low_branch,
+            filters=[filters * channel_scale**3, filters * channel_scale**3],
+            kernel_size=(3, 3),
+            strides=strides,
+            residual=residual,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage5.low_branch.block{i + 1}"
+        )
 
-    if include_top:
+    high_branch = get_activation_from_name(activation, name="stage5.high_branch.first_activ")(high_branch)
+  
+    for i in range(num_blocks[3]):
+        disable_final_activ = (i != 0)
+
+        high_branch = create_layer_instance(
+            BasicBlock,
+            inputs=high_branch,
+            filters=[filters * channel_scale, filters * channel_scale],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=False,
+            disable_final_activ=disable_final_activ,
+            **layer_constant_dict,
+            name=f"stage5.high_branch.block{i + 1}"
+        )
+
+    low_branch, high_branch = create_layer_instance(
+        bilateral_fusion,
+        low_branch=low_branch,
+        high_branch=high_branch,
+        up_size=4,
+        **layer_constant_dict,
+        name="stage5.bilateral_fusion"
+    )
+
+
+    # Stage 6:
+    low_branch = get_activation_from_name(activation, name="stage6.low_branch.first_activ")(low_branch)
+
+    for i in range(num_blocks[4]):
+        low_branch = create_layer_instance(
+            Bottleneck,
+            inputs=low_branch,
+            filters=[filters * channel_scale**3, filters * channel_scale**3, filters * channel_scale**4],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=True,
+            **layer_constant_dict,
+            name=f"stage6.low_branch.block{i + 1}"
+        )
+
+    high_branch = get_activation_from_name(activation, name="stage6.high_branch.first_activ")(high_branch)
+
+    for i in range(num_blocks[4]):
+        high_branch = create_layer_instance(
+            Bottleneck,
+            inputs=high_branch,
+            filters=[filters * channel_scale, filters * channel_scale, filters * channel_scale**2],
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            residual=True,
+            **layer_constant_dict,
+            name=f"stage6.high_branch.block{i + 1}"
+        )
+
+    high_branch = Sequential([
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters * channel_scale**3,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters * channel_scale**4,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="same",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name=f"stage6.high_branch.block{i + 2}")(high_branch)
+
+    outputs = add([low_branch, high_branch], name="stage6.fusion")
+    outputs = Sequential([
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters * channel_scale**5 * final_channel_scale,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"stage6.merger")(outputs)
+
+    if include_head:
         outputs = GlobalAveragePooling2D()(outputs)
         outputs = Flatten()(outputs)
-        outputs = Dense(1 if classes == 2 else classes, activation=final_activation, name='predictions')(outputs)
-    else:
-        if pooling == 'avg':
-            outputs = GlobalAveragePooling2D(name='avg_pool')(outputs)
-        elif pooling == 'max':
-            outputs = GlobalMaxPooling2D(name='max_pool')(outputs)
-
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-        
-    # Create model.
-    model = Model(inputs=img_input, outputs=outputs, name='DDRNet-23')
-                 
-    # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            weights_path = None
-        else:
-            weights_path = None
-            
-        if weights_path is not None:
-            model.load_weights(weights_path)
-            
-    elif weights is not None:
-        model.load_weights(weights)
-        
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
-    return model
-
-
-def DDRNet39(include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             norm_eps=1e-6) -> Model:
-                 
-    if weights not in {'imagenet', None}:
-        raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization) or `imagenet` '
-                         '(pre-training on ImageNet).')
-
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-    if K.image_data_format() == 'channels_last':
-        bn_axis = -1
-    else:
-        bn_axis = 1
-
-    # Branch conv1
-    x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(img_input)
-    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name('relu')(x)
-
-    # Branch conv2
-    x = Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal')(x)
-    x = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(x)
-    x = get_activation_from_name('relu')(x)
-
-    x = BasicBlock(x, [64, 64], 3, 1, True)
-    x = BasicBlock(x, [64, 64], 3, 1, False)
-    x = BasicBlock(x, [64, 64], 3, 1, False)
-
-    # Branch conv3
-    x = BasicBlock(x, [128, 128], 3, 2, True)
-    x = BasicBlock(x, [128, 128], 3, 1, False)
-    x = BasicBlock(x, [128, 128], 3, 1, False)
-    x = BasicBlock(x, [128, 128], 3, 1, False)
-
-    # Branch conv4
-    ## low branch
-    low_branch = BasicBlock(x, [256, 256], 3, 2, True)
-    low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
-    low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
-
-    ## high branch
-    high_branch = BasicBlock(x, [128, 128], 3, 1, True)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
-
-    ## bilateral fusion branch
-    low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 256])
-
-    ## low branch
-    low_branch = get_activation_from_name('relu')(low_branch)
-    low_branch = BasicBlock(x, [256, 256], 3, 2, True)
-    low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
-    low_branch = BasicBlock(low_branch, [256, 256], 3, 1, False)
-
-    ## high branch
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = BasicBlock(x, [128, 128], 3, 1, True)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
-
-    ## bilateral fusion branch
-    low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 256])
-
-    # Branch conv5_1
-    ## low branch
-    low_branch = get_activation_from_name('relu')(low_branch)
-    low_branch = BasicBlock(low_branch, [512, 512], 3, 2, True)
-    low_branch = BasicBlock(low_branch, [512, 512], 3, 1, False)
-    low_branch = BasicBlock(low_branch, [512, 512], 3, 1, False)
-
-    ## high branch
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, True)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
-    high_branch = BasicBlock(high_branch, [128, 128], 3, 1, False)
-
-    ## bilateral fusion branch
-    low_branch, high_branch = bilateral_fusion(low_branch, high_branch, [128, 512], 4)
-
-    ## low branch
-    low_branch = get_activation_from_name('relu')(low_branch)
-    low_branch = Bottleneck(low_branch, [512, 512, 1024], 3, 1, True)
-
-    ## high branch
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Bottleneck(high_branch, [128, 128, 256], 3, 1, True)
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
-    high_branch = get_activation_from_name('relu')(high_branch)
-    high_branch = Conv2D(filters=1024, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_initializer='he_normal', use_bias=False)(high_branch)
-    high_branch = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(high_branch)
-
-    # Branch conv5_2
-    outputs = add([low_branch, high_branch])
-    outputs = get_activation_from_name('relu')(outputs)
-    outputs = Conv2D(filters=2048, kernel_size=(1, 1), strides=(1, 1), kernel_initializer='he_normal', use_bias=False)(outputs)
-    outputs = get_normalizer_from_name('batch-norm', momentum=0.1, epsilon=norm_eps)(outputs)
-    outputs = get_activation_from_name('relu')(outputs)
-
-
-    if include_top:
-        outputs = GlobalAveragePooling2D()(outputs)
-        outputs = Flatten()(outputs)
-        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
+        outputs = Dropout(rate=drop_rate)(outputs)
+        outputs = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            name="predictions"
+        )(outputs)
         outputs = get_activation_from_name(final_activation)(outputs)
     else:
-        if pooling == 'avg':
-            outputs = GlobalAveragePooling2D(name='avg_pool')(outputs)
-        elif pooling == 'max':
-            outputs = GlobalMaxPooling2D(name='max_pool')(outputs)
+        if pooling == "avg":
+            outputs = GlobalAveragePooling2D(name="avg_pool")(outputs)
+        elif pooling == "max":
+            outputs = GlobalMaxPooling2D(name="max_pool")(outputs)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-        
-    # Create model.
-    model = Model(inputs=img_input, outputs=outputs, name='DDRNet-39')
-                 
-    # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            weights_path = None
-        else:
-            weights_path = None
-            
-        if weights_path is not None:
-            model.load_weights(weights_path)
-            
-    elif weights is not None:
-        model.load_weights(weights)
-        
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model = Model(inputs=inputs, outputs=outputs, name="DDRNet-39")
+
     return model
+
+
+def DDRNet39_backbone(
+    filters,
+    num_blocks,
+    channel_scale=2,
+    final_channel_scale=1,
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[],
+) -> Model:
+
+    model = DDRNet39(
+        filters=filters,
+        num_blocks=num_blocks,
+        channel_scale=channel_scale,
+        final_channel_scale=final_channel_scale,
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.final_activ",
+        "stage2.final_activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def DDRNet39_base(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = DDRNet39(
+        filters=64,
+        num_blocks=[3, 4, 6, 3, 1],
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate,
+    )
+    return model
+
+
+def DDRNet39_base_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[],
+) -> Model:
+
+    model = DDRNet39_base(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.final_activ",
+        "stage2.final_activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 if __name__ == '__main__':
-    model = DDRNet23_slim(include_top=False, weights=None)
+    model = DDRNet23_slim(include_head=False, weights=None)
     model.summary()

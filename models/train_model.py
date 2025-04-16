@@ -7,13 +7,15 @@ from utils.logger import logger
 
 
 class TrainModel(tf.keras.Model):
-    def __init__(self, 
-                 architecture,
-                 classes=None,
-                 image_size=(224, 224, 3),
-                 global_clipnorm=5.,
-                 **kwargs):
-        super().__init__(**kwargs)
+    def __init__(
+        self, 
+        architecture,
+        classes=None,
+        image_size=(224, 224, 3),
+        global_clipnorm=5.,
+        *args, **kwargs
+    ):
+        super().__init__(*args, **kwargs)
         self.architecture = architecture
         self.classes = classes
         self.image_size = image_size
@@ -43,22 +45,28 @@ class TrainModel(tf.keras.Model):
         
     def train_step(self, data):
         images, labels = data
+        
         with tf.GradientTape() as tape:
             y_pred, loss_value = self._compute_loss(images, labels, training=True)
+            
         gradients = tape.gradient(loss_value, self.architecture.trainable_variables)
         gradients, _ = tf.clip_by_global_norm(gradients, self.global_clipnorm)
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.total_loss_tracker.update_state(loss_value)
+        
         for metric in self.list_metrics:
             metric.update_state(labels, y_pred)
+            
         return {m.name: m.result() for m in self.metrics} | {"learning_rate": self.optimizer.learning_rate}
 
     def test_step(self, data):
         images, labels = data
         y_pred, loss_value = self._compute_loss(images, labels, training=False)
         self.total_loss_tracker.update_state(loss_value)
+        
         for metric in self.list_metrics:
             metric.update_state(labels, y_pred)
+            
         return {m.name: m.result() for m in self.metrics}
 
     def call(self, inputs):

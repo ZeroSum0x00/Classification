@@ -29,7 +29,7 @@ class RandomColor(BaseRandomTransform):
     def __init__(self, color_range=1, prob=0.5):
         assert (isinstance(color_range, (int, float)) and color_range > 0) or (isinstance(color_range, collections.Iterable) and len(color_range) == 2)
         self.color_range = color_range
-        self.prob        = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(color):

@@ -32,7 +32,7 @@ def camera_flare(image, radius=0.5, alpha=0.8):
 class CameraFlare(BaseTransform):
     def __init__(self, radius=0.5, alpha=0.8):
         self.radius = radius
-        self.alpha  = alpha
+        self.alpha = alpha
 
     def image_transform(self, image):
         return camera_flare(image, self.radius, self.alpha)
@@ -40,8 +40,8 @@ class CameraFlare(BaseTransform):
 class RandomCameraFlare(BaseRandomTransform):
     def __init__(self, radius=0.5, alpha=0.8, prob=0.5):
         self.radius = radius
-        self.alpha  = alpha
-        self.prob   = prob
+        self.alpha = alpha
+        self.prob = prob
 
     def image_transform(self, image):
         return camera_flare(image, self.radius, self.alpha)

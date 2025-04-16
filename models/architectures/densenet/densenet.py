@@ -4,9 +4,9 @@
     size 224 x 224 x 3:
 
        --------------------------------------
-      |     Model Name      |    Params      |
+      |      Model Name     |    Params      |
       |--------------------------------------|
-      |     DenseNet-121    |   8,062,504    |
+      |     DenseNet-121    |    8,062,504   |
       |---------------------|----------------|
       |     DenseNet-169    |   14,307,880   |
       |---------------------|----------------|
@@ -22,25 +22,20 @@
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
 import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import concatenate
+from tensorflow.keras.layers import (
+    Input, ZeroPadding2D, Conv2D, Dense, MaxPooling2D, Dropout,
+    AveragePooling2D, GlobalAveragePooling2D, GlobalMaxPooling2D, concatenate
+)
+from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_normalizer_from_name
+
 from utils.model_processing import _obtain_input_shape
+from models.layers import get_activation_from_name, get_normalizer_from_name
+
 
 
 BASE_WEIGTHS_PATH = ('https://github.com/keras-team/keras-applications/releases/download/densenet/')
@@ -52,7 +47,16 @@ DENSENET201_WEIGHT_PATH = (BASE_WEIGTHS_PATH + 'densenet201_weights_tf_dim_order
 DENSENET201_WEIGHT_PATH_NO_TOP = (BASE_WEIGTHS_PATH + 'densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5')
 
 
-def conv_block(inputs, growth_rate, activation='relu', normalizer='batch-norm', name=None):
+
+def conv_block(inputs,
+               growth_rate,
+               activation="relu",
+               normalizer="batch-norm",
+               kernel_initializer="glorot_uniform",
+               bias_initializer="zeros",
+               regularizer_decay=5e-4,
+               norm_eps=1e-6,
+               name=None):
     """
     A building block for a dense block
 
@@ -61,17 +65,40 @@ def conv_block(inputs, growth_rate, activation='relu', normalizer='batch-norm', 
     :param name: string, block label.
     :return: Output tensor for the block.
     """
-    x = get_normalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn0')(inputs)
-    x = get_activation_from_name(activation, name=name + '_activation0')(x)
-    x = Conv2D(filters=growth_rate * 4, kernel_size=(1, 1), strides=(1, 1), use_bias=False, name=name + '_conv1')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn1')(x)
-    x = get_activation_from_name(activation, name=name + '_activation1')(x)
-    x = Conv2D(filters=growth_rate, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False, name=name + '_conv2')(x)
-    merge = concatenate([inputs, x], name=name + '_merge')
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + "_bn0")(inputs)
+    x = get_activation_from_name(activation, name=name + "_activation0")(x)
+    x = Conv2D(filters=growth_rate * 4,
+               kernel_size=(1, 1),
+               strides=(1, 1),
+               use_bias=False,
+               kernel_initializer=kernel_initializer,
+               bias_initializer=bias_initializer,
+               kernel_regularizer=l2(regularizer_decay),
+               name=name + "_conv1")(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + "_bn1")(x)
+    x = get_activation_from_name(activation, name=name + "_activation1")(x)
+    x = Conv2D(filters=growth_rate,
+               kernel_size=(3, 3),
+               strides=(1, 1),
+               padding="same",
+               use_bias=False,
+               kernel_initializer=kernel_initializer,
+               bias_initializer=bias_initializer,
+               kernel_regularizer=l2(regularizer_decay),
+               name=name + "_conv2")(x)
+    merge = concatenate([inputs, x], name=name + "_merge")
     return merge
 
 
-def dense_block(inputs, blocks, activation='relu', normalizer='batch-norm', name=None):
+def dense_block(inputs,
+                blocks,
+                activation="relu",
+                normalizer="batch-norm",
+                kernel_initializer="glorot_uniform",
+                bias_initializer="zeros",
+                regularizer_decay=5e-4,
+                norm_eps=1e-6,
+                name=None):
     """
     A dense block.
 
@@ -82,11 +109,27 @@ def dense_block(inputs, blocks, activation='relu', normalizer='batch-norm', name
     """
     x = inputs
     for i in range(blocks):
-        x = conv_block(x, growth_rate=32, activation=activation, normalizer=normalizer, name=name + '_block' + str(i + 1))
+        x = conv_block(x,
+                       growth_rate=32,
+                       activation=activation,
+                       normalizer=normalizer,
+                       kernel_initializer="glorot_uniform",
+                       bias_initializer="zeros",
+                       regularizer_decay=5e-4,
+                       norm_eps=1e-6,
+                       name=name + "_block" + str(i + 1))
     return x
 
 
-def transition_block(inputs, reduction, activation='relu', normalizer='batch-norm', name=None):
+def transition_block(inputs,
+                     reduction,
+                     activation="relu",
+                     normalizer="batch-norm",
+                     kernel_initializer="glorot_uniform",
+                     bias_initializer="zeros",
+                     regularizer_decay=5e-4,
+                     norm_eps=1e-6,
+                     name=None):
     """
     A transition block.
 
@@ -96,32 +139,42 @@ def transition_block(inputs, reduction, activation='relu', normalizer='batch-nor
     :return: output tensor for the block.
     """
     channel_axis = -1
-    x = get_normalizer_from_name(normalizer, epsilon=1.001e-5, name=name + '_bn')(inputs)
-    x = get_activation_from_name(activation, name=name + '_activation')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + "_bn")(inputs)
+    x = get_activation_from_name(activation, name=name + "_activation")(x)
     x = Conv2D(filters=int(K.int_shape(x)[channel_axis] * reduction), 
                kernel_size=(1, 1),
                strides=(1, 1),
                use_bias=False,
-               name=name + '_conv')(x)
-    x = AveragePooling2D(pool_size=(2, 2), strides=(2, 2), name=name + '_pool')(x)
+               kernel_initializer=kernel_initializer,
+               bias_initializer=bias_initializer,
+               kernel_regularizer=l2(regularizer_decay),
+               name=name + "_conv")(x)
+    x = AveragePooling2D(pool_size=(2, 2), strides=(2, 2), name=name + "_pool")(x)
     return x
 
 
 def DenseNet(blocks,
              include_top=True,
-             weights='imagenet',
+             weights="imagenet",
              input_tensor=None,
              input_shape=None,
              pooling=None,
+             activation="relu",
+             normalizer="batch-norm",
              final_activation="softmax",
-             classes=1000):
+             classes=1000,
+             kernel_initializer="glorot_uniform",
+             bias_initializer="zeros",
+             regularizer_decay=5e-4,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
+    if weights == "imagenet" and include_top and classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_top`'
                          ' as true, `classes` should be 1000')
 
@@ -141,33 +194,98 @@ def DenseNet(blocks,
         else:
             img_input = input_tensor
 
-    x = ZeroPadding2D(padding=((3, 3), (3, 3)), name='padding_0')(img_input)
-    x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), use_bias=False, name='conv1.conv')(x)
-    x = get_normalizer_from_name('batch-norm', epsilon=1.001e-5, name='conv1.bn')(x)
-    x = get_activation_from_name('relu', name='conv1.activation')(x)
+    x = ZeroPadding2D(padding=((3, 3), (3, 3)), name="padding_0")(img_input)
+    x = Conv2D(filters=64,
+               kernel_size=(7, 7),
+               strides=(2, 2),
+               padding="valid",
+               use_bias=False,
+               kernel_initializer=kernel_initializer,
+               bias_initializer=bias_initializer,
+               kernel_regularizer=l2(regularizer_decay),
+               name="conv1.conv")(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="conv1.bn")(x)
+    x = get_activation_from_name(activation, name="conv1.activation")(x)
     x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name='pool1')(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="pool1")(x)
     
-    x = dense_block(x, blocks[0], name='conv2')
-    x = transition_block(x, 0.5, name='pool2')
-    x = dense_block(x, blocks[1], name='conv3')
-    x = transition_block(x, 0.5, name='pool3')
-    x = dense_block(x, blocks[2], name='conv4')
-    x = transition_block(x, 0.5, name='pool4')
-    x = dense_block(x, blocks[3], name='conv5')
+    x = dense_block(x,
+                    blocks=blocks[0],
+                    activation=activation,
+                    normalizer=normalizer,
+                    kernel_initializer=kernel_initializer,
+                    bias_initializer=bias_initializer,
+                    regularizer_decay=regularizer_decay,
+                    norm_eps=norm_eps,
+                    name="conv2")
+    x = transition_block(x,
+                         reduction=0.5,
+                         activation=activation,
+                         normalizer=normalizer,
+                         kernel_initializer=kernel_initializer,
+                         bias_initializer=bias_initializer,
+                         regularizer_decay=regularizer_decay,
+                         norm_eps=norm_eps,
+                         name="pool2")
+    x = dense_block(x,
+                    blocks=blocks[1],
+                    activation=activation,
+                    normalizer=normalizer,
+                    kernel_initializer=kernel_initializer,
+                    bias_initializer=bias_initializer,
+                    regularizer_decay=regularizer_decay,
+                    norm_eps=norm_eps,
+                    name="conv3")
+    x = transition_block(x,
+                         reduction=0.5,
+                         activation=activation,
+                         normalizer=normalizer,
+                         kernel_initializer=kernel_initializer,
+                         bias_initializer=bias_initializer,
+                         regularizer_decay=regularizer_decay,
+                         norm_eps=norm_eps,
+                         name="pool3")
+    x = dense_block(x,
+                    blocks=blocks[2],
+                    activation=activation,
+                    normalizer=normalizer,
+                    kernel_initializer=kernel_initializer,
+                    bias_initializer=bias_initializer,
+                    regularizer_decay=regularizer_decay,
+                    norm_eps=norm_eps,
+                    name="conv4")
+    x = transition_block(x,
+                         reduction=0.5,
+                         activation=activation,
+                         normalizer=normalizer,
+                         kernel_initializer=kernel_initializer,
+                         bias_initializer=bias_initializer,
+                         regularizer_decay=regularizer_decay,
+                         norm_eps=norm_eps,
+                         name="pool4")
+    x = dense_block(x,
+                    blocks=blocks[3],
+                    activation=activation,
+                    normalizer=normalizer,
+                    kernel_initializer=kernel_initializer,
+                    bias_initializer=bias_initializer,
+                    regularizer_decay=regularizer_decay,
+                    norm_eps=norm_eps,
+                    name="conv5")
 
-    x = get_normalizer_from_name('batch-norm', epsilon=1.001e-5, name='final_bn')(x)
-    x = get_activation_from_name('relu', name='final_activation')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="final_bn")(x)
+    x = get_activation_from_name(activation, name="final_activation")(x)
                  
     if include_top:
-        x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = GlobalAveragePooling2D(name="global_avgpool")(x)
+        x = Dropout(rate=drop_rate)(x)
+        x = Dense(1 if classes == 2 else classes, name="predictions")(x)
         x = get_activation_from_name(final_activation)(x)
     else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_maxpool')(x)
+        if pooling == "avg":
+            x = GlobalAveragePooling2D(name="global_avgpool")(x)
+        elif pooling == "max":
+            x = GlobalMaxPooling2D(name="global_maxpool")(x)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -178,68 +296,68 @@ def DenseNet(blocks,
 
     # Create model.
     if blocks == [6, 12, 24, 16]:
-        model = Model(inputs, x, name='DenseNet-121')
+        model = Model(inputs, x, name="DenseNet-121")
     elif blocks == [6, 12, 32, 32]:
-        model = Model(inputs, x, name='DenseNet-169')
+        model = Model(inputs, x, name="DenseNet-169")
     elif blocks == [6, 12, 48, 32]:
-        model = Model(inputs, x, name='DenseNet-201')
+        model = Model(inputs, x, name="DenseNet-201")
     elif blocks == [6, 12, 64, 48]:
-        model = Model(inputs, x, name='DenseNet-264')
+        model = Model(inputs, x, name="DenseNet-264")
     else:
-        model = Model(inputs, x, name='DenseNet')
+        model = Model(inputs, x, name="DenseNet")
 
     # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            if blocks == [6, 12, 24, 16]:
-                weights_path = get_file(
-                    'densenet121_weights_tf_dim_ordering_tf_kernels.h5',
-                    DENSENET121_WEIGHT_PATH,
-                    cache_subdir='models',
-                    file_hash='9d60b8095a5708f2dcce2bca79d332c7')
-            elif blocks == [6, 12, 32, 32]:
-                weights_path = get_file(
-                    'densenet169_weights_tf_dim_ordering_tf_kernels.h5',
-                    DENSENET169_WEIGHT_PATH,
-                    cache_subdir='models',
-                    file_hash='d699b8f76981ab1b30698df4c175e90b')
-            elif blocks == [6, 12, 48, 32]:
-                weights_path = get_file(
-                    'densenet201_weights_tf_dim_ordering_tf_kernels.h5',
-                    DENSENET201_WEIGHT_PATH,
-                    cache_subdir='models',
-                    file_hash='1ceb130c1ea1b78c3bf6114dbdfd8807')
-            elif blocks == [6, 12, 64, 48]:
-                weights_path = None
-        else:
-            if blocks == [6, 12, 24, 16]:
-                weights_path = get_file(
-                    'densenet121_weights_tf_dim_ordering_tf_kernels_notop.h5',
-                    DENSENET121_WEIGHT_PATH_NO_TOP,
-                    cache_subdir='models',
-                    file_hash='30ee3e1110167f948a6b9946edeeb738')
-            elif blocks == [6, 12, 32, 32]:
-                weights_path = get_file(
-                    'densenet169_weights_tf_dim_ordering_tf_kernels_notop.h5',
-                    DENSENET169_WEIGHT_PATH_NO_TOP,
-                    cache_subdir='models',
-                    file_hash='b8c4d4c20dd625c148057b9ff1c1176b')
-            elif blocks == [6, 12, 48, 32]:
-                weights_path = get_file(
-                    'densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5',
-                    DENSENET201_WEIGHT_PATH_NO_TOP,
-                    cache_subdir='models',
-                    file_hash='c13680b51ded0fb44dff2d8f86ac8bb1')
-            elif blocks == [6, 12, 64, 48]:
-                weights_path = None
+    if weights == "imagenet":
+        # if include_top:
+        #     if blocks == [6, 12, 24, 16]:
+        #         weights_path = get_file(
+        #             'densenet121_weights_tf_dim_ordering_tf_kernels.h5',
+        #             DENSENET121_WEIGHT_PATH,
+        #             cache_subdir='models',
+        #             file_hash='9d60b8095a5708f2dcce2bca79d332c7')
+        #     elif blocks == [6, 12, 32, 32]:
+        #         weights_path = get_file(
+        #             'densenet169_weights_tf_dim_ordering_tf_kernels.h5',
+        #             DENSENET169_WEIGHT_PATH,
+        #             cache_subdir='models',
+        #             file_hash='d699b8f76981ab1b30698df4c175e90b')
+        #     elif blocks == [6, 12, 48, 32]:
+        #         weights_path = get_file(
+        #             'densenet201_weights_tf_dim_ordering_tf_kernels.h5',
+        #             DENSENET201_WEIGHT_PATH,
+        #             cache_subdir='models',
+        #             file_hash='1ceb130c1ea1b78c3bf6114dbdfd8807')
+        #     elif blocks == [6, 12, 64, 48]:
+        #         weights_path = None
+        # else:
+        #     if blocks == [6, 12, 24, 16]:
+        #         weights_path = get_file(
+        #             'densenet121_weights_tf_dim_ordering_tf_kernels_notop.h5',
+        #             DENSENET121_WEIGHT_PATH_NO_TOP,
+        #             cache_subdir='models',
+        #             file_hash='30ee3e1110167f948a6b9946edeeb738')
+        #     elif blocks == [6, 12, 32, 32]:
+        #         weights_path = get_file(
+        #             'densenet169_weights_tf_dim_ordering_tf_kernels_notop.h5',
+        #             DENSENET169_WEIGHT_PATH_NO_TOP,
+        #             cache_subdir='models',
+        #             file_hash='b8c4d4c20dd625c148057b9ff1c1176b')
+        #     elif blocks == [6, 12, 48, 32]:
+        #         weights_path = get_file(
+        #             'densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5',
+        #             DENSENET201_WEIGHT_PATH_NO_TOP,
+        #             cache_subdir='models',
+        #             file_hash='c13680b51ded0fb44dff2d8f86ac8bb1')
+        #     elif blocks == [6, 12, 64, 48]:
+        #         weights_path = None
                 
-        if weights_path is not None:
-            model.load_weights(weights_path)
-            
+        # if weights_path is not None:
+        #     model.load_weights(weights_path)
+        pass
     elif weights is not None:
         model.load_weights(weights)
     
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
+    if K.image_data_format() == "channels_first" and K.backend() == "tensorflow":
         warnings.warn('You are using the TensorFlow backend, yet you '
                       'are using the Theano '
                       'image data format convention '
@@ -252,12 +370,19 @@ def DenseNet(blocks,
 
 
 def DenseNet121(include_top=True,
-                weights='imagenet',
+                weights="imagenet",
                 input_tensor=None,
                 input_shape=None,
                 pooling=None,
+                activation="relu",
+                normalizer="batch-norm",
                 final_activation="softmax",
-                classes=1000) -> Model:
+                classes=1000,
+                kernel_initializer="glorot_uniform",
+                bias_initializer="zeros",
+                regularizer_decay=5e-4,
+                norm_eps=1e-6,
+                drop_rate=0.1) -> Model:
     
     model = DenseNet(blocks=[6, 12, 24, 16],
                      include_top=include_top, 
@@ -265,27 +390,48 @@ def DenseNet121(include_top=True,
                      input_tensor=input_tensor, 
                      input_shape=input_shape, 
                      pooling=pooling, 
+                     activation=activation,
+                     normalizer=normalizer,
                      final_activation=final_activation,
-                     classes=classes)
+                     classes=classes,
+                     kernel_initializer=kernel_initializer,
+                     bias_initializer=bias_initializer,
+                     regularizer_decay=regularizer_decay,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
     return model
 
 
 def DenseNet121_backbone(input_shape=(224, 224, 3), 
                          include_top=True, 
-                         weights='imagenet', 
+                         weights="imagenet", 
                          input_tensor=None, 
                          pooling=None, 
+                         activation="relu",
+                         normalizer="batch-norm",
                          final_activation="softmax",
                          classes=1000,
-                         custom_layers=None) -> Model:
+                         custom_layers=None,
+                         kernel_initializer="glorot_uniform",
+                         bias_initializer="zeros",
+                         regularizer_decay=5e-4,
+                         norm_eps=1e-6,
+                         drop_rate=0.1) -> Model:
     
     model = DenseNet121(include_top=include_top, 
                         weights=weights,
                         input_tensor=input_tensor, 
                         input_shape=input_shape,
                         pooling=pooling, 
+                        activation=activation,
+                        normalizer=normalizer,
                         final_activation=final_activation,
-                        classes=classes)
+                        classes=classes,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        regularizer_decay=regularizer_decay,
+                        norm_eps=norm_eps,
+                        drop_rate=drop_rate)
 
     for l in model.layers:
         l.trainable = True
@@ -294,7 +440,7 @@ def DenseNet121_backbone(input_shape=(224, 224, 3),
         y_i = []
         for layer in custom_layers:
             y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name='DenseNet121_backbone')
+        return Model(inputs=model.inputs, outputs=[y_i], name="DenseNet121_backbone")
 
     else:
         y_2 = model.get_layer("pool1").output
@@ -303,16 +449,23 @@ def DenseNet121_backbone(input_shape=(224, 224, 3),
         y_16 = model.get_layer("pool4_pool").output
         y_32 = model.get_layer("final_activation").output
         y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='DenseNet121_backbone')
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name="DenseNet121_backbone")
 
 
 def DenseNet169(include_top=True,
-                weights='imagenet',
+                weights="imagenet",
                 input_tensor=None,
                 input_shape=None,
                 pooling=None,
+                activation="relu",
+                normalizer="batch-norm",
                 final_activation="softmax",
-                classes=1000) -> Model:
+                classes=1000,
+                kernel_initializer="glorot_uniform",
+                bias_initializer="zeros",
+                regularizer_decay=5e-4,
+                norm_eps=1e-6,
+                drop_rate=0.1) -> Model:
 
     model = DenseNet(blocks=[6, 12, 32, 32],
                      include_top=include_top, 
@@ -320,27 +473,48 @@ def DenseNet169(include_top=True,
                      input_tensor=input_tensor, 
                      input_shape=input_shape, 
                      pooling=pooling, 
+                     activation=activation,
+                     normalizer=normalizer,
                      final_activation=final_activation,
-                     classes=classes)
+                     classes=classes,
+                     kernel_initializer=kernel_initializer,
+                     bias_initializer=bias_initializer,
+                     regularizer_decay=regularizer_decay,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
     return model
 
 
 def DenseNet169_backbone(input_shape=(224, 224, 3), 
                          include_top=True, 
-                         weights='imagenet', 
+                         weights="imagenet", 
                          input_tensor=None, 
                          pooling=None, 
+                         activation="relu",
+                         normalizer="batch-norm",
                          final_activation="softmax",
                          classes=1000,
-                         custom_layers=None) -> Model:
+                         custom_layers=None,
+                         kernel_initializer="glorot_uniform",
+                         bias_initializer="zeros",
+                         regularizer_decay=5e-4,
+                         norm_eps=1e-6,
+                         drop_rate=0.1) -> Model:
 
     model = DenseNet169(include_top=include_top, 
                         weights=weights,
                         input_tensor=input_tensor, 
                         input_shape=input_shape,
                         pooling=pooling, 
+                        activation=activation,
+                        normalizer=normalizer,
                         final_activation=final_activation,
-                        classes=classes)
+                        classes=classes,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        regularizer_decay=regularizer_decay,
+                        norm_eps=norm_eps,
+                        drop_rate=drop_rate)
 
     for l in model.layers:
         l.trainable = True
@@ -349,7 +523,7 @@ def DenseNet169_backbone(input_shape=(224, 224, 3),
         y_i = []
         for layer in custom_layers:
             y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='DenseNet169_backbone')
+        return Model(inputs=model.inputs, outputs=y_i, name="DenseNet169_backbone")
 
     else:
         y_2 = model.get_layer("pool1").output
@@ -358,16 +532,23 @@ def DenseNet169_backbone(input_shape=(224, 224, 3),
         y_16 = model.get_layer("pool4_pool").output
         y_32 = model.get_layer("final_activation").output
         y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='DenseNet169_backbone')
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name="DenseNet169_backbone")
 
 
 def DenseNet201(include_top=True,
-                weights='imagenet',
+                weights="imagenet",
                 input_tensor=None,
                 input_shape=None,
                 pooling=None,
+                activation="relu",
+                normalizer="batch-norm",
                 final_activation="softmax",
-                classes=1000) -> Model:
+                classes=1000,
+                kernel_initializer="glorot_uniform",
+                bias_initializer="zeros",
+                regularizer_decay=5e-4,
+                norm_eps=1e-6,
+                drop_rate=0.1) -> Model:
 
     model = DenseNet(blocks=[6, 12, 48, 32],
                      include_top=include_top, 
@@ -375,27 +556,48 @@ def DenseNet201(include_top=True,
                      input_tensor=input_tensor, 
                      input_shape=input_shape, 
                      pooling=pooling, 
+                     activation=activation,
+                     normalizer=normalizer,
                      final_activation=final_activation,
-                     classes=classes)
+                     classes=classes,
+                     kernel_initializer=kernel_initializer,
+                     bias_initializer=bias_initializer,
+                     regularizer_decay=regularizer_decay,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
     return model
 
 
 def DenseNet201_backbone(input_shape=(224, 224, 3), 
                          include_top=True, 
-                         weights='imagenet', 
+                         weights="imagenet", 
                          input_tensor=None, 
                          pooling=None, 
+                         activation="relu",
+                         normalizer="batch-norm",
                          final_activation="softmax",
                          classes=1000,
-                         custom_layers=None) -> Model:
+                         custom_layers=None,
+                         kernel_initializer="glorot_uniform",
+                         bias_initializer="zeros",
+                         regularizer_decay=5e-4,
+                         norm_eps=1e-6,
+                         drop_rate=0.1) -> Model:
     
     model = DenseNet201(include_top=include_top, 
                         weights=weights,
                         input_tensor=input_tensor, 
                         input_shape=input_shape,
                         pooling=pooling, 
+                        activation=activation,
+                        normalizer=normalizer,
                         final_activation=final_activation,
-                        classes=classes)
+                        classes=classes,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        regularizer_decay=regularizer_decay,
+                        norm_eps=norm_eps,
+                        drop_rate=drop_rate)
 
     for l in model.layers:
         l.trainable = True
@@ -404,7 +606,7 @@ def DenseNet201_backbone(input_shape=(224, 224, 3),
         y_i = []
         for layer in custom_layers:
             y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name='DenseNet201_backbone')
+        return Model(inputs=model.inputs, outputs=[y_i], name="DenseNet201_backbone")
 
     else:
         y_2 = model.get_layer("pool1").output
@@ -413,16 +615,23 @@ def DenseNet201_backbone(input_shape=(224, 224, 3),
         y_16 = model.get_layer("pool4_pool").output
         y_32 = model.get_layer("final_activation").output
         y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='DenseNet201_backbone')
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name="DenseNet201_backbone")
 
 
 def DenseNet264(include_top=True,
-                weights='imagenet',
+                weights="imagenet",
                 input_tensor=None,
                 input_shape=None,
                 pooling=None,
+                activation="relu",
+                normalizer="batch-norm",
                 final_activation="softmax",
-                classes=1000) -> Model:
+                classes=1000,
+                kernel_initializer="glorot_uniform",
+                bias_initializer="zeros",
+                regularizer_decay=5e-4,
+                norm_eps=1e-6,
+                drop_rate=0.1) -> Model:
 
     model = DenseNet(blocks=[6, 12, 64, 48],
                      include_top=include_top, 
@@ -430,27 +639,48 @@ def DenseNet264(include_top=True,
                      input_tensor=input_tensor, 
                      input_shape=input_shape, 
                      pooling=pooling, 
+                     activation=activation,
+                     normalizer=normalizer,
                      final_activation=final_activation,
-                     classes=classes)
+                     classes=classes,
+                     kernel_initializer=kernel_initializer,
+                     bias_initializer=bias_initializer,
+                     regularizer_decay=regularizer_decay,
+                     norm_eps=norm_eps,
+                     drop_rate=drop_rate)
     return model
 
 
 def DenseNet264_backbone(input_shape=(224, 224, 3), 
                          include_top=True, 
-                         weights='imagenet', 
+                         weights="imagenet", 
                          input_tensor=None, 
                          pooling=None, 
+                         activation="relu",
+                         normalizer="batch-norm",
                          final_activation="softmax",
                          classes=1000,
-                         custom_layers=None) -> Model:
+                         custom_layers=None,
+                         kernel_initializer="glorot_uniform",
+                         bias_initializer="zeros",
+                         regularizer_decay=5e-4,
+                         norm_eps=1e-6,
+                         drop_rate=0.1) -> Model:
     
     model = DenseNet264(include_top=include_top, 
                         weights=weights,
                         input_tensor=input_tensor, 
                         input_shape=input_shape,
                         pooling=pooling, 
+                        activation=activation,
+                        normalizer=normalizer,
                         final_activation=final_activation,
-                        classes=classes)
+                        classes=classes,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        regularizer_decay=regularizer_decay,
+                        norm_eps=norm_eps,
+                        drop_rate=drop_rate)
 
     for l in model.layers:
         l.trainable = True
@@ -459,7 +689,7 @@ def DenseNet264_backbone(input_shape=(224, 224, 3),
         y_i = []
         for layer in custom_layers:
             y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name='DenseNet264_backbone')
+        return Model(inputs=model.inputs, outputs=[y_i], name="DenseNet264_backbone")
 
     else:
         y_2 = model.get_layer("pool1").output
@@ -468,7 +698,7 @@ def DenseNet264_backbone(input_shape=(224, 224, 3),
         y_16 = model.get_layer("pool4_pool").output
         y_32 = model.get_layer("final_activation").output
         y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='DenseNet264_backbone')
+        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name="DenseNet264_backbone")
 
 
 if __name__ == '__main__':

@@ -1,2 +1,2 @@
-from .alexnet import AlexNet
-from .squeezenet import SqueezeNet
+from .alexnet import AlexNet, AlexNet_backbone
+from .squeezenet import SqueezeNet, SqueezeNet_backbone

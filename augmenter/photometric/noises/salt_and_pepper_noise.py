@@ -27,7 +27,7 @@ class RandomSaltPepperNoise(BaseRandomTransform):
     def __init__(self, threshold_range=0.1, prob=0.5):
         assert isinstance(threshold_range, (int, float)) or (isinstance(threshold_range, collections.Iterable) and len(threshold_range) == 2)
         self.threshold_range = threshold_range
-        self.prob            = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(threshold):

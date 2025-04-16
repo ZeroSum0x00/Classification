@@ -31,7 +31,7 @@ class RandomAdjustSaturation(BaseRandomTransform):
     def __init__(self, saturation_range=1, prob=0.5):
         assert (isinstance(saturation_range, (int, float)) and saturation_range > 0) or (isinstance(saturation_range, collections.Iterable) and len(saturation_range) == 2)
         self.saturation_range = saturation_range
-        self.prob             = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(saturation):

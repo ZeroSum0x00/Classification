@@ -21,7 +21,7 @@ def clahe(image, clip_limit=2.0, tile_grid_size=(8, 8)):
 
 class CLAHE(BaseTransform):
     def __init__(self, clip_limit=2.0, tile_grid_size=(8, 8)):
-        self.clip_limit     = clip_limit
+        self.clip_limit = clip_limit
         self.tile_grid_size = tile_grid_size
 
     def image_transform(self, image):
@@ -30,9 +30,9 @@ class CLAHE(BaseTransform):
 
 class RandomCLAHE(BaseRandomTransform):
     def __init__(self, clip_limit=2.0, tile_grid_size=(8, 8), prob=0.5):
-        self.clip_limit     = clip_limit
+        self.clip_limit = clip_limit
         self.tile_grid_size = tile_grid_size
-        self.prob           = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return clahe(image, self.clip_limit, self.tile_grid_size)

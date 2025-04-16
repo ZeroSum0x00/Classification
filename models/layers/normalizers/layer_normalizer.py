@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class LayerNormalization(keras.layers.Layer):
+class LayerNormalization(tf.keras.layers.Layer):
     def __init__(self,
                  center=True,
                  scale=True,
@@ -35,12 +35,12 @@ class LayerNormalization(keras.layers.Layer):
         if epsilon is None:
             epsilon = K.epsilon() * K.epsilon()
         self.epsilon = epsilon
-        self.gamma_initializer = keras.initializers.get(gamma_initializer)
-        self.beta_initializer = keras.initializers.get(beta_initializer)
-        self.gamma_regularizer = keras.regularizers.get(gamma_regularizer)
-        self.beta_regularizer = keras.regularizers.get(beta_regularizer)
-        self.gamma_constraint = keras.constraints.get(gamma_constraint)
-        self.beta_constraint = keras.constraints.get(beta_constraint)
+        self.gamma_initializer = tf.keras.initializers.get(gamma_initializer)
+        self.beta_initializer = tf.keras.initializers.get(beta_initializer)
+        self.gamma_regularizer = tf.keras.regularizers.get(gamma_regularizer)
+        self.beta_regularizer = tf.keras.regularizers.get(beta_regularizer)
+        self.gamma_constraint = tf.keras.constraints.get(gamma_constraint)
+        self.beta_constraint = tf.keras.constraints.get(beta_constraint)
         self.gamma, self.beta = None, None
 
     def get_config(self):
@@ -48,12 +48,12 @@ class LayerNormalization(keras.layers.Layer):
             'center': self.center,
             'scale': self.scale,
             'epsilon': self.epsilon,
-            'gamma_initializer': keras.initializers.serialize(self.gamma_initializer),
-            'beta_initializer': keras.initializers.serialize(self.beta_initializer),
-            'gamma_regularizer': keras.regularizers.serialize(self.gamma_regularizer),
-            'beta_regularizer': keras.regularizers.serialize(self.beta_regularizer),
-            'gamma_constraint': keras.constraints.serialize(self.gamma_constraint),
-            'beta_constraint': keras.constraints.serialize(self.beta_constraint),
+            'gamma_initializer': tf.keras.initializers.serialize(self.gamma_initializer),
+            'beta_initializer': tf.keras.initializers.serialize(self.beta_initializer),
+            'gamma_regularizer': tf.keras.regularizers.serialize(self.gamma_regularizer),
+            'beta_regularizer': tf.keras.regularizers.serialize(self.beta_regularizer),
+            'gamma_constraint': tf.keras.constraints.serialize(self.gamma_constraint),
+            'beta_constraint': tf.keras.constraints.serialize(self.beta_constraint),
         }
         base_config = super(LayerNormalization, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

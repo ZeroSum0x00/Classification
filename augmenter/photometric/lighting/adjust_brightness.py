@@ -29,7 +29,7 @@ class RandomAdjustBrightness(BaseRandomTransform):
     def __init__(self, brightness_range=1, prob=0.5):
         assert (isinstance(brightness_range, (int, float)) and brightness_range > 0) or (isinstance(brightness_range, collections.Iterable) and len(brightness_range) == 2)
         self.brightness_range = brightness_range
-        self.prob             = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(brightness):

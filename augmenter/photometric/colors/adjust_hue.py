@@ -35,7 +35,7 @@ class RandomAdjustHue(BaseRandomTransform):
     def __init__(self, hue_range=1, prob=0.5):
         assert (isinstance(hue_range, (int, float)) and hue_range > 0) or (isinstance(hue_range, collections.Iterable) and len(hue_range) == 2)
         self.hue_range = hue_range
-        self.prob      = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(hue):

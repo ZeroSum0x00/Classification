@@ -8,7 +8,15 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from ..resize import INTER_MODE
 
 
-def affine6(image, anglez=0, translate=(0, 0), scale=(1, 1), shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
+def affine6(
+    image,
+    anglez=0,
+    translate=(0, 0),
+    scale=(1, 1),
+    shear=0,
+    interpolation='BILINEAR',
+    fill_color=(0, 0, 0),
+):
     assert isinstance(translate, (tuple, list)) and len(translate) == 2, \
         "Argument translate should be a list or tuple of length 2"
 
@@ -80,16 +88,32 @@ class Affine6(BaseTransform):
         fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
 
-    def __init__(self, anglez, translate=(0, 0), scale=1, shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
-        self.anglez        = anglez
-        self.translate     = translate
-        self.scale         = scale
-        self.shear         = shear
+    def __init__(
+        self,
+        anglez,
+        translate=(0, 0),
+        scale=1,
+        shear=0,
+        interpolation='BILINEAR',
+        fill_color=(0, 0, 0),
+    ):
+        self.anglez = anglez
+        self.translate = translate
+        self.scale = scale
+        self.shear = shear
         self.interpolation = interpolation
-        self.fill_color    = fill_color
+        self.fill_color = fill_color
 
     def image_transform(self, image):
-        return affine6(image, self.anglez, self.translate, self.scale, self.shear, self.interpolation, self.fill_color)
+        return affine6(
+            image,
+            self.anglez,
+            self.translate,
+            self.scale,
+            self.shear,
+            self.interpolation,
+            self.fill_color,
+        )
 
 
 class RandomAffine6(BaseRandomTransform):
@@ -113,7 +137,16 @@ class RandomAffine6(BaseRandomTransform):
         fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
     """
     
-    def __init__(self, anglez=0, translate=(0, 0), scale=(1, 1), shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0), prob=0.5):
+    def __init__(
+        self,
+        anglez=0,
+        translate=(0, 0),
+        scale=(1, 1),
+        shear=0,
+        interpolation='BILINEAR',
+        fill_color=(0, 0, 0),
+        prob=0.5,
+    ):
         if isinstance(anglez, numbers.Number):
             if anglez < 0:
                 raise ValueError("If anglez is a single number, it must be positive.")
@@ -149,11 +182,17 @@ class RandomAffine6(BaseRandomTransform):
             self.shear = shear
             
         self.interpolation = interpolation
-        self.fill_color    = fill_color
-        self.prob          = prob
+        self.fill_color = fill_color
+        self.prob = prob
 
     @staticmethod
-    def get_params(img_size, anglez_range=(0, 0), translate=(0, 0), scale_ranges=(1, 1), shear_range=(0, 0)):
+    def get_params(
+        img_size,
+        anglez_range=(0, 0),
+        translate=(0, 0),
+        scale_ranges=(1, 1),
+        shear_range=(0, 0),
+    ):
         angle = random.uniform(anglez_range[0], anglez_range[1])
         shear = random.uniform(shear_range[0], shear_range[1])
 
@@ -167,5 +206,16 @@ class RandomAffine6(BaseRandomTransform):
         return angle, translations, scale, shear
 
     def image_transform(self, image):
-        ret = self.get_params(self.anglez, self.translate, self.scale, self.shear, image.shape)
-        return affine6(image, *ret, interpolation=self.interpolation, fill_color=self.fill_color)
+        ret = self.get_params(
+            self.anglez,
+            self.translate,
+            self.scale,
+            self.shear,
+            image.shape,
+        )
+        return affine6(
+            image,
+            *ret,
+            interpolation=self.interpolation,
+            fill_color=self.fill_color,
+        )

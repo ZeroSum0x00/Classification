@@ -18,7 +18,7 @@ def gaussian_noise(image, mean, std):
 class GaussianNoise(BaseTransform):
     def __init__(self, mean, std):
         self.mean = mean
-        self.std  = std
+        self.std = std
 
     def image_transform(self, image):
         return gaussian_noise(image, self.mean, self.std)
@@ -29,8 +29,8 @@ class RandomGaussianNoise(BaseRandomTransform):
         assert isinstance(mean_range, (int, float)) or (isinstance(mean_range, collections.Iterable) and len(mean_range) == 2)
         assert isinstance(std_range, (int, float)) or (isinstance(std_range, collections.Iterable) and len(std_range) == 2)
         self.mean_range = mean_range
-        self.std_range  = std_range
-        self.prob       = prob
+        self.std_range = std_range
+        self.prob = prob
 
     @staticmethod
     def get_params(mean, std):

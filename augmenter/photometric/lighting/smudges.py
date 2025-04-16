@@ -60,7 +60,7 @@ class Smudges(BaseTransform):
 class RandomSmudges(BaseRandomTransform):
     def __init__(self, number_smudges=None, prob=0.5):
         self.number_smudges = number_smudges
-        self.prob           = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return smudges(image, self.number_smudges)

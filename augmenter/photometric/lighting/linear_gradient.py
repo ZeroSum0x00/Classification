@@ -27,20 +27,27 @@ def linear_gradient(image, orientation="horizontal", edge_brightness=(.1, .3)):
             coeff = 1. - coeff
         diff = int((color2 - color1) * coeff)
         if orientation == "horizontal":
-            image[:, i, 0:3] = np.where(image[:, i, 0:3] + color1 + diff < 255,
-                                        image[:, i, 0:3] + color1 + diff, 255)
+            image[:, i, 0:3] = np.where(
+                image[:, i, 0:3] + color1 + diff < 255,
+                image[:, i, 0:3] + color1 + diff,
+                255,
+            )
         else:
-            image[i, :, 0:3] = np.where(image[i, :, 0:3] + color1 + diff < 255,
-                                        image[i, :, 0:3] + color1 + diff, 255)
-
+            image[i, :, 0:3] = np.where(
+                image[i, :, 0:3] + color1 + diff < 255,
+                image[i, :, 0:3] + color1 + diff,
+                255,
+            )
     return image.astype(np.uint8)
 
 
 class LinearGradient(BaseTransform):
-    def __init__(self,
-                 orientation="horizontal", 
-                 edge_brightness=(.1, .3)):
-        self.orientation     = orientation
+    def __init__(
+        self,
+        orientation="horizontal", 
+        edge_brightness=(.1, .3),
+    ):
+        self.orientation = orientation
         self.edge_brightness = edge_brightness
 
     def image_transform(self, image):
@@ -48,13 +55,15 @@ class LinearGradient(BaseTransform):
 
 
 class RandomLinearGradient(BaseRandomTransform):
-    def __init__(self,
-                 orientation="horizontal", 
-                 edge_brightness=(.1, .3),
-                 prob=0.5):
-        self.orientation     = orientation
+    def __init__(
+        self,
+        orientation="horizontal", 
+        edge_brightness=(.1, .3),
+        prob=0.5,
+    ):
+        self.orientation = orientation
         self.edge_brightness = edge_brightness
-        self.prob            = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return linear_gradient(image, self.orientation, self.edge_brightness)

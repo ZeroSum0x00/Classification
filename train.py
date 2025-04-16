@@ -25,10 +25,12 @@ def train(engine_file_config, model_file_config):
     metric_config = engine_config['Metrics']
     callbacks_config = engine_config['Callbacks']
 
-    if train_prepare(train_config.get('mode', 'graph'),
-                     train_config.get('vram_usage', 'limit'),
-                     num_gpu=train_config.get('num_gpus', 0),
-                     init_seed=train_config.get("random_seed", 42)):
+    if train_prepare(
+        train_config.get('mode', 'graph'),
+        train_config.get('vram_usage', 'limit'),
+        num_gpu=train_config.get('num_gpus', 0),
+        init_seed=train_config.get("random_seed", 42),
+    ):
         TRAINING_TIME_PATH = create_folder_weights(train_config.get("save_weight_path", "saved_weights"))
         shutil.copy(model_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(model_file_config)))
         shutil.copy(engine_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(engine_file_config)))
@@ -43,22 +45,24 @@ def train(engine_file_config, model_file_config):
                 f.write(cls + "\n")
 
         batch_size = find_max_batch_size(model) if train_config['batch_size'] == -1 else train_config['batch_size']
-        train_generator, valid_generator, test_generator = get_train_test_data(data_dirs       = data_config['data_dir'],
-                                                                               classes         = model.classes,
-                                                                               target_size     = model_config['input_shape'],
-                                                                               batch_size      = batch_size,
-                                                                               color_space     = data_config['data_info'].get('color_space', 'RGB'),
-                                                                               augmentor       = data_config['data_augmentation'],
-                                                                               normalizer      = data_config['data_normalizer'].get('norm_type', 'divide'),
-                                                                               mean_norm       = data_config['data_normalizer'].get('norm_mean'),
-                                                                               std_norm        = data_config['data_normalizer'].get('norm_std'),
-                                                                               interpolation   = data_config['data_normalizer'].get('interpolation', 'BILINEAR'),
-                                                                               data_type       = data_config['data_info']['data_type'],
-                                                                               check_data      = data_config['data_info'].get('check_data', False),
-                                                                               load_memory     = data_config['data_info'].get('load_memory', False),
-                                                                               dataloader_mode = data_config.get('dataloader_mode', 'tf'),
-                                                                               get_data_mode   = data_config.get('get_data_mode', 2),
-                                                                               num_workers     = train_config.get('num_workers', 1))
+        train_generator, valid_generator, test_generator = get_train_test_data(
+            data_dirs=data_config['data_dir'],
+            classes=model.classes,
+            target_size=model_config['input_shape'],
+            batch_size=batch_size,
+            color_space=data_config['data_info'].get('color_space', 'RGB'),
+            augmentor=data_config['data_augmentation'],
+            normalizer=data_config['data_normalizer'].get('norm_type', 'divide'),
+            mean_norm=data_config['data_normalizer'].get('norm_mean'),
+            std_norm=data_config['data_normalizer'].get('norm_std'),
+            interpolation=data_config['data_normalizer'].get('interpolation', 'BILINEAR'),
+            data_type=data_config['data_info']['data_type'],
+            check_data=data_config['data_info'].get('check_data', False),
+            load_memory=data_config['data_info'].get('load_memory', False),
+            dataloader_mode=data_config.get('dataloader_mode', 'tf'),
+            get_data_mode=data_config.get('get_data_mode', 2),
+            num_workers=train_config.get('num_workers', 1),
+        )
         
         train_step = int(np.ceil(train_generator.N / batch_size))
         train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
@@ -87,23 +91,29 @@ def train(engine_file_config, model_file_config):
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
         
         if valid_generator:
-            model.fit(train_generator,
-                      steps_per_epoch  = train_step,
-                      validation_data  = valid_generator,
-                      validation_steps = valid_step,
-                      epochs           = train_config['epoch']['end'],
-                      initial_epoch    = train_config['epoch'].get('start', 0),
-                      callbacks        = callbacks)
+            model.fit(
+                train_generator,
+                steps_per_epoch=train_step,
+                validation_data=valid_generator,
+                validation_steps=valid_step,
+                epochs=train_config['epoch']['end'],
+                initial_epoch=train_config['epoch'].get('start', 0),
+                callbacks=callbacks,
+            )
         else:
-            model.fit(train_generator,
-                      steps_per_epoch = train_step,
-                      epochs          = train_config['epoch']['end'],
-                      initial_epoch   = train_config['epoch'].get('start', 0),
-                      callbacks       = callbacks)
+            model.fit(
+                train_generator,
+                steps_per_epoch=train_step,
+                epochs=train_config['epoch']['end'],
+                initial_epoch=train_config['epoch'].get('start', 0),
+                callbacks=callbacks,
+            )
 
         if test_generator:
-            model.evaluate(test_generator,
-                           steps = test_step)
+            model.evaluate(
+                test_generator,
+                steps=test_step,
+            )
 
         save_mode = train_config.get("model_save_mode", "weights")
         save_head = train_config.get("model_save_head", True)

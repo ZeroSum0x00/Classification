@@ -10,18 +10,19 @@ from visualizer import value_above_line
 
 
 class MetricHistory(tf.keras.callbacks.Callback):
-    def __init__(self,
-                 result_path = None,
-                 min_ratio   = 0.2,
-                 save_best   = False,
-                 save_mode   = "weights",
-                 save_head   = True):
+    def __init__(
+        self,
+        result_path=None,
+        min_ratio=0.2,
+        save_best=False,
+        save_mode="weights",
+        save_head=True):
         super(MetricHistory, self).__init__()
-        self.result_path       = result_path
-        self.min_ratio         = min_ratio
-        self.save_best         = save_best
-        self.save_mode         = save_mode
-        self.save_head         = save_head
+        self.result_path = result_path
+        self.min_ratio = min_ratio
+        self.save_best = save_best
+        self.save_mode = save_mode
+        self.save_head = save_head
         self.metric_infomation = {}
         
         if self.save_mode not in ["model", "weights"]:
@@ -66,24 +67,30 @@ class MetricHistory(tf.keras.callbacks.Callback):
             f = plt.figure()
             max_height = max(np.max(train_metric_value), np.max(valid_metric_value) if np.any(valid_metric_value) else 0)
             max_width  = np.max(iters)
-            value_above_line(f,
-                             x=iters,
-                             y=train_metric_value,
-                             i=np.argmax(train_metric_value),
-                             max_size=[max_height, max_width],
-                             linewidth=2,
-                             line_color='red',
-                             label=f'train {metric_name.replace("-", " ")}')
+            
+            value_above_line(
+                f=f,
+                x=iters,
+                y=train_metric_value,
+                i=np.argmax(train_metric_value),
+                max_size=[max_height, max_width],
+                linewidth=2,
+                line_color='red',
+                label=f'train {metric_name.replace("-", " ")}',
+            )
             
             if np.any(valid_metric_value):
-                value_above_line(f,
-                                 x=iters,
-                                 y=valid_metric_value,
-                                 i=np.argmax(valid_metric_value),
-                                 max_size=[max_height, max_width],
-                                 linewidth=2,
-                                 line_color='coral',
-                                 label=f'valid {metric_name.replace("-", " ")}')
+                value_above_line(
+                    f=f,
+                    x=iters,
+                    y=valid_metric_value,
+                    i=np.argmax(valid_metric_value),
+                    max_size=[max_height, max_width],
+                    linewidth=2,
+                    line_color='coral',
+                    label=f'valid {metric_name.replace("-", " ")}',
+                )
+                
             plt.grid(True)
             plt.xlabel('Epoch')
             plt.ylabel(metric_name.replace("-", " ").title())

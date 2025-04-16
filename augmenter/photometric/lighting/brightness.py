@@ -33,7 +33,7 @@ class RandomBrightness(BaseRandomTransform):
             raise ValueError('Brightness factor should be a non-negative real number')
 
         self.factor = factor
-        self.prob   = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(factor):

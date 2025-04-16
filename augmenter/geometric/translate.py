@@ -30,7 +30,7 @@ class TranslateX(BaseTransform):
 
 class RandomTranslateX(BaseRandomTransform):
     def __init__(self, pct, mode='rel', prob=0.5):
-        self.pct  = pct
+        self.pct = pct
         self.mode = mode
         self.prob = prob
 
@@ -61,7 +61,7 @@ class TranslateY(BaseTransform):
 
 class RandomTranslateY(BaseRandomTransform):
     def __init__(self, pct, mode='rel', prob=0.5):
-        self.pct  = pct
+        self.pct = pct
         self.mode = mode
         self.prob = prob
 

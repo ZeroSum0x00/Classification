@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class LayerNormalization(keras.layers.Layer):
+class LayerNormalization(tf.keras.layers.Layer):
     def __init__(self,
                  center=True,
                  scale=True,

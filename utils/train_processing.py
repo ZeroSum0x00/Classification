@@ -1,5 +1,4 @@
 import os
-import sys
 import random
 import logging
 import datetime
@@ -13,12 +12,6 @@ def losses_prepare(loss_object):
     loss.coefficient = loss_object['coeff']
     return loss
 
-
-import os
-import random
-import numpy as np
-import tensorflow as tf
-import logging
 
 def train_prepare(train_mode, vram_usage='limit', num_gpu=0, init_seed=-1):
     try:
@@ -64,7 +57,6 @@ def train_prepare(train_mode, vram_usage='limit', num_gpu=0, init_seed=-1):
         return False
 
     
-
 def find_max_batch_size(model, max_batch=1024):
     def can_run(batch_size):
         try:

@@ -3,24 +3,19 @@
     - The following table comparing the params of the ConvNeXt in Pytorch Source 
     with Tensorflow convert Source on size 224 x 224 x 3:
       
-       ----------------------------------------------------------------------
-      |    Library     |     Model Name      |    Params       |   Greater   |
-      |--------------------------------------------------------|-------------|
-      |   Pytorch      |     ConvNeXt-T      |   28,582,504    |      =      |
-      |   Tensorflow   |     ConvNeXt-T      |   28,582,504    |      =      |
-      |----------------|---------------------|-----------------|-------------|
-      |   Pytorch      |     ConvNeXt-S      |   50,210,152    |      =      |
-      |   Tensorflow   |     ConvNeXt-S      |   50,210,152    |      =      |
-      |----------------|---------------------|-----------------|-------------|
-      |   Pytorch      |     ConvNeXt-B      |   88,573,416    |      =      |
-      |   Tensorflow   |     ConvNeXt-B      |   88,573,416    |      =      |
-      |----------------|---------------------|-----------------|-------------|
-      |   Pytorch      |     ConvNeXt-L      |   197,740,264   |      =      |
-      |   Tensorflow   |     ConvNeXt-L      |   197,740,264   |      =      |
-      |----------------|---------------------|-----------------|-------------|
-      |   Pytorch      |     ConvNeXt-XL     |   350,160,872   |      =      |
-      |   Tensorflow   |     ConvNeXt-XL     |   350,160,872   |      =      |
-       ----------------------------------------------------------------------
+       ---------------------------------------
+      |     Model Name      |    Params       |
+      |---------------------------------------|
+      |     ConvNeXt-T      |    28,582,504   |
+      |---------------------------------------|
+      |     ConvNeXt-S      |    50,210,152   |
+      |---------------------------------------|
+      |     ConvNeXt-B      |    88,573,416   |
+      |---------------------------------------|
+      |     ConvNeXt-L      |   197,740,264   |
+      |---------------------------------------|
+      |     ConvNeXt-XL     |   350,160,872   |
+       ---------------------------------------
 
   # Reference:
     - [A ConvNet for the 2020s](https://arxiv.org/pdf/2201.03545.pdf)
@@ -28,654 +23,696 @@
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
-
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.utils import get_source_inputs, get_file
 from tensorflow.keras import backend as K
-from utils.model_processing import _obtain_input_shape
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import (
+    Conv2D, Dense, Dropout, Lambda, GlobalMaxPooling2D, GlobalAveragePooling2D
+)
+from tensorflow.keras.regularizers import l2
+
 from models.layers import get_activation_from_name, get_normalizer_from_name
+from utils.model_processing import process_model_input, create_layer_instance
+
 try:
-      from models.layers import StochasticDepth
+    from models.layers import StochasticDepth
 except ImportError:
-      from models.layers import StochasticDepth2 as StochasticDepth
-
-
-kernel_initial = tf.keras.initializers.TruncatedNormal(stddev=0.2)
-bias_initial = tf.keras.initializers.Constant(value=0)
+    from models.layers import StochasticDepth2 as StochasticDepth
 
 
 
-def stem_cell(inputs, out_filter, normalizer='layer-norm', norm_eps=1e-6, name='stem'):
-    x = Conv2D(filters=out_filter, 
-               kernel_size=(4, 4), 
-               strides=(4, 4), 
-               padding='same', 
-               name=name + '_conv')(inputs)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
+def stem_cell(
+    inputs,
+    out_filter,
+    normalizer="layer-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"stem_cell{K.get_uid('stem_cell')}"
+    
+    x = Conv2D(
+        filters=out_filter, 
+        kernel_size=(4, 4), 
+        strides=(4, 4), 
+        padding="same", 
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv"
+    )(inputs)
+    
+    x = get_normalizer_from_name(
+        normalizer,
+        epsilon=norm_eps,
+        name=f"{name}.norm"
+    )(x)
+    
     return x
 
 
-def Downsamples(inputs, 
-                out_filter, 
-                kernel_initial=kernel_initial, 
-                bias_initial=bias_initial,
-                normalizer='layer-norm',
-                norm_eps=1e-6, 
-                name="downsamples"):
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(inputs)
-    x = Conv2D(filters=out_filter,
-               kernel_size=(2, 2), 
-               strides=(2, 2), 
-               padding='same',
-               kernel_initializer=kernel_initial,
-               bias_initializer=bias_initial, 
-               name=name + '_conv')(x)
+def Downsample(
+    inputs, 
+    out_filter, 
+    normalizer="layer-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"downsample_block{K.get_uid('downsample')}"
+        
+    x = get_normalizer_from_name(
+        normalizer,
+        epsilon=norm_eps,
+        name=f"{name}.norm"
+    )(inputs)
+    
+    x = Conv2D(
+        filters=out_filter,
+        kernel_size=(2, 2), 
+        strides=(2, 2), 
+        padding="same",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv"
+    )(x)
+    
     return x
 
 
-def ConvNextBlock(inputs, 
-                  drop_prob=0, 
-                  layer_scale_init_value=1e-6, 
-                  kernel_initial=kernel_initial, 
-                  bias_initial=bias_initial,
-                  activation='gelu',
-                  normalizer='layer-norm',
-                  norm_eps=1e-6,
-                  name="block"):
+def ConvNextBlock(
+    inputs, 
+    drop_prob=0, 
+    layer_scale_init_value=1e-6, 
+    activation="gelu",
+    normalizer="layer-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"conv_next_block{K.get_uid('conv_next_block')}"
   
     in_filters = inputs.shape[-1]
 
-    x = Conv2D(filters=in_filters,
-               kernel_size=(7, 7),
-               strides=(1, 1),
-               padding="same",
-               groups=in_filters,
-               kernel_initializer=kernel_initial,
-               bias_initializer=bias_initial,
-               name=name + "_dw")(inputs)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=name + '_norm')(x)
-    x = Conv2D(filters=in_filters*4,
-               kernel_size=(1, 1),
-               strides=(1, 1),
-               padding="valid",
-               kernel_initializer=kernel_initial,
-               bias_initializer=bias_initial,
-               name=name + "_pw")(x)
-    x = get_activation_from_name(activation, name=name + '_activation')(x)
-    x = Conv2D(filters=in_filters,
-               kernel_size=(1, 1),
-               strides=(1, 1),
-               padding="valid",
-               kernel_initializer=kernel_initial,
-               bias_initializer=bias_initial,
-               name=name + "_conv_final")(x)
+    x = Conv2D(
+        filters=in_filters,
+        kernel_size=(7, 7),
+        strides=(1, 1),
+        padding="same",
+        groups=in_filters,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.dw"
+    )(inputs)
+    
+    x = get_normalizer_from_name(
+        normalizer,
+        epsilon=norm_eps,
+        name=f"{name}.norm"
+    )(x)
+    
+    x = Conv2D(
+        filters=in_filters*4,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.pw"
+    )(x)
+    
+    x = get_activation_from_name(activation, name=f"{name}.activ")(x)
+    
+    x = Conv2D(
+        filters=in_filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv"
+    )(x)
 
     if layer_scale_init_value > 0:
         layer_scale_gamma = tf.ones(in_filters) * layer_scale_init_value
-        # layer_scale_gamma = tf.Variable(initial_value=layer_scale_init_value*)
         x = x * layer_scale_gamma
 
     if drop_prob > 0:
-        x = StochasticDepth(drop_prob, name=name + "_droppath")([inputs, x])
+        x = StochasticDepth(drop_prob, name=f"{name}.drop_path")([inputs, x])
     
-    x = Lambda(lambda x: x, name=name + "_final")(x)
+    x = Lambda(lambda x: x, name=f"{name}.final")(x)
     return x
 
 
-def ConvNext(depths=[3, 3, 9, 3], 
-             dims=[96, 192, 384, 768], 
-             include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             drop_path_rate=0., 
-             layer_scale_init_value=1e-6,
-             kernel_initial=kernel_initial,
-             norm_eps=1e-6,
-             bias_initial=bias_initial):
+def ConvNext(
+    filters,
+    num_blocks,
+    layer_scale_init_value,
+    inputs=[224, 224, 3],
+    include_head=True, 
+    weights="imagenet",
+    pooling=None,
+    activation="gelu",
+    normalizer="layer-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_path_rate=0.,
+    drop_rate=0.1
+):
 
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
+    
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
     cur = 0
-    dp_rates = [x.numpy() for x in tf.linspace(0.0, drop_path_rate, sum(depths))]
+    dp_rates = [x.numpy() for x in tf.linspace(0.0, drop_path_rate, sum(num_blocks))]
 
-    x = stem_cell(img_input, dims[0], normalizer='layer-norm', norm_eps=norm_eps)
-    for i in range(depths[0]):
-        x = ConvNextBlock(x, 
-                          dp_rates[cur + i],
-                          layer_scale_init_value,
-                          kernel_initial,
-                          bias_initial,
-                          activation='gelu',
-                          normalizer='layer-norm',
-                          norm_eps=norm_eps,
-                          name='block0_part' + str(i))
+    x = create_layer_instance(
+        stem_cell,
+        inputs=inputs,
+        out_filter=filters,
+        **layer_constant_dict,
+        name="stem"
+    )
     
-    cur += depths[0]
-    x = Downsamples(x, dims[1], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, name='downsaples1')
-    for i in range(depths[1]):
-        x = ConvNextBlock(x, 
-                          dp_rates[cur + i], 
-                          layer_scale_init_value,
-                          kernel_initial,
-                          bias_initial,
-                          activation='gelu',
-                          normalizer='layer-norm',
-                          norm_eps=norm_eps,
-                          name='block1_part' + str(i))
+    for i in range(num_blocks[0]):
+        x = create_layer_instance(
+            ConvNextBlock,
+            inputs=x, 
+            drop_prob=dp_rates[cur + i],
+            layer_scale_init_value=layer_scale_init_value,
+            **layer_constant_dict,
+            name=f"stage1.block{str(i+1)}"
+        )
+    
+    cur += num_blocks[0]
+    x = create_layer_instance(
+        Downsample,
+        inputs=x,
+        out_filter=filters * 2,
+        **layer_constant_dict,
+        name="stage2.block1"
+    )
+    
+    for i in range(num_blocks[1]):
+        x = create_layer_instance(
+            ConvNextBlock,
+            inputs=x, 
+            drop_prob=dp_rates[cur + i], 
+            layer_scale_init_value=layer_scale_init_value,
+            **layer_constant_dict,
+            name=f"stage2.block{str(i+2)}"
+        )
 
-    cur += depths[1]
-    x = Downsamples(x, dims[2], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, name='downsaples2')
-    for i in range(depths[2]):
-        x = ConvNextBlock(x, 
-                          dp_rates[cur + i], 
-                          layer_scale_init_value,
-                          kernel_initial,
-                          bias_initial,
-                          activation='gelu',
-                          normalizer='layer-norm',
-                          norm_eps=norm_eps,
-                          name='block2_part' + str(i))
+    cur += num_blocks[1]
+    x = create_layer_instance(
+        Downsample,
+        inputs=x,
+        out_filter=filters * 4,
+        **layer_constant_dict,
+        name="stage3.block1"
+    )
+    
+    for i in range(num_blocks[2]):
+        x = create_layer_instance(
+            ConvNextBlock,
+            inputs=x, 
+            drop_prob=dp_rates[cur + i], 
+            layer_scale_init_value=layer_scale_init_value,
+            **layer_constant_dict,
+            name=f"stage3.block{str(i+2)}"
+        )
 
-    cur += depths[2]
-    x = Downsamples(x, dims[3], kernel_initial, bias_initial, normalizer='layer-norm', norm_eps=norm_eps, name='downsaples3')
-    for i in range(depths[3]):
-        x = ConvNextBlock(x, 
-                          dp_rates[cur + i], 
-                          layer_scale_init_value,
-                          kernel_initial,
-                          bias_initial,
-                          activation='gelu',
-                          normalizer='layer-norm',
-                          norm_eps=norm_eps,
-                          name='block3_part' + str(i))
+    cur += num_blocks[2]
+    x = create_layer_instance(
+        Downsample,
+        inputs=x,
+        out_filter=filters * 8,
+        **layer_constant_dict,
+        name="stage4.block1"
+    )
+    
+    for i in range(num_blocks[3]):
+        x = create_layer_instance(
+            ConvNextBlock,
+            inputs=x, 
+            drop_prob=dp_rates[cur + i], 
+            layer_scale_init_value=layer_scale_init_value,
+            **layer_constant_dict,
+            name=f"stage4.block{str(i+2)}"
+        )
 
-    if include_top:
-        x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
-        x = Dense(1 if classes == 2 else classes, 
-                  name='predictions',
-                  kernel_initializer=kernel_initial, 
-                  bias_initializer=bias_initial)(x)
+    if include_head:
+        x = GlobalAveragePooling2D(name="global_avgpool")(x)
+        x = Dropout(rate=drop_rate)(x)
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="final_norm")(x)
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes, 
+            kernel_initializer=kernel_initializer, 
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+            name="predictions"
+        )(x)
         x = get_activation_from_name(final_activation)(x)
     else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avgpool')(x)
-            x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_maxpool')(x)
-            x = get_normalizer_from_name('layer-norm', epsilon=norm_eps, name='final_norm')(x)
+        if pooling == "avg":
+            x = GlobalAveragePooling2D(name="global_avgpool")(x)
+            x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="final_norm")(x)
+        elif pooling == "max":
+            x = GlobalMaxPooling2D(name="global_maxpool")(x)
+            x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="final_norm")(x)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-    
-    # Create model.
-    if depths == [3, 3, 9, 3] and dims == [96, 192, 384, 768]:
-        model = Model(inputs, x, name='ConvNext-T')
-    elif depths == [3, 3, 27, 3] and dims == [96, 192, 384, 768]:
-        model = Model(inputs, x, name='ConvNext-S')
-    elif depths == [3, 3, 27, 3] and dims == [128, 256, 512, 1024]:
-        model = Model(inputs, x, name='ConvNext-B')
-    elif depths == [3, 3, 27, 3] and dims == [192, 384, 768, 1536]:
-        model = Model(inputs, x, name='ConvNext-L')
-    elif depths == [3, 3, 27, 3] and dims == [256, 512, 1024, 2048]:
-        model = Model(inputs, x, name='ConvNext-XL')
-    else:
-        model = Model(inputs, x, name='ConvNext')
-
-    # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            if depths == [3, 3, 9, 3] and dims == [96, 192, 384, 768]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [96, 192, 384, 768]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [128, 256, 512, 1024]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [192, 384, 768, 1536]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [256, 512, 1024, 2048]:
-                weights_path = None
+    if filters == 96 and num_blocks == [3, 3, 9, 3]:
+        model = Model(inputs, x, name="ConvNext-T")
+    elif num_blocks == [3, 3, 27, 3]:
+        if filters ==96:
+            model = Model(inputs, x, name="ConvNext-S")
+        elif filters ==128:
+            model = Model(inputs, x, name="ConvNext-B")
+        elif filters ==192:
+            model = Model(inputs, x, name="ConvNext-L")
+        elif filters == 256:
+            model = Model(inputs, x, name="ConvNext-XL")
         else:
-            if depths == [3, 3, 9, 3] and dims == [96, 192, 384, 768]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [96, 192, 384, 768]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [128, 256, 512, 1024]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [192, 384, 768, 1536]:
-                weights_path = None
-            elif depths == [3, 3, 27, 3] and dims == [256, 512, 1024, 2048]:
-                weights_path = None
-        if weights_path is not None:
-            model.load_weights(weights_path)
-    
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
-    return model
-   
-
-def ConvNextT(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              drop_path_rate=0., 
-              layer_scale_init_value=1e-6,
-              kernel_initial=kernel_initial, 
-              bias_initial=bias_initial,
-              norm_eps=1e-6) -> Model:
-    
-    model = ConvNext(depths=[3, 3, 9, 3],
-                     dims=[96, 192, 384, 768], 
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes,
-                     drop_path_rate=drop_path_rate,
-                     layer_scale_init_value=layer_scale_init_value,
-                     kernel_initial=kernel_initial,
-                     bias_initial=bias_initial,
-                     norm_eps=norm_eps)
-    return model
-
-
-def ConvNextT_backbone(input_shape=(224, 224, 3), 
-                       include_top=True, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       drop_path_rate=0., 
-                       layer_scale_init_value=1e-6,
-                       kernel_initial=kernel_initial, 
-                       bias_initial=bias_initial,
-                       norm_eps=1e-6,
-                       custom_layers=None) -> Model:
-
-    model = ConvNextT(include_top=include_top, 
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes, 
-                      drop_path_rate=drop_path_rate,
-                      layer_scale_init_value=layer_scale_init_value,
-                      kernel_initial=kernel_initial, 
-                      bias_initial=bias_initial,
-                      norm_eps=norm_eps)
-
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ConvNextT_backbone')
-
+            model = Model(inputs, x, name="ConvNext")
     else:
-        y_4 = model.get_layer("block0_part2_final").output
-        y_8 = model.get_layer("block1_part2_final").output
-        y_16 = model.get_layer("block2_part8_final").output
-        y_32 = model.get_layer("block3_part2_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_4, y_8, y_16, y_32, y_final], name='ConvNextT_backbone')
+        model = Model(inputs, x, name="ConvNext")
 
-
-def ConvNextS(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              drop_path_rate=0., 
-              layer_scale_init_value=1e-6,
-              kernel_initial=kernel_initial, 
-              bias_initial=bias_initial,
-              norm_eps=1e-6) -> Model:
-    
-    model = ConvNext(depths=[3, 3, 27, 3],
-                     dims=[96, 192, 384, 768], 
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes,
-                     drop_path_rate=drop_path_rate,
-                     layer_scale_init_value=layer_scale_init_value,
-                     kernel_initial=kernel_initial,
-                     bias_initial=bias_initial,
-                     norm_eps=norm_eps)
     return model
 
 
-def ConvNextS_backbone(input_shape=(224, 224, 3), 
-                       include_top=True, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       drop_path_rate=0., 
-                       layer_scale_init_value=1e-6,
-                       kernel_initial=kernel_initial, 
-                       bias_initial=bias_initial,
-                       norm_eps=1e-6,
-                       custom_layers=None) -> Model:
+def ConvNext_backbone(
+    filters,
+    num_blocks,
+    layer_scale_init_value,
+    inputs=[224, 224, 3],
+    weights="imagenet", 
+    pooling=None, 
+    activation="gelu",
+    normalizer="layer-norm",
+    custom_layers=[],
+) -> Model:
 
-    model = ConvNextS(include_top=include_top, 
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes, 
-                      drop_path_rate=drop_path_rate, 
-                      layer_scale_init_value=layer_scale_init_value,
-                      kernel_initial=kernel_initial, 
-                      bias_initial=bias_initial,
-                      norm_eps=norm_eps)
+    model = ConvNext(
+        filters=filters,
+        num_blocks=num_blocks,
+        layer_scale_init_value=layer_scale_init_value,
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer
+    )
 
-    for l in model.layers:
-        l.trainable = True
+    custom_layers = custom_layers or [
+        f"stage1.block{num_blocks[0] + 1}.final",
+        f"stage2.block{num_blocks[1] + 2}.final",
+        f"stage3.block{num_blocks[2] + 2}.final",
+    ]
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ConvNextS_backbone')
-
-    else:
-        y_4 = model.get_layer("block0_part2_final").output
-        y_8 = model.get_layer("block1_part2_final").output
-        y_16 = model.get_layer("block2_part26_final").output
-        y_32 = model.get_layer("block3_part2_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_4, y_8, y_16, y_32, y_final], name='ConvNextS_backbone')
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
-def ConvNextB(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              drop_path_rate=0., 
-              layer_scale_init_value=1e-6,
-              kernel_initial=kernel_initial, 
-              bias_initial=bias_initial,
-              norm_eps=1e-6) -> Model:
+def ConvNextT(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="gelu",
+    normalizer="layer-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_path_rate=0.,
+    drop_rate=0.1
+) -> Model:
     
-    model = ConvNext(depths=[3, 3, 27, 3],
-                     dims=[128, 256, 512, 1024], 
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes,
-                     drop_path_rate=drop_path_rate,
-                     layer_scale_init_value=layer_scale_init_value,
-                     kernel_initial=kernel_initial,
-                     bias_initial=bias_initial,
-                     norm_eps=norm_eps)
+    model = ConvNext(
+        filters=96,
+        num_blocks=[3, 3, 9, 3],
+        layer_scale_init_value=1e-6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ConvNextB_backbone(input_shape=(224, 224, 3), 
-                       include_top=True, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       drop_path_rate=0., 
-                       layer_scale_init_value=1e-6,
-                       kernel_initial=kernel_initial, 
-                       bias_initial=bias_initial,
-                       norm_eps=1e-6,
-                       custom_layers=None) -> Model:
+def ConvNextT_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet", 
+    pooling=None, 
+    activation="gelu",
+    normalizer="layer-norm",
+    custom_layers=[],
+) -> Model:
 
-    model = ConvNextB(include_top=include_top, 
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes, 
-                      drop_path_rate=drop_path_rate, 
-                      layer_scale_init_value=layer_scale_init_value,
-                      kernel_initial=kernel_initial, 
-                      bias_initial=bias_initial,
-                      norm_eps=norm_eps)
+    model = ConvNextT(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer
+    )
 
-    for l in model.layers:
-        l.trainable = True
+    custom_layers = custom_layers or [
+        "stage1.block3.final",
+        "stage2.block4.final",
+        "stage3.block10.final",
+    ]
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ConvNextB_backbone')
-
-    else:
-        y_4 = model.get_layer("block0_part2_final").output
-        y_8 = model.get_layer("block1_part2_final").output
-        y_16 = model.get_layer("block2_part26_final").output
-        y_32 = model.get_layer("block3_part2_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_4, y_8, y_16, y_32, y_final], name='ConvNextB_backbone')
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
-def ConvNextL(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              drop_path_rate=0., 
-              layer_scale_init_value=1e-6,
-              kernel_initial=kernel_initial, 
-              bias_initial=bias_initial,
-              norm_eps=1e-6) -> Model:
+def ConvNextS(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="gelu",
+    normalizer="layer-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_path_rate=0.,
+    drop_rate=0.1
+) -> Model:
     
-    model = ConvNext(depths=[3, 3, 27, 3],
-                     dims=[192, 384, 768, 1536], 
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes,
-                     drop_path_rate=drop_path_rate,
-                     layer_scale_init_value=layer_scale_init_value,
-                     kernel_initial=kernel_initial,
-                     bias_initial=bias_initial,
-                     norm_eps=norm_eps)
+    model = ConvNext(
+        filters=96,
+        num_blocks=[3, 3, 27, 3],
+        layer_scale_init_value=1e-6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ConvNextL_backbone(input_shape=(224, 224, 3), 
-                       include_top=True, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       drop_path_rate=0., 
-                       layer_scale_init_value=1e-6,
-                       kernel_initial=kernel_initial, 
-                       bias_initial=bias_initial,
-                       norm_eps=1e-6,
-                       custom_layers=None) -> Model:
+def ConvNextS_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet", 
+    pooling=None, 
+    activation="gelu",
+    normalizer="layer-norm",
+    custom_layers=[],
+) -> Model:
 
-    model = ConvNextL(include_top=include_top, 
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes, 
-                      drop_path_rate=drop_path_rate, 
-                      layer_scale_init_value=layer_scale_init_value,
-                      kernel_initial=kernel_initial, 
-                      bias_initial=bias_initial,
-                      norm_eps=norm_eps)
+    model = ConvNextS(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer
+    )
 
-    for l in model.layers:
-        l.trainable = True
+    custom_layers = custom_layers or [
+        "stage1.block3.final",
+        "stage2.block4.final",
+        "stage3.block28.final",
+    ]
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ConvNextL_backbone')
-
-    else:
-        y_4 = model.get_layer("block0_part2_final").output
-        y_8 = model.get_layer("block1_part2_final").output
-        y_16 = model.get_layer("block2_part26_final").output
-        y_32 = model.get_layer("block3_part2_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_4, y_8, y_16, y_32, y_final], name='ConvNextL_backbone')
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
-def ConvNextXL(include_top=True,
-               weights='imagenet',
-               input_tensor=None,
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               drop_path_rate=0., 
-               layer_scale_init_value=1e-6,
-               kernel_initial=kernel_initial, 
-               bias_initial=bias_initial,
-               norm_eps=1e-6) -> Model:
+def ConvNextB(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="gelu",
+    normalizer="layer-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_path_rate=0.,
+    drop_rate=0.1
+) -> Model:
     
-    model = ConvNext(depths=[3, 3, 27, 3],
-                     dims=[256, 512, 1024, 2048], 
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes,
-                     drop_path_rate=drop_path_rate,
-                     layer_scale_init_value=layer_scale_init_value,
-                     kernel_initial=kernel_initial,
-                     bias_initial=bias_initial,
-                     norm_eps=norm_eps)
+    model = ConvNext(
+        filters=128,
+        num_blocks=[3, 3, 27, 3],
+        layer_scale_init_value=1e-6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ConvNextXL_backbone(input_shape=(224, 224, 3), 
-                        include_top=True, 
-                        weights='imagenet', 
-                        input_tensor=None, 
-                        pooling=None, 
-                        final_activation="softmax",
-                        classes=1000,
-                        drop_path_rate=0., 
-                        layer_scale_init_value=1e-6,
-                        kernel_initial=kernel_initial, 
-                        bias_initial=bias_initial,
-                        norm_eps=1e-6,
-                        custom_layers=None) -> Model:
+def ConvNextB_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet", 
+    pooling=None, 
+    activation="gelu",
+    normalizer="layer-norm",
+    custom_layers=[],
+) -> Model:
 
-    model = ConvNextXL(include_top=include_top, 
-                       weights=weights,
-                       input_tensor=input_tensor, 
-                       input_shape=input_shape,
-                       pooling=pooling, 
-                       final_activation=final_activation,
-                       classes=classes, 
-                       drop_path_rate=drop_path_rate, 
-                       layer_scale_init_value=layer_scale_init_value,
-                       kernel_initial=kernel_initial, 
-                       bias_initial=bias_initial,
-                       norm_eps=norm_eps)
+    model = ConvNextB(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer
+    )
 
-    for l in model.layers:
-        l.trainable = True
+    custom_layers = custom_layers or [
+        "stage1.block3.final",
+        "stage2.block4.final",
+        "stage3.block28.final",
+    ]
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ConvNextXL_backbone')
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
-    else:
-        y_4 = model.get_layer("block0_part2_final").output
-        y_8 = model.get_layer("block1_part2_final").output
-        y_16 = model.get_layer("block2_part26_final").output
-        y_32 = model.get_layer("block3_part2_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_4, y_8, y_16, y_32, y_final], name='ConvNextXL_backbone')
+
+def ConvNextL(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="gelu",
+    normalizer="layer-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_path_rate=0.,
+    drop_rate=0.1
+) -> Model:
+    
+    model = ConvNext(
+        filters=192,
+        num_blocks=[3, 3, 27, 3],
+        layer_scale_init_value=1e-6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def ConvNextL_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet", 
+    pooling=None, 
+    activation="gelu",
+    normalizer="layer-norm",
+    custom_layers=[],
+) -> Model:
+
+    model = ConvNextL(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stage1.block3.final",
+        "stage2.block4.final",
+        "stage3.block28.final",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def ConvNextXL(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="gelu",
+    normalizer="layer-norm",
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_path_rate=0.,
+    drop_rate=0.1
+) -> Model:
+    
+    model = ConvNext(
+        filters=256,
+        num_blocks=[3, 3, 27, 3],
+        layer_scale_init_value=1e-6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        final_activation=final_activation,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def ConvNextXL_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet", 
+    pooling=None, 
+    activation="gelu",
+    normalizer="layer-norm",
+    custom_layers=[],
+) -> Model:
+
+    model = ConvNextXL(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stage1.block3.final",
+        "stage2.block4.final",
+        "stage3.block28.final",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 if __name__ == "__main__":

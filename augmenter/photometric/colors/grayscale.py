@@ -28,7 +28,7 @@ class Grayscale(BaseTransform):
 class RandomGrayscale(BaseRandomTransform):
     def __init__(self, out_channels=3, prob=0.5):
         self.out_channels = out_channels
-        self.prob         = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return to_grayscale(image, self.out_channels)

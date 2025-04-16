@@ -38,7 +38,7 @@ class BlendRandomImage(BaseTransform):
 class RandomBlendRandomImage(BaseRandomTransform):
     def __init__(self, ratio=0.8, prob=0.5):
         self.ratio = ratio
-        self.prob  = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return blend_random_image(image, self.ratio)

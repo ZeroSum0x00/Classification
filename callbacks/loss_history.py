@@ -11,29 +11,29 @@ from visualizer import value_above_line
 
 
 class LossHistory(tf.keras.callbacks.Callback):
-    def __init__(self, 
-                 result_path    = None, 
-                 max_ratio      = 1.0,
-                 save_best      = False,
-                 save_mode      = "weights",
-                 save_head      = True,
-                 run_mode       = "epoch",
-                 show_frequency = 1):
+    def __init__(
+        self, 
+        result_path=None, 
+        max_ratio=1.0,
+        save_best=False,
+        save_mode="weights",
+        save_head=True,
+        run_mode="epoch",
+        show_frequency=1):
         super(LossHistory, self).__init__()
-
-        self.result_path        = result_path
-        self.max_ratio          = max_ratio
-        self.run_mode           = run_mode
-        self.save_best          = save_best
-        self.save_mode          = save_mode
-        self.save_head          = save_head
-        self.show_frequency     = show_frequency
-        self.train_loss_list    = []
-        self.valid_loss_list    = []
+        self.result_path = result_path
+        self.max_ratio = max_ratio
+        self.run_mode = run_mode
+        self.save_best = save_best
+        self.save_mode = save_mode
+        self.save_head = save_head
+        self.show_frequency = show_frequency
+        self.train_loss_list = []
+        self.valid_loss_list = []
         self.current_train_loss = 0.0
         self.current_valid_loss = 0.0
-        self.weight_path        = os.path.join(self.result_path, 'weights')
-        self.summary_path       = os.path.join(self.result_path, 'summary')
+        self.weight_path = os.path.join(self.result_path, 'weights')
+        self.summary_path = os.path.join(self.result_path, 'summary')
         os.makedirs(self.weight_path, exist_ok=True)
         os.makedirs(self.summary_path, exist_ok=True)
         
@@ -51,24 +51,28 @@ class LossHistory(tf.keras.callbacks.Callback):
         f = plt.figure()
         max_height = max(np.max(self.train_loss_list), np.max(self.valid_loss_list) if np.any(self.valid_loss_list) else 0)
         max_width  = np.max(iters)
-        value_above_line(f,
-                         x=iters,
-                         y=self.train_loss_list,
-                         i=np.argmin(self.train_loss_list),
-                         max_size=[max_height, max_width],
-                         linewidth=2,
-                         line_color='red',
-                         label=f'train loss')
+        value_above_line(
+            f=f,
+            x=iters,
+            y=self.train_loss_list,
+            i=np.argmin(self.train_loss_list),
+            max_size=[max_height, max_width],
+            linewidth=2,
+            line_color='red',
+            label=f'train loss',
+        )
         
         if np.any(self.valid_loss_list):
-            value_above_line(f,
-                             x=iters,
-                             y=self.valid_loss_list,
-                             i=np.argmin(self.valid_loss_list),
-                             max_size=[max_height, max_width],
-                             linewidth=2,
-                             line_color='coral',
-                             label=f'valid loss')
+            value_above_line(
+                f=f,
+                x=iters,
+                y=self.valid_loss_list,
+                i=np.argmin(self.valid_loss_list),
+                max_size=[max_height, max_width],
+                linewidth=2,
+                line_color='coral',
+                label=f'valid loss',
+            )
         
         try:
             if len(self.train_loss_list) < 25:
@@ -77,9 +81,26 @@ class LossHistory(tf.keras.callbacks.Callback):
                 num = 15
             window_length = min(len(self.train_loss_list), num)
             polyorder = min(3, window_length - 1)
-            plt.plot(iters, scipy.signal.savgol_filter(self.train_loss_list, window_length, polyorder), 'green', linestyle='--', linewidth=2, label='smooth train loss')
+            
+            plt.plot(
+                iters,
+                scipy.signal.savgol_filter(self.train_loss_list, window_length, polyorder),
+                'green',
+                linestyle='--',
+                linewidth=2,
+                label='smooth train loss',
+            )
+            
             if np.any(self.valid_loss_list):
-                plt.plot(iters, scipy.signal.savgol_filter(self.valid_loss_list, window_length, polyorder), '#8B4513', linestyle='--', linewidth=2, label='smooth valid loss')
+                plt.plot(
+                    iters,
+                    scipy.signal.savgol_filter(self.valid_loss_list, window_length, polyorder),
+                    '#8B4513',
+                    linestyle='--',
+                    linewidth=2,
+                    label='smooth valid loss',
+                )
+                
         except:
             pass
 

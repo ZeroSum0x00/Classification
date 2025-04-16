@@ -10,27 +10,29 @@ from utils.auxiliary_processing import change_color_space
 
 
 class TFDataPipeline:
-    def __init__(self,
-                 dataset,
-                 target_size,
-                 batch_size,
-                 color_space='RGB',
-                 augmentor=None,
-                 normalizer='divide',
-                 mean_norm=None,
-                 std_norm=None,
-                 interpolation="BILINEAR",
-                 phase='train',
-                 num_workers=1,
-                 debug_mode=False):
-        self.dataset     = dataset
-        self.batch_size  = batch_size
+    def __init__(
+        self,
+        dataset,
+        target_size,
+        batch_size,
+        color_space='RGB',
+        augmentor=None,
+        normalizer='divide',
+        mean_norm=None,
+        std_norm=None,
+        interpolation="BILINEAR",
+        phase='train',
+        num_workers=1,
+        debug_mode=False,
+    ):
+        self.dataset = dataset
+        self.batch_size = batch_size
         self.target_size = target_size
         self.color_space = color_space
-        self.phase       = phase
-        self.debug_mode  = debug_mode
+        self.phase = phase
+        self.debug_mode = debug_mode
         self.num_workers = num_workers
-        self.N           = len(self.dataset)
+        self.N = len(self.dataset)
 
         if phase == "train":
             shuffle(self.dataset)
@@ -39,11 +41,13 @@ class TFDataPipeline:
         if augmentor and isinstance(self.augmentor, (tuple, list)):
             self.augmentor = Augmentor(augment_objects=build_augmenter(self.augmentor))
             
-        self.normalizer = Normalizer(normalizer,
-                                     target_size=target_size,
-                                     mean=mean_norm,
-                                     std=std_norm,
-                                     interpolation=interpolation)
+        self.normalizer = Normalizer(
+            normalizer,
+            target_size=target_size,
+            mean=mean_norm,
+            std=std_norm,
+            interpolation=interpolation,
+        )
 
     def load_data(self, sample):
         sample_image = sample.get('image')

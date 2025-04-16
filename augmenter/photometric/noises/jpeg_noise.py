@@ -23,7 +23,7 @@ class JpegNoise(BaseTransform):
 class RandomJpegNoise(BaseRandomTransform):
     def __init__(self, quality=0.1, prob=0.5):
         self.quality = quality
-        self.prob    = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return jpeg_noise(image, self.quality)

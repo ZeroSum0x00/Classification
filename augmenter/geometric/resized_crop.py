@@ -9,7 +9,15 @@ from .resize import resize
 from utils.auxiliary_processing import is_numpy_image
 
 
-def resized_crop(image, top, left, height, width, size, interpolation='BILINEAR'):
+def resized_crop(
+    image,
+    top,
+    left,
+    height,
+    width,
+    size,
+    interpolation='BILINEAR',
+):
     assert is_numpy_image(image), 'image should be CV Image'
     image = crop(image, top, left, height, width)
     image = resize(image, size, interpolation)
@@ -30,16 +38,32 @@ class ResizedCrop(BaseTransform):
             ``BILINEAR``.
     """
 
-    def __init__(self, top, left, height, width, size, interpolation='BILINEAR'):
-        self.top           = top
-        self.left          = left
-        self.height        = height
-        self.width         = width
-        self.size          = size
+    def __init__(
+        self,
+        top,
+        left,
+        height,
+        width,
+        size,
+        interpolation='BILINEAR',
+    ):
+        self.top = top
+        self.left = left
+        self.height = height
+        self.width = width
+        self.size = size
         self.interpolation = interpolation
 
     def image_transform(self, image):
-        return resized_crop(image, self.top, self.left, self.height, self.width, self.size, self.interpolation)
+        return resized_crop(
+            image=image,
+            top=self.top,
+            left=self.left,
+            height=self.height,
+            width=self.width,
+            size=self.size,
+            interpolation=self.interpolation,
+        )
 
 
 class RandomResizedCrop(BaseRandomTransform):
@@ -58,19 +82,26 @@ class RandomResizedCrop(BaseRandomTransform):
         interpolation: Default: BILINEAR
     """
 
-    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), interpolation='BILINEAR', prob=0.5):
+    def __init__(
+        self,
+        size,
+        scale=(0.08, 1.0),
+        ratio=(3. / 4., 4. / 3.),
+        interpolation='BILINEAR',
+        prob=0.5,
+    ):
         if isinstance(size, numbers.Number):
-            self.size      = (int(size), int(size))
+            self.size = (int(size), int(size))
         else:
-            self.size      = size
+            self.size = size
 
         if (scale[0] > scale[1]) or (ratio[0] > ratio[1]):
             print("range should be of kind (min, max)")
 
-        self.scale         = scale
-        self.ratio         = ratio
+        self.scale = scale
+        self.ratio = ratio
         self.interpolation = interpolation
-        self.prob          = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(image, scale, ratio):
@@ -106,4 +137,9 @@ class RandomResizedCrop(BaseRandomTransform):
 
     def image_transform(self, image):
         ret = self.get_params(image, self.scale, self.ratio)
-        return resized_crop(image, *ret, self.size, self.interpolation)
+        return resized_crop(
+            image,
+            *ret,
+            size=self.size,
+            interpolation=self.interpolation,
+        )

@@ -3,14 +3,18 @@ from tensorflow.keras import losses
 
 
 class SparseCategoricalCrossentropy(losses.Loss):
-    def __init__(self, 
-                 from_logits=False,
-                 ignore_class=None,
-                 reduction='sum_over_batch_size', 
-                 name=None):
+    def __init__(
+        self, 
+        from_logits=False,
+        ignore_class=None,
+        reduction='sum_over_batch_size', 
+        name=None,
+    ):
         super(SparseCategoricalCrossentropy, self).__init__(reduction=reduction, name=name)
-        self.losses = losses.SparseCategoricalCrossentropy(from_logits=from_logits,
-                                                           ignore_class=ignore_class)
+        self.losses = losses.SparseCategoricalCrossentropy(
+            from_logits=from_logits,
+            ignore_class=ignore_class,
+        )
         self.invariant_name = "sparse_categorical_crossentropy"
         self.coefficient = 1
 

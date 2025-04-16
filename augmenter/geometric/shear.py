@@ -42,7 +42,7 @@ class ShearX(BaseTransform):
 class RandomShearX(BaseRandomTransform):
     def __init__(self, factor, prob=0.5):
         self.factor = factor
-        self.prob   = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(factor):
@@ -71,7 +71,7 @@ class ShearY(BaseTransform):
 class RandomShearY(BaseRandomTransform):
     def __init__(self, factor, prob=0.5):
         self.factor = factor
-        self.prob   = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(factor):
@@ -102,7 +102,7 @@ class RandomShear(BaseRandomTransform):
     def __init__(self, factor_x, factor_y, prob=0.5):
         self.factor_x = factor_x
         self.factor_y = factor_y
-        self.prob     = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(factor):

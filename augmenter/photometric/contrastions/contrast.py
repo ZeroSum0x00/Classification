@@ -44,7 +44,7 @@ class RandomContrast(BaseRandomTransform):
             raise ValueError('Contrast factor should be a non-negative real number')
 
         self.contrast_range = contrast_range
-        self.prob           = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(factor):

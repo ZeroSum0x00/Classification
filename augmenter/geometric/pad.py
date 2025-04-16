@@ -15,7 +15,12 @@ PAD_MOD = {
 }
 
 
-def pad(image, padding, fill_color=(0, 0, 0), padding_mode='constant'):
+def pad(
+    image,
+    padding,
+    fill_color=(0, 0, 0),
+    padding_mode='constant',
+):
     if not is_numpy_image(image):
         raise TypeError('Image should be CV Image. Got {}'.format(type(image)))
 
@@ -48,13 +53,15 @@ def pad(image, padding, fill_color=(0, 0, 0), padding_mode='constant'):
         assert (len(fill_color) == 3 and len(image.shape) == 3) or (len(fill_color) == 1 and len(image.shape) == 2), \
             'channel of image is {} but length of fill_color is {}'.format(image.shape[-1], len(fill_color))
 
-    image = cv2.copyMakeBorder(src=image, 
-                               top=pad_top, 
-                               bottom=pad_bottom, 
-                               left=pad_left, 
-                               right=pad_right,
-                               borderType=PAD_MOD[padding_mode], 
-                               value=fill_color)
+    image = cv2.copyMakeBorder(
+        src=image, 
+        top=pad_top, 
+        bottom=pad_bottom, 
+        left=pad_left, 
+        right=pad_right,
+        borderType=PAD_MOD[padding_mode], 
+        value=fill_color,
+    )
     return image
 
 

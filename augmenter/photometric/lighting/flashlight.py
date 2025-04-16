@@ -44,8 +44,8 @@ def flashlight(image, radius=0.5, alpha=0.8, bg_darkness=100):
 
 class Flashlight(BaseTransform):
     def __init__(self, radius=0.5, alpha=0.8, bg_darkness=100):
-        self.radius      = radius
-        self.alpha       = alpha
+        self.radius = radius
+        self.alpha = alpha
         self.bg_darkness = bg_darkness
 
     def image_transform(self, image):
@@ -54,10 +54,10 @@ class Flashlight(BaseTransform):
 
 class RandomFlashlight(BaseRandomTransform):
     def __init__(self, radius=0.5, alpha=0.8, bg_darkness=100, prob=0.5):
-        self.radius      = radius
-        self.alpha       = alpha
+        self.radius = radius
+        self.alpha = alpha
         self.bg_darkness = bg_darkness
-        self.prob        = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return flashlight(image, self.radius, self.alpha, self.bg_darkness)

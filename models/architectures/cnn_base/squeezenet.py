@@ -16,126 +16,245 @@
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Flatten, Dropout, Dense, MaxPooling2D, AveragePooling2D,
+    GlobalAveragePooling2D, GlobalMaxPooling2D, concatenate
+)
+from tensorflow.keras.regularizers import l2
 
-from models.layers import get_activation_from_name
-from utils.model_processing import _obtain_input_shape
+from models.layers import get_activation_from_name, get_normalizer_from_name
+from utils.model_processing import process_model_input
 
 
 
-def fire_module(inputs, filters, squeeze_channel, activation='relu'):
-    x = Conv2D(filters=squeeze_channel, kernel_size=(1, 1), strides=(1, 1), padding="valid")(inputs)
-    x = get_activation_from_name(activation)(x)
+def fire_module(
+    x,
+    filters,
+    squeeze_channel,
+    activation="relu",
+    normalizer=None,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"fire_module_{K.get_uid('fire_module')}"
+
+    x = Conv2D(
+        filters=squeeze_channel,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name=f"{name}.conv"
+    )(x)
+    
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(x)
+    x = get_activation_from_name(activation, name=f"{name}.activ")(x)
+    
     expand_1x1 = Sequential([
-        Conv2D(filters=filters // 2, kernel_size=(1, 1), strides=(1, 1), padding="valid"),
+        Conv2D(
+            filters=filters // 2,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
         get_activation_from_name(activation)
-    ])(x)
+    ], name=f"{name}.expand_1x1")(x)
+    
     expand_3x3 = Sequential([
-        Conv2D(filters=filters // 2, kernel_size=(3, 3), strides=(1, 1), padding="same"),
+        Conv2D(
+            filters=filters // 2,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            padding="same",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
         get_activation_from_name(activation)
-    ])(x)
-    return concatenate([expand_1x1, expand_3x3])
+    ], name=f"{name}.expand_3x3")(x)
+    
+    return concatenate([expand_1x1, expand_3x3], name=f"{name}.fusion")
 
 
-def SqueezeNet(include_top=True, 
-               weights='imagenet',
-               input_tensor=None, 
-               input_shape=None,
-               pooling=None,
-               final_activation='softmax',
-               classes=1000):
+def SqueezeNet(
+    inputs=[224, 224, 3],
+    include_head=True, 
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer=None,
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
+        
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights,
+    )
+    
+    x = Conv2D(
+        filters=96,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name="stem.conv"
+    )(inputs)
+    
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="stem.norm")(x)
+    x = get_activation_from_name(activation, name="stem.activ")(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stem.pool")(x)
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    for i in range(2):
+        x = fire_module(
+            x=x,
+            filters=128,
+            squeeze_channel=16,
+            **layer_constant_dict,
+            name=f"stage1.block{i+1}"
+        )
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1    
+    x = fire_module(
+        x,
+        filters=256,
+        squeeze_channel=32,
+        **layer_constant_dict,
+        name="stage1.block3"
+    )
+    
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stage1.pool")(x)
 
-    x = Conv2D(filters=96, kernel_size=(3, 3), strides=(2, 2), padding='valid')(img_input)
-    x = get_activation_from_name('relu')(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
-    x = fire_module(x, 128, 16)
-    x = fire_module(x, 128, 16)
-    x = fire_module(x, 256, 32)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
-    x = fire_module(x, 256, 32)
-    x = fire_module(x, 384, 48)
-    x = fire_module(x, 384, 48)
-    x = fire_module(x, 512, 64)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
-    x = fire_module(x, 512, 64)
-    x = Conv2D(filters=1 if classes == 2 else classes, kernel_size=(1, 1), strides=(1, 1), padding='valid')(x)
-    x = AveragePooling2D((13, 13), strides=(1, 1))(x)
-                   
-    if include_top:
-        # Classification block
-        x = Flatten(name='flatten')(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+    x = fire_module(
+        x=x,
+        filters=256,
+        squeeze_channel=32,
+        **layer_constant_dict,
+        name="stage2.block1"
+    )
+    
+    for i in range(2):
+        x = fire_module(
+            x=x,
+            filters=384,
+            squeeze_channel=48,
+            **layer_constant_dict,
+            name=f"stage2.block{i+2}"
+        )
+        
+    x = fire_module(
+        x=x,
+        filters=512,
+        squeeze_channel=64,
+        **layer_constant_dict,
+        name="stage2.block4"
+    )
+    
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stage2.pool")(x)
+
+    x = fire_module(
+        x=x,
+        filters=512,
+        squeeze_channel=64,
+        **layer_constant_dict,
+        name="stage3.block1"
+    )
+    
+    x = Conv2D(
+        filters=1 if num_classes == 2 else num_classes,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name="stage3.block2"
+    )(x)
+    
+    x = AveragePooling2D((13, 13), strides=(1, 1), name="stage3.pool")(x)
+
+    if include_head:
+        x = Dropout(rate=drop_rate)(x)
+        x = Flatten(name="flatten")(x)
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            name="predictions"
+        )(x)
         x = get_activation_from_name(final_activation)(x)
     else:
-        if pooling == 'avg':
+        if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
+        elif pooling == "max":
             x = GlobalMaxPooling2D()(x)
-    
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
 
-    # Create model.
-    model = Model(inputs, x, name='SqueezeNet')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model = Model(inputs=inputs, outputs=x, name="SqueezeNet")
     return model
+
+
+def SqueezeNet_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="leaky-relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    model = SqueezeNet(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem.activ",
+        "stage1.block3.fusion",
+        "stage2.block4.fusion",
+        "stage3.block2",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")

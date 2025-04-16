@@ -14,6 +14,7 @@ def get_labels(label_object):
             class_names = f.readlines()
         class_names = [c.strip() for c in class_names]
         return class_names, len(class_names)
+        
     elif os.path.isdir(label_object):
         label_object = f"{label_object}/train/" if os.path.isdir(f"{label_object}/train/") else label_object
         subfolders = [f.path for f in os.scandir(label_object) if f.is_dir() ]
@@ -21,7 +22,14 @@ def get_labels(label_object):
         return subfolders, len(subfolders)
 
 
-def inference_batch_generator(images, labels, augmentor, normalizer, color_space, batch_size):
+def inference_batch_generator(
+    images,
+    labels,
+    augmentor,
+    normalizer,
+    color_space,
+    batch_size,
+):
     batch_images = []
     batch_labels = []
 

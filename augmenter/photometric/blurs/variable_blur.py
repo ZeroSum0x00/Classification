@@ -14,17 +14,21 @@ def variable_blur(image, modes=('linear', 'radial'), ksize_norm=.2):
       mask = np.zeros(image.shape, dtype=np.uint8)
       edge1 = random.uniform(0.7, 1.)
       edge2 = random.uniform(0, .3)
-      return linear_gradient(mask, 
-                             orientation=random.choice(['horizontal', 'vertical']),
-                             edge_brightness=(edge1, edge2))
+      return linear_gradient(
+          mask, 
+          orientation=random.choice(['horizontal', 'vertical']),
+          edge_brightness=(edge1, edge2),
+      )
 
     def radial_mask(image):
         max_dim = max(image.shape)
         mask = np.zeros(image.shape, dtype=np.uint8)
-        return radial_gradient(mask,
-                               inner_color=255,
-                               outer_color=10,
-                               max_distance=max_dim * random.uniform(.35, .65))
+        return radial_gradient(
+            mask,
+            inner_color=255,
+            outer_color=10,
+            max_distance=max_dim * random.uniform(.35, .65),
+        )
 
     if not is_numpy_image(image):
         raise TypeError('img should be image. Got {}'.format(type(image)))
@@ -57,7 +61,7 @@ def variable_blur(image, modes=('linear', 'radial'), ksize_norm=.2):
 
 class VariableBlur(BaseTransform):
     def __init__(self, modes=('linear', 'radial'), ksize_norm=.2):
-        self.modes      = modes
+        self.modes = modes
         self.ksize_norm = ksize_norm
 
     def image_transform(self, image):
@@ -66,9 +70,9 @@ class VariableBlur(BaseTransform):
 
 class RandomVariableBlur(BaseRandomTransform):
     def __init__(self, modes=('linear', 'radial'), ksize_norm=.2, prob=0.5):
-        self.modes      = modes
+        self.modes = modes
         self.ksize_norm = ksize_norm
-        self.prob       = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return variable_blur(image, self.modes, self.ksize_norm)

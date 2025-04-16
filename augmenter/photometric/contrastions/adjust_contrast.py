@@ -31,7 +31,7 @@ class RandomAdjustContrast(BaseRandomTransform):
     def __init__(self, contrast_range=1, prob=0.5):
         assert (isinstance(contrast_range, (int, float)) and contrast_range > 0) or (isinstance(contrast_range, collections.Iterable) and len(contrast_range) == 2)
         self.contrast_range = contrast_range
-        self.prob           = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(contrast):

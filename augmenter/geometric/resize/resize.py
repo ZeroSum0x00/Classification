@@ -47,7 +47,7 @@ class Resize(BaseTransform):
 
     def __init__(self, size, interpolation='BILINEAR'):
         assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
-        self.size          = size
+        self.size = size
         self.interpolation = interpolation
 
     def image_transform(self, image):

@@ -3,14 +3,18 @@ from tensorflow.keras import losses
 
 
 class BinaryCrossentropy(losses.Loss):
-    def __init__(self, 
-                 from_logits=False,
-                 label_smoothing=0.0,
-                 reduction='sum_over_batch_size', 
-                 name=None):
+    def __init__(
+        self, 
+        from_logits=False,
+        label_smoothing=0.0,
+        reduction='sum_over_batch_size', 
+        name=None,
+    ):
         super(BinaryCrossentropy, self).__init__(reduction=reduction, name=name)
-        self.losses = losses.BinaryCrossentropy(from_logits=from_logits,
-                                                label_smoothing=label_smoothing)
+        self.losses = losses.BinaryCrossentropy(
+            from_logits=from_logits,
+            label_smoothing=label_smoothing,
+        )
         self.invariant_name = "binary_crossentropy"
         self.coefficient = 1
 

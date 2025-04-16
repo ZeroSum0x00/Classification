@@ -26,7 +26,7 @@ class Pixelize(BaseTransform):
 class RandomPixelize(BaseRandomTransform):
     def __init__(self, ratio=.2, prob=0.5):
         self.ratio = ratio
-        self.prob  = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return pixelize(image, self.ratio)

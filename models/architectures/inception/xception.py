@@ -49,8 +49,15 @@ def Xception(include_top=True,
              input_tensor=None, 
              input_shape=None,
              pooling=None,
+             activation="relu",
+             normalizer="batch-norm",
              final_activation="softmax",
-             classes=1000):
+             classes=1000,
+             kernel_initializer="glorot_uniform",
+             bias_initializer="zeros",
+             regularizer_decay=5e-4,
+             norm_eps=1e-6,
+             drop_rate=0.1):
 
     if weights not in {'imagenet', None}:
         raise ValueError('The `weights` argument should be either '
@@ -81,42 +88,99 @@ def Xception(include_top=True,
         Entry flow
     """
     # Block 1
-    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), use_bias=False, name='block1_conv1')(img_input)
-    x = get_normalizer_from_name('batch-norm', name='block1_conv1_batchnorm')(x)
-    x = get_activation_from_name('relu', name='block1_conv1_activation')(x)
+    x = Conv2D(filters=32,
+               kernel_size=(3, 3),
+               strides=(2, 2),
+               use_bias=False,
+               kernel_initializer=kernel_initializer,
+               bias_initializer=bias_initializer,
+               kernel_regularizer=l2(regularizer_decay),
+               name='block1_conv1')(img_input)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block1_conv1_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block1_conv1_activation')(x)
 
-    x = Conv2D(filters=64, kernel_size=(3, 3), use_bias=False, name='block1_conv2')(x)
-    x = get_normalizer_from_name('batch-norm', name='block1_conv2_batchnorm')(x)
-    x = get_activation_from_name('relu', name='block1_conv2_activation')(x)
+    x = Conv2D(filters=64,
+               kernel_size=(3, 3),
+               use_bias=False,
+               kernel_initializer=kernel_initializer,
+               bias_initializer=bias_initializer,
+               kernel_regularizer=l2(regularizer_decay),
+               name='block1_conv2')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block1_conv2_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block1_conv2_activation')(x)
 
-    residual = Conv2D(filters=128, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='entry_residual1')(x)
-    residual = get_normalizer_from_name('batch-norm', name='entry_residual1_batchnorm')(residual)
+    residual = Conv2D(filters=128,
+                      kernel_size=(1, 1),
+                      strides=(2, 2),
+                      padding='same',
+                      use_bias=False,
+                      kernel_initializer=kernel_initializer,
+                      bias_initializer=bias_initializer,
+                      kernel_regularizer=l2(regularizer_decay),
+                      name='entry_residual1')(x)
+    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='entry_residual1_batchnorm')(residual)
 
 
     # Block 2
-    x = SeparableConv2D(filters=128, kernel_size=(3, 3), padding='same', use_bias=False, name='block2_sepconv1')(x)
-    x = get_normalizer_from_name('batch-norm', name='block2_sepconv1_batchnorm')(x)
+    x = SeparableConv2D(filters=128,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block2_sepconv1')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block2_sepconv1_batchnorm')(x)
 
-    x = get_activation_from_name('relu', name='block2_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=128, kernel_size=(3, 3), padding='same', use_bias=False, name='block2_sepconv2')(x)
-    x = get_normalizer_from_name('batch-norm', name='block2_sepconv2_batchnorm')(x)
-
+    x = get_activation_from_name(activation, name='block2_sepconv1_activation')(x)
+    x = SeparableConv2D(filters=128,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block2_sepconv2')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block2_sepconv2_batchnorm')(x)
+    
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block2_maxpooling')(x)
-
+    
     x = add([x, residual], name='block2_merge')
 
 
     # Block 3
-    residual = Conv2D(filters=256, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='entry_residual2')(x)
-    residual = get_normalizer_from_name('batch-norm', name='entry_residual2_batchnorm')(residual)
+    residual = Conv2D(filters=256,
+                      kernel_size=(1, 1),
+                      strides=(2, 2),
+                      padding='same',
+                      use_bias=False,
+                      kernel_initializer=kernel_initializer,
+                      bias_initializer=bias_initializer,
+                      kernel_regularizer=l2(regularizer_decay),
+                      name='entry_residual2')(x)
+    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='entry_residual2_batchnorm')(residual)
 
-    x = get_activation_from_name('relu', name='block3_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=256, kernel_size=(3, 3), padding='same', use_bias=False, name='block3_sepconv1')(x)
-    x = get_normalizer_from_name('batch-norm', name='block3_sepconv1_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block3_sepconv1_activation')(x)
+    x = SeparableConv2D(filters=256,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block3_sepconv1')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block3_sepconv1_batchnorm')(x)
 
-    x = get_activation_from_name('relu', name='block3_sepconv2_activation')(x)
-    x = SeparableConv2D(filters=256, kernel_size=(3, 3), padding='same', use_bias=False, name='block3_sepconv2')(x)
-    x = get_normalizer_from_name('batch-norm', name='block3_sepconv2_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block3_sepconv2_activation')(x)
+    x = SeparableConv2D(filters=256,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block3_sepconv2')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block3_sepconv2_batchnorm')(x)
 
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block3_maxpooling')(x)
 
@@ -124,16 +188,38 @@ def Xception(include_top=True,
 
 
     # Block4
-    residual = Conv2D(filters=728, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='entry_residual3')(x)
-    residual = get_normalizer_from_name('batch-norm', name='entry_residual3_batchnorm')(residual)
+    residual = Conv2D(filters=728,
+                      kernel_size=(1, 1),
+                      strides=(2, 2),
+                      padding='same',
+                      use_bias=False,
+                      kernel_initializer=kernel_initializer,
+                      bias_initializer=bias_initializer,
+                      kernel_regularizer=l2(regularizer_decay),
+                      name='entry_residual3')(x)
+    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='entry_residual3_batchnorm')(residual)
 
-    x = get_activation_from_name('relu', name='block4_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name='block4_sepconv1')(x)
-    x = get_normalizer_from_name('batch-norm', name='block4_sepconv1_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block4_sepconv1_activation')(x)
+    x = SeparableConv2D(filters=728,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block4_sepconv1')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block4_sepconv1_batchnorm')(x)
 
-    x = get_activation_from_name('relu', name='block4_sepconv2_activation')(x)
-    x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name='block4_sepconv2')(x)
-    x = get_normalizer_from_name('batch-norm', name='block4_sepconv2_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block4_sepconv2_activation')(x)
+    x = SeparableConv2D(filters=728,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block4_sepconv2')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block4_sepconv2_batchnorm')(x)
 
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block4_maxpooling')(x)
 
@@ -148,17 +234,38 @@ def Xception(include_top=True,
         prefix = 'block' + str(i + 5)
         residual = x
 
-        x = get_activation_from_name('relu', name=prefix + '_sepconv1_activation')(x)
-        x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
-        x = get_normalizer_from_name('batch-norm', name=prefix + '_sepconv1_batchnorm')(x)
+        x = get_activation_from_name(activation, name=prefix + '_sepconv1_activation')(x)
+        x = SeparableConv2D(filters=728,
+                            kernel_size=(3, 3),
+                            padding='same',
+                            use_bias=False,
+                            kernel_initializer=kernel_initializer,
+                            bias_initializer=bias_initializer,
+                            kernel_regularizer=l2(regularizer_decay),
+                            name=prefix + '_sepconv1')(x)
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name=prefix + '_sepconv1_batchnorm')(x)
 
-        x = get_activation_from_name('relu', name=prefix + '_sepconv2_activation')(x)
-        x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
-        x = get_normalizer_from_name('batch-norm', name=prefix + '_sepconv2_batchnorm')(x)
+        x = get_activation_from_name(activation, name=prefix + '_sepconv2_activation')(x)
+        x = SeparableConv2D(filters=728,
+                            kernel_size=(3, 3),
+                            padding='same',
+                            use_bias=False,
+                            kernel_initializer=kernel_initializer,
+                            bias_initializer=bias_initializer,
+                            kernel_regularizer=l2(regularizer_decay),
+                            name=prefix + '_sepconv2')(x)
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name=prefix + '_sepconv2_batchnorm')(x)
 
-        x = get_activation_from_name('relu', name=prefix + '_sepconv3_activation')(x)
-        x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name=prefix + '_sepconv3')(x)
-        x = get_normalizer_from_name('batch-norm', name=prefix + '_sepconv3_batchnorm')(x)
+        x = get_activation_from_name(activation, name=prefix + '_sepconv3_activation')(x)
+        x = SeparableConv2D(filters=728,
+                            kernel_size=(3, 3),
+                            padding='same',
+                            use_bias=False,
+                            kernel_initializer=kernel_initializer,
+                            bias_initializer=bias_initializer,
+                            kernel_regularizer=l2(regularizer_decay),
+                            name=prefix + '_sepconv3')(x)
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name=prefix + '_sepconv3_batchnorm')(x)
 
         x = add([x, residual], name='block' + str(i + 5) + '_merge')
 
@@ -167,16 +274,38 @@ def Xception(include_top=True,
         Exit flow
     """ 
     # Block 13
-    residual = Conv2D(filters=1024, kernel_size=(1, 1), strides=(2, 2), padding='same', use_bias=False, name='exit_residual1')(x)
-    residual = get_normalizer_from_name('batch-norm', name='exit_residual1_batchnorm')(residual)
+    residual = Conv2D(filters=1024,
+                      kernel_size=(1, 1),
+                      strides=(2, 2),
+                      padding='same',
+                      use_bias=False,
+                      kernel_initializer=kernel_initializer,
+                      bias_initializer=bias_initializer,
+                      kernel_regularizer=l2(regularizer_decay),
+                      name='exit_residual1')(x)
+    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='exit_residual1_batchnorm')(residual)
 
-    x = get_activation_from_name('relu', name='block13_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=728, kernel_size=(3, 3), padding='same', use_bias=False, name='block13_sepconv1')(x)
-    x = get_normalizer_from_name('batch-norm', name='block13_sepconv1_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block13_sepconv1_activation')(x)
+    x = SeparableConv2D(filters=728,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block13_sepconv1')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block13_sepconv1_batchnorm')(x)
 
-    x = get_activation_from_name('relu', name='block13_sepconv2_activation')(x)
-    x = SeparableConv2D(filters=1024, kernel_size=(3, 3), padding='same', use_bias=False, name='block13_sepconv2')(x)
-    x = get_normalizer_from_name('batch-norm', name='block13_sepconv2_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block13_sepconv2_activation')(x)
+    x = SeparableConv2D(filters=1024,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block13_sepconv2')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block13_sepconv2_batchnorm')(x)
 
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block13_maxpooling')(x)
 
@@ -184,17 +313,32 @@ def Xception(include_top=True,
 
 
     # Block 14
-    x = SeparableConv2D(filters=1536, kernel_size=(3, 3), padding='same', use_bias=False, name='block14_sepconv1')(x)
-    x = get_normalizer_from_name('batch-norm', name='block14_sepconv1_batchnorm')(x)
-    x = get_activation_from_name('relu', name='block14_sepconv1_activation')(x)
+    x = SeparableConv2D(filters=1536,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block14_sepconv1')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block14_sepconv1_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block14_sepconv1_activation')(x)
 
-    x = SeparableConv2D(filters=2048, kernel_size=(3, 3), padding='same', use_bias=False, name='block14_sepconv2')(x)
-    x = get_normalizer_from_name('batch-norm', name='block14_sepconv2_batchnorm')(x)
-    x = get_activation_from_name('relu', name='block14_sepconv2_activation')(x)
+    x = SeparableConv2D(filters=2048,
+                        kernel_size=(3, 3),
+                        padding='same',
+                        use_bias=False,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        kernel_regularizer=l2(regularizer_decay),
+                        name='block14_sepconv2')(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block14_sepconv2_batchnorm')(x)
+    x = get_activation_from_name(activation, name='block14_sepconv2_activation')(x)
 
     # Final Block
     if include_top:
         x = GlobalAveragePooling2D(name='global_avgpool')(x)
+        x = Dropout(rate=drop_rate)(x)
         x = Dense(1 if classes == 2 else classes, name='predictions')(x)
         x = get_activation_from_name(final_activation)(x)
     else:

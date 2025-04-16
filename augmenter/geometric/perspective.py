@@ -8,17 +8,26 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from .resize import INTER_MODE
 
 
-def perspective(img, fov=45, anglex=0, angley=0, anglez=0, 
-                translate=(0, 0), scale=(1, 1), shear=0,
-                interpolation='BILINEAR', fill_color=(0, 0, 0)):
-    imgtype = img.dtype
+def perspective(
+    image,
+    fov=45,
+    anglex=0,
+    angley=0,
+    anglez=0, 
+    translate=(0, 0),
+    scale=(1, 1),
+    shear=0,
+    interpolation='BILINEAR',
+    fill_color=(0, 0, 0),
+):
+    imgtype = image.dtype
     gray_scale = False
 
-    if len(img.shape) == 2:
+    if len(image.shape) == 2:
         gray_scale = True
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-    h, w, _ = img.shape
+    h, w, _ = image.shape
     centery = h * 0.5
     centerx = w * 0.5
 
@@ -88,7 +97,7 @@ def perspective(img, fov=45, anglex=0, angley=0, anglez=0,
     perspective_matrix = cv2.getPerspectiveTransform(org, dst)
     total_matrix = perspective_matrix @ affine_matrix
 
-    result_img = cv2.warpPerspective(img, 
+    result_img = cv2.warpPerspective(image, 
                                      total_matrix, 
                                      (w, h), 
                                      flags=INTER_MODE[interpolation],
@@ -126,8 +135,18 @@ class Perspective(BaseTransform):
             fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
         """
 
-    def __init__(self, fov=45, anglex=0, angley=0, anglez=0, translate=(0, 0), scale=(1, 1), 
-                 shear=0, interpolation='BILINEAR', fill_color=(0, 0, 0)):
+    def __init__(
+        self,
+        fov=45,
+        anglex=0,
+        angley=0,
+        anglez=0,
+        translate=(0, 0),
+        scale=(1, 1), 
+        shear=0,
+        interpolation='BILINEAR',
+        fill_color=(0, 0, 0),
+    ):
         self.fov    = fov
         self.anglex = anglex
         self.angley = angley
@@ -149,7 +168,18 @@ class Perspective(BaseTransform):
         self.fill_color = fill_color
 
     def image_transform(self, image):
-        return perspective(image, self.fov, self.anglex, self.angley, self.anglez, self.translate, self.scale, self.shear, self.interpolation, self.fill_color)
+        return perspective(
+            image=image,
+            fov=self.fov,
+            anglex=self.anglex,
+            angley=self.angley,
+            anglez=self.anglez,
+            translate=self.translate,
+            scale=self.scale,
+            shear=self.shear,
+            interpolation=self.interpolation,
+            fill_color=self.fill_color,
+        )
 
 
 class RandomPerspective(BaseRandomTransform):
@@ -179,10 +209,19 @@ class RandomPerspective(BaseRandomTransform):
             fill_color (int): Optional fill color for the area outside the transform in the output image. (Pillow>=5.0.0)
         """
 
-    def __init__(self, fov=0, anglex=0, angley=0, anglez=0, 
-                 translate=(0, 0), scale=(1, 1), shear=0, 
-                 interpolation='BILINEAR', fill_color=(0, 0, 0), prob=0.5):
-
+    def __init__(
+        self,
+        fov=0,
+        anglex=0,
+        angley=0,
+        anglez=0, 
+        translate=(0, 0),
+        scale=(1, 1),
+        shear=0, 
+        interpolation='BILINEAR',
+        fill_color=(0, 0, 0),
+        prob=0.5,
+    ):
         assert all([isinstance(anglex, (tuple, list)) or anglex >= 0,
                     isinstance(angley, (tuple, list)) or angley >= 0,
                     isinstance(anglez, (tuple, list)) or anglez >= 0,
@@ -211,8 +250,16 @@ class RandomPerspective(BaseRandomTransform):
         self.prob      = prob
 
     @staticmethod
-    def get_params(fov_range, anglex_ranges, angley_ranges, anglez_ranges, 
-                   translate, scale_ranges, shear_ranges, img_size):
+    def get_params(
+        fov_range,
+        anglex_ranges,
+        angley_ranges,
+        anglez_ranges, 
+        translate,
+        scale_ranges,
+        shear_ranges,
+        img_size
+    ):
         fov = 90 + random.uniform(-fov_range, fov_range)
         anglex = random.uniform(anglex_ranges[0], anglex_ranges[1])
         angley = random.uniform(angley_ranges[0], angley_ranges[1])
@@ -230,5 +277,19 @@ class RandomPerspective(BaseRandomTransform):
         return fov, anglex, angley, anglez, translate, scale, shear
 
     def image_transform(self, image):
-        ret = self.get_params(self.fov, self.anglex, self.angley, self.anglez, self.translate, self.scale, self.shear, image.shape)
-        return perspective(image, *ret, interpolation=self.interpolation, fill_color=self.fill_color)
+        ret = self.get_params(
+            self.fov,
+            self.anglex,
+            self.angley,
+            self.anglez,
+            self.translate,
+            self.scale,
+            self.shear,
+            image.shape,
+        )
+        return perspective(
+            image,
+            *ret,
+            interpolation=self.interpolation,
+            fill_color=self.fill_color,
+        )

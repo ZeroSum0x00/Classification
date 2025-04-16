@@ -6,15 +6,17 @@ from utils.files import valid_image
 
 
 class ParseDirName:
-    def __init__(self, 
-                 data_dir,
-                 classes,
-                 load_memory,
-                 check_data):
-        self.data_dir    = data_dir
-        self.classes     = classes
+    def __init__(
+        self, 
+        data_dir,
+        classes,
+        load_memory,
+        check_data,
+    ):
+        self.data_dir = data_dir
+        self.classes = classes
         self.load_memory = load_memory
-        self.check_data  = check_data
+        self.check_data = check_data
 
     def __call__(self, image_files):
         data_extraction = []

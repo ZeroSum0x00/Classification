@@ -6,11 +6,18 @@ from utils.constants import INTER_MODE
 
 
 class Normalizer:
-    def __init__(self, norm_type="divide", target_size=(224, 224, 3), mean=None, std=None, interpolation="BILINEAR"):
-        self.norm_type     = norm_type
-        self.target_size   = target_size
-        self.mean          = mean
-        self.std           = std
+    def __init__(
+        self,
+        norm_type="divide",
+        target_size=(224, 224, 3),
+        mean=None,
+        std=None,
+        interpolation="BILINEAR",
+    ):
+        self.norm_type = norm_type
+        self.target_size = target_size
+        self.mean = mean
+        self.std = std
         self.interpolation = interpolation
         
     def __get_standard_deviation(self, img):

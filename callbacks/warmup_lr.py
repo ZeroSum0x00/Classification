@@ -32,24 +32,26 @@ class WarmUpLearningRate(tf.keras.callbacks.Callback):
 
 
 class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
-    def __init__(self, 
-                 result_path        = None,
-                 lr_init            = 0.01,
-                 lr_end             = 0.001,
-                 epochs             = 100,
-                 warmup_epoch_ratio = 0., 
-                 warmup_lr_ratio    = 0.,
-                 no_aug_epoch_ratio = 0.):
-        self.result_path         = result_path
-        self.result_path         = os.path.join(result_path, 'summary')
-        self.lr_init             = lr_init
-        self.lr_end              = lr_end
-        self.epochs              = epochs
+    def __init__(
+        self, 
+        result_path=None,
+        lr_init=0.01,
+        lr_end=0.001,
+        epochs=100,
+        warmup_epoch_ratio=0., 
+        warmup_lr_ratio=0.,
+        no_aug_epoch_ratio=0.,
+    ):
+        self.result_path = result_path
+        self.result_path = os.path.join(result_path, 'summary')
+        self.lr_init = lr_init
+        self.lr_end = lr_end
+        self.epochs = epochs
         self.warmup_total_epochs = min(max(warmup_epoch_ratio * epochs, 1), 3)
-        self.warmup_lr_start     = max(warmup_lr_ratio * lr_init, 1e-6)
-        self.no_aug_epoch        = min(max(no_aug_epoch_ratio * epochs, 1), 15)
-        self.lr_list             = [0]
-        self.epochs_list         = [0]
+        self.warmup_lr_start = max(warmup_lr_ratio * lr_init, 1e-6)
+        self.no_aug_epoch = min(max(no_aug_epoch_ratio * epochs, 1), 15)
+        self.lr_list = [0]
+        self.epochs_list = [0]
         os.makedirs(self.result_path, exist_ok=True)
 
     def on_epoch_begin(self, epoch, logs=None):
@@ -65,25 +67,21 @@ class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
         if self.result_path:
             self.lr_list.append(lr)
             self.epochs_list.append(epoch + 1)
-
-            # with open(os.path.join(self.result_path, "learning_rate.txt"), 'a') as f:
-            #     try:
-            #         f.write(f"Learning rate in epoch {epoch + 1}: {str(lr.numpy())}")
-            #     except:
-            #         f.write(f"Learning rate in epoch {epoch + 1}: {str(lr)}")
-            #     f.write("\n")
-
             f = plt.figure()
-            value_above_line(f,
-                             x=self.epochs_list,
-                             y=self.lr_list,
-                             i=-1,
-                             max_size=[np.max(self.lr_list), np.max(self.epochs_list)],
-                             linewidth=2,
-                             line_color='red',
-                             text_color='white', 
-                             box_color='hotpink',
-                             label='learning rate')
+            
+            value_above_line(
+                f=f,
+                x=self.epochs_list,
+                y=self.lr_list,
+                i=-1,
+                max_size=[np.max(self.lr_list), np.max(self.epochs_list)],
+                linewidth=2,
+                line_color='red',
+                text_color='white', 
+                box_color='hotpink',
+                label='learning rate',
+            )
+            
             plt.grid(True)
             plt.xlabel('Epoch')
             plt.ylabel('Learning Rate')

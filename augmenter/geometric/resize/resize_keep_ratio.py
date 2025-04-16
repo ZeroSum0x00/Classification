@@ -6,15 +6,17 @@ from .resize import resize
 
 
 class ResizeKeepRatio(BaseTransform):
-    def __init__(self, 
-                 size,
-                 longest=0.,
-                 interpolation='BILINEAR',
-                 random_scale_prob=0.,
-                 random_scale_range=(0.85, 1.05),
-                 random_scale_area=False,
-                 random_aspect_prob=0.,
-                 random_aspect_range=(0.9, 1.11)):
+    def __init__(
+        self, 
+        size,
+        longest=0.,
+        interpolation='BILINEAR',
+        random_scale_prob=0.,
+        random_scale_range=(0.85, 1.05),
+        random_scale_area=False,
+        random_aspect_prob=0.,
+        random_aspect_range=(0.9, 1.11),
+    ):
         self.size = size if isinstance(size, (list, tuple)) else (size, size)
         self.interpolation = interpolation
         self.longest = float(longest)
@@ -25,14 +27,16 @@ class ResizeKeepRatio(BaseTransform):
         self.random_aspect_range = random_aspect_range
 
     @staticmethod
-    def get_params(orin_size,
-                   target_size,
-                   longest,
-                   random_scale_prob=0.,
-                   random_scale_range=(1.0, 1.33),
-                   random_scale_area=False,
-                   random_aspect_prob=0.,
-                   random_aspect_range=(0.9, 1.11)):
+    def get_params(
+        orin_size,
+        target_size,
+        longest,
+        random_scale_prob=0.,
+        random_scale_range=(1.0, 1.33),
+        random_scale_area=False,
+        random_aspect_prob=0.,
+        random_aspect_range=(0.9, 1.11),
+    ):
         target_h, target_w = target_size
         ratio_h = orin_size[0] / target_h
         ratio_w = orin_size[1] / target_w
@@ -61,7 +65,14 @@ class ResizeKeepRatio(BaseTransform):
 
     def image_transform(self, image):
         orin_size = image.shape[:2]
-        target_size = self.get_params(orin_size, self.size, self.longest,
-                                      self.random_scale_prob, self.random_scale_range, self.random_scale_area,
-                                      self.random_aspect_prob, self.random_aspect_range)
+        target_size = self.get_params(
+            orin_size=orin_size,
+            target_size=self.size,
+            longest=self.longest,
+            random_scale_prob=self.random_scale_prob,
+            random_scale_range=self.random_scale_range,
+            random_scale_area=self.random_scale_area,
+            random_aspect_prob=self.random_aspect_prob,
+            random_aspect_range=self.random_aspect_range,
+        )
         return resize(image, target_size, self.interpolation)

@@ -16,110 +16,163 @@
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
-from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.layers import (
+    Conv2D, Flatten, Dense, Dropout, MaxPooling2D,
+    GlobalAveragePooling2D, GlobalMaxPooling2D
+)
+from tensorflow.keras.regularizers import l2
 
 from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape
+from utils.model_processing import process_model_input
 
 
-def AlexNet(include_top=True, 
-            weights='imagenet',
-            input_tensor=None, 
-            input_shape=None,
-            pooling=None,
-            final_activation='softmax',
-            classes=1000):
 
-    if weights not in {'imagenet', None}:
+def AlexNet(
+    inputs=[224, 224, 3],
+    include_head=True, 
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer=None,
+    final_activation="softmax",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.5
+):
+
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights,
+    )
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    x = Conv2D(
+        filters=96,
+        kernel_size=(11, 11),
+        strides=(4, 4),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name="stem.conv"
+    )(inputs)
+    
+    x = get_activation_from_name(activation, name="stem.activ")(x)
+    x = get_normalizer_from_name("local-response-norm", depth_radius=5, alpha=0.0001, beta=0.75, name="stem.norm")(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stem.pool")(x)
 
-    x = Conv2D(filters=96, kernel_size=(11, 11), strides=(4, 4), padding='valid')(img_input)
-    x = get_activation_from_name('relu')(x)
-    x = get_normalizer_from_name('local-response-norm', depth_radius=5, alpha=0.0001, beta=0.75)(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
-    x = Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), padding='same')(x)
-    x = get_activation_from_name('relu')(x)
-    x = get_normalizer_from_name('local-response-norm', depth_radius=5, alpha=0.0001, beta=0.75)(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
-    x = Conv2D(filters=384, kernel_size=(3, 3), strides=(1, 1), padding='same')(x)
-    x = get_activation_from_name('relu')(x)
-    x = Conv2D(filters=384, kernel_size=(3, 3), strides=(1, 1), padding='same')(x)
-    x = get_activation_from_name('relu')(x)
-    x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding='same')(x)
-    x = get_activation_from_name('relu')(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
+    x = Conv2D(
+        filters=256,
+        kernel_size=(5, 5),
+        strides=(1, 1),
+        padding="same",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name="stage1.conv"
+    )(x)
+    
+    x = get_activation_from_name(activation, name="stage1.activ")(x)
+    x = get_normalizer_from_name("local-response-norm", depth_radius=5, alpha=0.0001, beta=0.75, name="stage1.norm")(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stage1.pool")(x)
 
-    if include_top:
-        # Classification block
-        x = Dropout(rate=0.5)(x)
-        x = Flatten(name='flatten')(x)
+    for i in range(2):
+        x = Conv2D(
+            filters=384,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            padding="same",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+            name=f"stage2.conv{i+1}"
+        )(x)
+        
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"stage2.norm{i+1}")(x)
+        x = get_activation_from_name(activation, name=f"stage2.activ{i+1}")(x)
+
+    
+    x = Conv2D(
+        filters=256,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        padding="same",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=l2(regularizer_decay),
+        name="stage3.conv"
+    )(x)
+    
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="stage3.norm")(x)
+    x = get_activation_from_name(activation, name="stage3.activ")(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stage3.pool")(x)
+
+    if include_head:
+        x = Dropout(rate=drop_rate)(x)
+        x = Flatten(name="flatten")(x)
         x = Dense(units=4096)(x)
-        x = get_activation_from_name('relu')(x)
-        x = Dropout(rate=0.5)(x)
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps)(x)
+        x = get_activation_from_name(activation)(x)
+        x = Dropout(rate=drop_rate)(x)
+
         x = Dense(units=4096)(x)
-        x = get_activation_from_name('relu')(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps)(x)
+        x = get_activation_from_name(activation)(x)
+        x = Dropout(rate=drop_rate)(x)
+        
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            name="predictions"
+        )(x)
         x = get_activation_from_name(final_activation)(x)
     else:
-        if pooling == 'avg':
+        if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
+        elif pooling == "max":
             x = GlobalMaxPooling2D()(x)
-    
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
 
-    # Create model.
-    model = Model(inputs, x, name='AlexNet')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model = Model(inputs=inputs, outputs=x, name="AlexNet")
     return model
+
+
+def AlexNet_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="leaky-relu", 
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    model = AlexNet(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem.norm",
+        "stage1.norm",
+        "stage3.activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")

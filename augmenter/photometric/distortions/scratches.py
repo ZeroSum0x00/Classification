@@ -39,10 +39,14 @@ def scratches(image, num_scratches=20, alpha=None):
                 param_x2 = random.randint(1, 5)
                 param_y1 = random.randint(1, 5)
                 param_y2 = random.randint(1, 5)
-                cv2.line(scratches, (x1 - param_x1, y1 - param_x2),
-                          (x2 - param_y1, y2 - param_y2), (new_color, new_color, new_color),
-                          thickness=1,
-                          lineType=cv2.LINE_AA)
+                cv2.line(
+                    scratches,
+                    (x1 - param_x1, y1 - param_x2),
+                    (x2 - param_y1, y2 - param_y2),
+                    (new_color, new_color, new_color),
+                    thickness=1,
+                    lineType=cv2.LINE_AA,
+                )
 
     top, bottom = h // 2, scratches.shape[0] - (h - h // 2)
     left, right = w // 2, scratches.shape[1] - (w - w // 2)
@@ -56,7 +60,7 @@ def scratches(image, num_scratches=20, alpha=None):
 class Scratches(BaseTransform):
     def __init__(self, num_scratches=20, alpha=None):
         self.num_scratches = num_scratches
-        self.alpha         = alpha
+        self.alpha = alpha
 
     def image_transform(self, image):
         return scratches(image, self.num_scratches, self.alpha)
@@ -65,8 +69,8 @@ class Scratches(BaseTransform):
 class RandomScratches(BaseRandomTransform):
     def __init__(self, num_scratches=20, alpha=None, prob=0.5):
         self.num_scratches = num_scratches
-        self.alpha         = alpha
-        self.prob          = prob
+        self.alpha = alpha
+        self.prob = prob
 
     def image_transform(self, image):
         return scratches(image, self.num_scratches, self.alpha)

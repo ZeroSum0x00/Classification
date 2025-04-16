@@ -57,7 +57,7 @@ class Desaturate(BaseTransform):
 class RandomDesaturate(BaseRandomTransform):
     def __init__(self, percent, prob=0.5):
         self.percent = percent
-        self.prob    = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(percent):

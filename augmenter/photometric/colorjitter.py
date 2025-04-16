@@ -9,7 +9,13 @@ from .colors import RandomAdjustHue, RandomAdjustSaturation
 
 
 class ColorJitter(BaseTransform):
-    def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
+    def __init__(
+        self,
+        brightness=0,
+        contrast=0,
+        saturation=0,
+        hue=0,
+    ):
         self.transforms = []
 
         if (isinstance(brightness, (int, float)) and brightness > 0) or (isinstance(brightness, collections.Iterable) and len(brightness) == 2):
@@ -31,9 +37,16 @@ class ColorJitter(BaseTransform):
 
 
 class RandomColorJitter(BaseRandomTransform):
-    def __init__(self, brightness=0, contrast=0, saturation=0, hue=0, prob=0.5):
+    def __init__(
+        self,
+        brightness=0,
+        contrast=0,
+        saturation=0,
+        hue=0,
+        prob=0.5,
+    ):
         self.transforms = []
-        self.prob       = prob
+        self.prob = prob
         
         if (isinstance(brightness, (int, float)) and brightness > 0) or (isinstance(brightness, collections.Iterable) and len(brightness) == 2):
             self.transforms.append(RandomAdjustBrightness(brightness))

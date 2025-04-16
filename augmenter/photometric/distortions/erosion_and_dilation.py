@@ -38,7 +38,7 @@ class Erosion(BaseTransform):
 class RandomErosion(BaseRandomTransform):
     def __init__(self, kernel_size=5, prob=0.5):
         self.kernel_size = kernel_size
-        self.prob        = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return erosion_or_dilation(image, self.kernel_size, reversed=False)
@@ -55,7 +55,7 @@ class Dilation(BaseTransform):
 class RandomDilation(BaseRandomTransform):
     def __init__(self, kernel_size=5, prob=0.5):
         self.kernel_size = kernel_size
-        self.prob        = prob
+        self.prob = prob
 
     def image_transform(self, image):
         return erosion_or_dilation(image, self.kernel_size, reversed=True)
