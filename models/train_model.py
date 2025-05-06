@@ -17,6 +17,7 @@ class TrainModel(tf.keras.Model):
         self.architecture = architecture
         self.classes = classes
         self.inputs = inputs
+        self.use_ema = use_ema
         self.model_clip_gradient = model_clip_gradient
         self.gradient_accumulation_steps = gradient_accumulation_steps
         
@@ -27,7 +28,7 @@ class TrainModel(tf.keras.Model):
         self.model_param_call = {}
         self.list_metrics = []
         
-        if use_ema:
+        if self.use_ema:
             self.ema = tf.train.ExponentialMovingAverage(decay=0.99)
             self.ema.apply(self.architecture.trainable_variables)
             
