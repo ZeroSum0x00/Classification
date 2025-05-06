@@ -1,7 +1,9 @@
 import copy
 import tensorflow as tf
 from losses.binary_crossentropy import BinaryCrossentropy
+from losses.binary_focal_crossentropy import BinaryFocalCrossentropy
 from losses.categorical_crossentropy import CategoricalCrossentropy
+from losses.categorical_focal_crossentropy import CategoricalFocalCrossentropy
 from losses.sparse_categorical_crossentropy import SparseCategoricalCrossentropy
 from utils.auxiliary_processing import dynamic_import
 

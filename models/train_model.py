@@ -1,8 +1,4 @@
 import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras.utils import get_custom_objects
-
-from utils.post_processing import get_labels
 from utils.logger import logger
 
 
@@ -45,11 +41,11 @@ class TrainModel(tf.keras.Model):
     def metrics(self):
         return [self.total_loss_tracker] + self.list_metrics
 
-    def _compute_loss(self, images, labels, training):
+    def _compute_loss(self, images, labels, training, sample_weight=None):
         self.model_param_call["training"] = training
         y_pred = self.architecture(images, **self.model_param_call)
         loss_value = sum(
-            self.architecture.calc_loss(y_true=labels, y_pred=y_pred, loss_object=loss)
+            self.architecture.calc_loss(y_true=labels, y_pred=y_pred, loss_object=loss, sample_weight=sample_weight)
             for loss in self.loss_object
         )
         loss_value += tf.reduce_sum(self.architecture.losses)
@@ -64,10 +60,14 @@ class TrainModel(tf.keras.Model):
 
     @tf.function
     def train_step(self, data):
-        images, labels = data
+        if len(data) == 3:
+            images, labels, sample_weight = data
+        else:
+            images, labels = data
+            sample_weight = None
 
         with tf.GradientTape() as tape:
-            y_pred, loss_value = self._compute_loss(images, labels, training=True)
+            y_pred, loss_value = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
             scale_loss_value = loss_value / tf.constant(self.gradient_accumulation_steps, dtype=tf.float32)
 
         gradients = tape.gradient(scale_loss_value, self.architecture.trainable_variables)
@@ -105,18 +105,23 @@ class TrainModel(tf.keras.Model):
         self.total_loss_tracker.update_state(loss_value)
     
         for metric in self.list_metrics:
-            metric.update_state(labels, y_pred)
+            metric.update_state(labels, y_pred, sample_weight=sample_weight)
     
         return {m.name: m.result() for m in self.metrics}
         
     @tf.function
     def test_step(self, data):
-        images, labels = data
-        y_pred, loss_value = self._compute_loss(images, labels, training=False)
+        if len(data) == 3:
+            images, labels, sample_weight = data
+        else:
+            images, labels = data
+            sample_weight = None
+        
+        y_pred, loss_value = self._compute_loss(images, labels, training=False, sample_weight=sample_weight)
         self.total_loss_tracker.update_state(loss_value)
 
         for metric in self.list_metrics:
-            metric.update_state(labels, y_pred)
+            metric.update_state(labels, y_pred, sample_weight=sample_weight)
 
         return {m.name: m.result() for m in self.metrics}
 

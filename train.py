@@ -18,8 +18,8 @@ from utils.logger import logger
 
 def train(engine_file_config, model_file_config):
     engine_config = load_config(engine_file_config)
-    model_config  = load_config(model_file_config)
-    data_config  = engine_config["Dataset"]
+    model_config = load_config(model_file_config)
+    data_config = engine_config["Dataset"]
     model_config = model_config["Model"]
     train_config = engine_config["Train"]
     loss_config = engine_config["Losses"]
@@ -52,7 +52,7 @@ def train(engine_file_config, model_file_config):
                 f.write(cls + "\n")
 
         batch_size = find_max_batch_size(model) if train_config["batch_size"] == -1 else train_config["batch_size"]
-        train_generator, valid_generator, test_generator = get_train_test_data(
+        data_generator_instance = get_train_test_data(
             data_dirs=data_config["data_dir"],
             classes=model.classes,
             target_size=model_config["inputs"],
@@ -66,10 +66,16 @@ def train(engine_file_config, model_file_config):
             data_type=data_config["data_info"]["data_type"],
             check_data=data_config["data_info"].get("check_data", False),
             load_memory=data_config["data_info"].get("load_memory", False),
+            class_weight=train_config.get("class_weight", None),
             dataloader_mode=data_config.get("dataloader_mode", "tf"),
             get_data_mode=data_config.get("get_data_mode", 2),
             num_workers=train_config.get("num_workers", 1),
         )
+
+        train_generator = data_generator_instance["train_generator"]
+        valid_generator = data_generator_instance.get("valid_generator", None)
+        test_generator = data_generator_instance.get("test_generator", None)
+        class_weights = data_generator_instance.get("class_weights", None)
         
         train_step = int(np.ceil(train_generator.N / batch_size))
         train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
@@ -80,11 +86,11 @@ def train(engine_file_config, model_file_config):
 
         if test_generator:
             test_step = int(np.ceil(test_generator.N / batch_size))
-            test_generator  = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
+            test_generator = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
 
-        losses    = build_losses(loss_config)
+        losses = build_losses(loss_config)
         optimizer = build_optimizer(optimizer_config)
-        metrics   = build_metrics(metric_config)
+        metrics = build_metrics(metric_config)
         
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
         
@@ -112,7 +118,7 @@ def train(engine_file_config, model_file_config):
                 ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
                 logger.info(f"Restored from {ckpt_manager.latest_checkpoint}")
                 initial_epoch = int(model.current_epoch)
-            
+
         if valid_generator:
             model.fit(
                 train_generator,
@@ -121,6 +127,7 @@ def train(engine_file_config, model_file_config):
                 validation_steps=valid_step,
                 epochs=train_config["epoch"]["end"],
                 initial_epoch=initial_epoch,
+                class_weight=class_weights,
                 callbacks=callbacks,
             )
         else:
@@ -129,6 +136,7 @@ def train(engine_file_config, model_file_config):
                 steps_per_epoch=train_step,
                 epochs=train_config["epoch"]["end"],
                 initial_epoch=initial_epoch,
+                class_weight=class_weights,
                 callbacks=callbacks,
             )
 

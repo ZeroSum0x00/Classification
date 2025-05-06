@@ -2,7 +2,8 @@ import os
 import cv2
 import numpy as np
 import tensorflow as tf
-from random import shuffle
+from sklearn.utils import shuffle
+from sklearn.utils.class_weight import compute_class_weight
 
 from augmenter import build_augmenter
 from data_utils import Augmentor, Normalizer
@@ -48,6 +49,14 @@ class TFDataPipeline:
             std=std_norm,
             interpolation=interpolation,
         )
+
+        all_labels = [sample['label'] for sample in self.dataset]
+        class_weights = compute_class_weight(
+            class_weight='balanced',
+            classes=np.unique(all_labels),
+            y=all_labels,
+        )
+        self.class_weights = dict(enumerate(class_weights))
 
     def load_data(self, sample):
         sample_image = sample.get("image")

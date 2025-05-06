@@ -31,11 +31,11 @@ class CLS(tf.keras.Model):
         preds = self(inputs, training=False)
         return preds
 
-    def calc_loss(self, y_true, y_pred, loss_object):
+    def calc_loss(self, y_true, y_pred, loss_object, sample_weight=None):
         loss = losses_prepare(loss_object)
         loss_value = 0
         if loss:
-            loss_value += loss(y_true, y_pred)
+            loss_value += loss(y_true, y_pred, sample_weight=sample_weight)
         return loss_value
 
     def get_config(self):

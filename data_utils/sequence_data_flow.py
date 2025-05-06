@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 from sklearn.utils import shuffle
+from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.utils import Sequence
 from multiprocessing.pool import ThreadPool
 
@@ -36,7 +37,7 @@ class DataSequencePipeline(Sequence):
         self.debug_mode = debug_mode
         self.num_workers = num_workers
         self.N = len(self.dataset)
-        
+
         if phase == "train":
             self.dataset = shuffle(self.dataset)
 
@@ -51,6 +52,14 @@ class DataSequencePipeline(Sequence):
             std=std_norm,
             interpolation=interpolation,
         )
+        
+        all_labels = [sample['label'] for sample in self.dataset]
+        class_weights = compute_class_weight(
+            class_weight='balanced',
+            classes=np.unique(all_labels),
+            y=all_labels,
+        )
+        self.class_weights = dict(enumerate(class_weights))
 
     def load_data(self, sample):
         sample_image = sample.get("image")

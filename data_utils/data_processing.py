@@ -53,6 +53,7 @@ def get_train_test_data(
     data_type="dirname",
     check_data=False,
     load_memory=False,
+    class_weight=None,
     dataloader_mode="tf",
     get_data_mode=0,
     num_workers=1,
@@ -125,4 +126,10 @@ def get_train_test_data(
         test_generator = None
         
     logger.info("Load data successfully")
-    return train_generator, valid_generator, test_generator
+    
+    return {
+        "train_generator": train_generator,
+        "valid_generator": valid_generator,
+        "test_generator": test_generator,
+        "class_weights": train_generator.class_weights if (class_weight and class_weight.lower() == "balance") else None,
+    }
