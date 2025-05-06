@@ -15,249 +15,861 @@
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Lambda, Flatten, Dense, Dropout,
+    MaxPooling2D, AveragePooling2D,
+    GlobalMaxPooling2D, GlobalAveragePooling2D,
+    concatenate, add
+)
+from tensorflow.keras.regularizers import l2
 
 from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape
+from utils.model_processing import process_model_input
 
 
-def convolution_block(inputs, 
-                      filters, 
-                      kernel_size, 
-                      strides=(1, 1), 
-                      padding='same', 
-                      activation='relu',
-                      name=None):
-                          
-    x = Conv2D(filters=filters, 
-               kernel_size=kernel_size, 
-               strides=strides, 
-               padding=padding, 
-               name=name + '_conv')(inputs)
 
-    if activation is not None:
-        x = get_activation_from_name(activation, name=name + '_activ')(x)
+def convolution_block(
+    inputs,
+    filters,
+    kernel_size,
+    strides=(1, 1),
+    padding="same",
+    activation="relu",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    name=None
+):
+    if name is None:
+        name = f"convolution_block_{K.get_uid('convolution_block')}"
+
+    return Sequential([
+        Conv2D(
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=padding,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_activation_from_name(activation),
+    ])(inputs)
+
+
+def stem_block(
+    inputs,
+    filters=32,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"stem_block_{K.get_uid('stem_block')}"
+
+    x = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv1"
+    )
+    
+    x = convolution_block(
+        inputs=x,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        padding="valid",
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv2"
+    )
+    
+    x = convolution_block(
+        inputs=x,
+        filters=filters * 2,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv3"
+    )
+    
+    x = MaxPooling2D(
+        pool_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        name=f"{name}.pool"
+    )(x)
+    
+    x = convolution_block(
+        inputs=x,
+        filters=int(filters * 5/2),
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv4"
+    )
+    
+    x = convolution_block(
+        inputs=x,
+        filters=filters * 6,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv5"
+    )
+    
+    x = convolution_block(
+        inputs=x,
+        filters=filters * 8,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv6"
+    )
+    
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(x)
+    x = get_activation_from_name(activation, name=f"{name}.activ")(x)
     return x
 
 
-def stem_block(inputs, activation="relu", normalizer='batch-norm'):
-    x = convolution_block(inputs, 32, (3, 3), (2, 2), padding='valid', name='stem_b1')
-    x = convolution_block(x, 32, (3, 3), padding='valid', name='stem_b2')
-    x = convolution_block(x, 64, (3, 3), name='stem_b3')
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='valid', name='stem_maxpool')(x)
-    x = convolution_block(x, 80, (1, 1), name='stem_b4')
-    x = convolution_block(x, 192, (3, 3), name='stem_b5')
-    x = convolution_block(x, 256, (3, 3), (2, 2), name='stem_b6')
-    x = get_normalizer_from_name(normalizer, name='stem_bn')(x)
-    x = get_activation_from_name(activation, name='stem_activ')(x)
-    return x
-
-
-def inception_resnet_A(inputs, scale_residual=True, activation="relu", normalizer='batch-norm', prefix=None):
-    shortcut = inputs
-    
-    branch1 = convolution_block(inputs, 32, (1, 1), name=f"inceptionA_step{prefix}_b12")
-
-    branch2 = convolution_block(inputs, 32, (1, 1), name=f"inceptionA_step{prefix}_b21")
-    branch2 = convolution_block(branch2, 32, (3, 3), name=f"inceptionA_step{prefix}_b22")
-
-    branch3 = convolution_block(inputs, 32, (1, 1), name=f"inceptionA_step{prefix}_b31")
-    branch3 = convolution_block(branch3, 32, (3, 3), name=f"inceptionA_step{prefix}_b32")
-    branch3 = convolution_block(branch3, 32, (3, 3), name=f"inceptionA_step{prefix}_b33")
-
-    x = concatenate([branch1, branch2, branch3], axis=-1, name=f'inceptionA_step{prefix}_submerged')
-    x = convolution_block(x, 256, (1, 1), activation=None, name=f'inceptionA_step{prefix}_linear')
-    
-    if scale_residual:
-        x = Lambda(lambda s: s * 0.1, name=f'inceptionA_step{prefix}_scale')(x)
+def inception_resnet_A(
+    inputs,
+    filters=32,
+    scale_residual=True,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"inception_resnet_a_{K.get_uid('inception_resnet_a')}"
         
-    out = add([shortcut, x], name=f'inceptionA_step{prefix}_merged')
-    out = get_normalizer_from_name(normalizer, name=f'inceptionA_step{prefix}_bn')(out)
-    out = get_activation_from_name(activation, name=f'inceptionA_step{prefix}_activ')(out)
-    return out
-
-
-def reduction_A(inputs, k=192, l=192, m=256, n=384, activation="relu", normalizer='batch-norm'):
-    branch1 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b11")(inputs)
-
-    branch2 = convolution_block(inputs, n, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b21")
-
-    branch3 = convolution_block(inputs, k, (1, 1), name=f"incep_reductionA_b31")
-    branch3 = convolution_block(branch3, l, (3, 3), name=f"incep_reductionA_b32")
-    branch3 = convolution_block(branch3, m, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionA_b33")
-
-    out = concatenate([branch1, branch2, branch3], axis=-1, name=f'incep_reductionA_merged')
-    out = get_normalizer_from_name(normalizer, name=f'incep_reductionA_bn')(out)
-    out = get_activation_from_name(activation, name=f'incep_reductionA_activ')(out)
-    return out
-
-
-def inception_resnet_B(inputs, scale_residual=True, activation="relu", normalizer='batch-norm', prefix=None):
     shortcut = inputs
 
-    branch1 = convolution_block(inputs, 128, (1, 1), name=f"inceptionB_step{prefix}_b12")
+    # branch1
+    branch1 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch1"
+    )
 
-    branch2 = convolution_block(inputs, 128, (1, 1), name=f"inceptionB_step{prefix}_b21")
-    branch2 = convolution_block(branch2, 128, (1, 7), name=f"inceptionB_step{prefix}_b22")
-    branch2 = convolution_block(branch2, 128, (7, 1), name=f"inceptionB_step{prefix}_b23")
-
-    x = concatenate([branch1, branch2], axis=-1, name=f'inceptionB_step{prefix}_submerged')
-    x = convolution_block(x, 896, (1, 1), activation=None, name=f'inceptionB_step{prefix}_linear')
+    # branch2
+    branch2 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step1"
+    )
+    
+    branch2 = convolution_block(
+        inputs=branch2,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step2"
+    )
+    
+    # branch3
+    branch3 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step1"
+    )
+    
+    branch3 = convolution_block(
+        inputs=branch3,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step2"
+    )
+    
+    branch3 = convolution_block(
+        inputs=branch3,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step3"
+    )
+    
+    # merger
+    x = concatenate([branch1, branch2, branch3], axis=-1, name=f"{name}.merger")
+    
+    x = convolution_block(
+        inputs=x,
+        filters=filters * 8,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=None,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv"
+    )
+    
     
     if scale_residual:
-        x = Lambda(lambda s: s * 0.1, name=f'inceptionB_step{prefix}_scale')(x)
-
-    out = add([shortcut, x], name=f'inceptionB_step{prefix}_merged')
-    out = get_normalizer_from_name(normalizer, name=f'inceptionB_step{prefix}_bn')(out)
-    out = get_activation_from_name(activation, name=f'inceptionB_step{prefix}_activ')(out)
-    return out
-
-
-def reduction_B(inputs, activation="relu", normalizer='batch-norm'):
-    branch1 = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b11")(inputs)
-
-    branch2 = convolution_block(inputs, 256, (1, 1), name=f"incep_reductionB_b21")
-    branch2 = convolution_block(inputs, 384, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b22")
-
-    branch3 = convolution_block(inputs, 256, (1, 1), name=f"incep_reductionB_b31")
-    branch3 = convolution_block(branch3, 256, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b32")
-
-    branch4 = convolution_block(inputs, 256, (1, 1), name=f"incep_reductionB_b41")
-    branch4 = convolution_block(branch4, 256, (1, 1), name=f"incep_reductionB_b42")
-    branch4 = convolution_block(branch4, 256, (3, 3), strides=(2, 2), padding="valid", name=f"incep_reductionB_b33")
-    
-    out = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f'incep_reductionB_merged')
-    out = get_normalizer_from_name(normalizer, name=f'incep_reductionB_bn')(out)
-    out = get_activation_from_name(activation, name=f'incep_reductionB_activ')(out)
-    return out
-
-
-def inception_resnet_C(inputs, scale_residual=True, activation="relu", normalizer='batch-norm', prefix=None):
-    shortcut = inputs
-    
-    branch1 = convolution_block(inputs, 128, (1, 1), name=f"inceptionC_step{prefix}_b12")
-
-    branch2 = convolution_block(inputs, 192, (1, 1), name=f"inceptionC_step{prefix}_b21")
-    branch2 = convolution_block(branch2, 192, (1, 3), name=f"inceptionC_step{prefix}_b22")
-    branch2 = convolution_block(branch2, 192, (3, 1), name=f"inceptionC_step{prefix}_b23")
-
-    x = concatenate([branch1, branch2], axis=-1, name=f'inceptionC_step{prefix}_submerged')
-    x = convolution_block(x, 1792, (1, 1), activation=None, name=f'inceptionC_step{prefix}_linear')
-    
-    if scale_residual:
-        x = Lambda(lambda s: s * 0.1, name=f'inceptionC_step{prefix}_scale')(x)
+        x = Lambda(lambda s: s * 0.1, name=f"{name}.scale")(x)
         
-    out = add([shortcut, x], name=f'inceptionC_step{prefix}_merged')
-    out = get_normalizer_from_name(normalizer, name=f'inceptionC_step{prefix}_bn')(out)
-    out = get_activation_from_name(activation, name=f'inceptionC_step{prefix}_activ')(out)
+    out = add([shortcut, x], name=f"{name}.residual")
+    out = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(out)
+    out = get_activation_from_name(activation, name=f"{name}.activ")(out)
     return out
 
 
-def Inception_Resnet_v1(depths=[5, 10, 5],
-                        scale_residual=True,
-                        include_top=True, 
-                        weights='imagenet',
-                        input_tensor=None, 
-                        input_shape=None,
-                        pooling=None,
-                        final_activation='softmax',
-                        classes=1000):
+def reduction_A(
+    inputs,
+    k=192,
+    l=192,
+    m=256,
+    n=384,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"reduction_a_{K.get_uid('reduction_a')}"
 
-    if weights not in {'imagenet', None}:
+    # branch1
+    branch1 = MaxPooling2D(
+        pool_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        name=f"{name}.branch1"
+    )(inputs)
+
+    # branch2
+    branch2 = convolution_block(
+        inputs=inputs,
+        filters=n,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2"
+    )
+
+    # branch3
+    branch3 = convolution_block(
+        inputs=inputs,
+        filters=k,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step1"
+    )
+    
+    branch3 = convolution_block(
+        inputs=branch3,
+        filters=l,
+        kernel_size=(3, 3),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step2"
+    )
+    
+    branch3 = convolution_block(
+        inputs=branch3,
+        filters=m,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step3"
+    )
+
+    # merger
+    out = concatenate([branch1, branch2, branch3], axis=-1, name=f"{name}.merger")
+    out = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(out)
+    out = get_activation_from_name(activation, name=f"{name}.activ")(out)
+    return out
+
+
+def inception_resnet_B(
+    inputs,
+    filters=128,
+    scale_residual=True,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"inception_resnet_b_{K.get_uid('inception_resnet_b')}"
+
+    shortcut = inputs
+
+    # branch1
+    branch1 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch1"
+    )
+    
+    # branch2
+    branch2 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step1"
+    )
+    
+    branch2 = convolution_block(
+        inputs=branch2,
+        filters=filters,
+        kernel_size=(1, 7),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step2"
+    )
+    
+    branch2 = convolution_block(
+        inputs=branch2,
+        filters=filters,
+        kernel_size=(7, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step3"
+    )
+
+    # merger
+    x = concatenate([branch1, branch2], axis=-1, name=f"{name}.merger")
+    
+    x = convolution_block(
+        inputs=x,
+        filters=filters * 7,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=None,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv"
+    )
+    
+    
+    if scale_residual:
+        x = Lambda(lambda s: s * 0.1, name=f"{name}.scale")(x)
+
+    out = add([shortcut, x], name=f"{name}.residual")
+    out = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(out)
+    out = get_activation_from_name(activation, name=f"{name}.activ")(out)
+    return out
+
+
+def reduction_B(
+    inputs,
+    filters=256,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"reduction_b_{K.get_uid('reduction_b')}"
+
+    # branch1
+    branch1 = MaxPooling2D(
+        pool_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        name=f"{name}.branch1"
+    )(inputs)
+    
+    # branch2
+    branch2 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step1"
+    )
+    
+    branch2 = convolution_block(
+        inputs=inputs,
+        filters=int(filters * 3/2),
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step2"
+    )
+    
+    # branch3
+    branch3 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step1"
+    )
+    
+    branch3 = convolution_block(
+        inputs=branch3,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch3.step2"
+    )
+
+    # branch4
+    branch4 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch4.step1"
+    )
+    
+    branch4 = convolution_block(
+        inputs=branch4,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch4.step2"
+    )
+    
+    branch4 = convolution_block(
+        inputs=branch4,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        padding="valid",
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch4.step3"
+    )
+
+    # merger
+    out = concatenate([branch1, branch2, branch3, branch4], axis=-1, name=f"{name}.merger")
+    out = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(out)
+    out = get_activation_from_name(activation, name=f"{name}.activ")(out)
+    return out
+
+
+def inception_resnet_C(
+    inputs,
+    filters=128,
+    scale_residual=True,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"inception_resnet_c_{K.get_uid('inception_resnet_c')}"
+        
+    shortcut = inputs
+    
+    # branch1
+    branch1 = convolution_block(
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch1"
+    )
+
+    # branch2
+    branch2 = convolution_block(
+        inputs=inputs,
+        filters=int(filters * 3/2),
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step1"
+    )
+    
+    branch2 = convolution_block(
+        inputs=branch2,
+        filters=int(filters * 3/2),
+        kernel_size=(1, 3),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step2"
+    )
+    
+    branch2 = convolution_block(
+        inputs=branch2,
+        filters=int(filters * 3/2),
+        kernel_size=(3, 1),
+        strides=(1, 1),
+        activation=activation,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.branch2.step3"
+    )
+
+    # merger
+    x = concatenate([branch1, branch2], axis=-1, name=f"{name}.merger")
+    
+    x = convolution_block(
+        inputs=x,
+        filters=filters * 14,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        activation=None,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.conv"
+    )
+    
+    
+    if scale_residual:
+        x = Lambda(lambda s: s * 0.1, name=f"{name}.scale")(x)
+        
+    out = add([shortcut, x], name=f"{name}.residual")
+    out = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(out)
+    out = get_activation_from_name(activation, name=f"{name}.activ")(out)
+    return out
+
+
+def Inception_Resnet_v1(
+    filters,
+    num_blocks,
+    scale_residual,
+    inputs=[299, 299, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
+
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=299,
-                                      min_size=75,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
+
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=299,
+        min_size=64,
+        weights=weights
+    )
 
     # Stem block
-    x = stem_block(img_input)
+    x = stem_block(
+        inputs=inputs,
+        filters=filters,
+        **layer_constant_dict,
+        name="stem"
+    )
 
     # Inception-A
-    for i in range(depths[0]):
-        x = inception_resnet_A(x, scale_residual=scale_residual, prefix=str(i+1))
+    for i in range(num_blocks[0]):
+        x = inception_resnet_A(
+            inputs=x,
+            filters=filters,
+            scale_residual=scale_residual,
+            **layer_constant_dict,
+            name=f"stage1.block{i + 1}"
+        )
 
     # Reduction-A
-    x = reduction_A(x, k=192, l=192, m=256, n=384)
+    x = reduction_A(
+        inputs=x,
+        k=192,
+        l=192,
+        m=256,
+        n=384,
+        **layer_constant_dict,
+        name=f"stage1.block{i + 2}"
+    )
 
     # Inception-B
-    for i in range(depths[1]):
-        x = inception_resnet_B(x, scale_residual=scale_residual, prefix=str(i+1))
+    for i in range(num_blocks[1]):
+        x = inception_resnet_B(
+            inputs=x,
+            filters=filters * 4,
+            scale_residual=scale_residual,
+            **layer_constant_dict,
+            name=f"stage2.block{i + 1}"
+        )
 
     # Reduction-B
-    x = reduction_B(x)
+    x = reduction_B(
+        inputs=x,
+        filters=filters * 8,
+        **layer_constant_dict,
+        name=f"stage2.block{i + 2}"
+    )
                   
     # Inception-C
-    for i in range(depths[2]):
-        x = inception_resnet_C(x, scale_residual=scale_residual, prefix=str(i+1))
+    for i in range(num_blocks[2]):
+        x = inception_resnet_C(
+            inputs=x,
+            filters=filters * 4,
+            scale_residual=scale_residual,
+            **layer_constant_dict,
+            name=f"stage3.block{i + 1}"
+        )
 
-    if include_top:
-        # Classification block
-        x = AveragePooling2D(pool_size=(8, 8), strides=(1, 1), padding='same', name='avg_pooling')(x)
-        x = Dropout(rate=0.8, name='dropout')(x)
-        x = Flatten(name='flatten')(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+    if include_head:
+        x = Sequential([
+            AveragePooling2D(pool_size=(8, 8), strides=(1, 1), padding="same"),
+            Dropout(rate=drop_rate),
+            Flatten(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avg_pooling')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_max_pooling')(x)
-            
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-    
-    # Create model.
-    model = Model(inputs, x, name='Inception-Resnet-v1')
+        if pooling == "avg":
+            x = GlobalAveragePooling2D(name="global_avg_pooling")(x)
+        elif pooling == "max":
+            x = GlobalMaxPooling2D(name="global_max_pooling")(x)
 
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model = Model(inputs=inputs, outputs=x, name="Inception-Resnet-v1")
     return model
+
+
+def Inception_Resnet_v1_backbone(
+    filters,
+    num_blocks,
+    scale_residual,
+    inputs=[299, 299, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    model = Inception_Resnet_v1(
+        filters=filters,
+        num_blocks=num_blocks,
+        scale_residual=scale_residual,
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.conv3.activ",
+        "stem.conv5.activ",
+        f"stage1.block{num_blocks[0] + 1}.branch3.step2.activ",
+        f"stage2.block{num_blocks[1] + 1}.branch4.step2.activ",
+    ]
+    
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def Inception_Resnet_base_v1(
+    inputs=[299, 299, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Inception_Resnet_v1(
+        filters=32,
+        num_blocks=[5, 10, 5],
+        scale_residual=True,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Inception_Resnet_base_v1_backbone(
+    inputs=[299, 299, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    model = Inception_Resnet_base_v1(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+    )
+
+    custom_layers = custom_layers or [
+        "stem.conv3.activ",
+        "stem.conv5.activ",
+        "stage1.block6.branch3.step2.activ",
+        "stage2.block11.branch4.step2.activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")

@@ -212,8 +212,11 @@ def MobileNet_v2(alpha=1,
     if include_top:
         # Classification block
         x = GlobalAveragePooling2D(name='global_avg_pooling')(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            activation=final_activation,
+            name="predictions"
+        )(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avg_pooling')(x)

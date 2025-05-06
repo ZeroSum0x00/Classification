@@ -11,7 +11,7 @@ def load_config(file_path):
     Returns: global config
     """
     _, ext = os.path.splitext(file_path)
-    assert ext in ['.yml', '.yaml'], "only support yaml files for now"
-    config = yaml.load(open(file_path, 'rb'), Loader=yaml.Loader)
-    logger.info(f'Load file {file_path} successfully')
+    assert ext in [".yml", ".yaml"], "only support yaml files for now"
+    config = yaml.load(open(file_path, "rb"), Loader=yaml.Loader)
+    logger.info(f"Load file {file_path} successfully")
     return config

@@ -49,3 +49,4 @@ class TenCrop(BaseTransform):
 
     def image_transform(self, image):
         return ten_crop(image, self.size, self.vertical_flip)
+    

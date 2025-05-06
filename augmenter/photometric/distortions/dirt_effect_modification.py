@@ -26,7 +26,7 @@ def dirt_effect_modification(
         return k
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     emboss_kernel_size = random.choice([9, 11]) if emboss_kernel_size is None else emboss_kernel_size
     alpha = random.uniform(0.4, 0.7) if alpha is None else alpha
@@ -85,3 +85,4 @@ class RandomDirtEffectModification(BaseRandomTransform):
             emboss_kernel_size=self.emboss_kernel_size,
             alpha=self.alpha,
         )
+    

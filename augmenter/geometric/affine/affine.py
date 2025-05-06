@@ -15,12 +15,12 @@ def affine(
     translate=(0, 0),
     scale=1,
     shear=0,
-    interpolation='BILINEAR',
+    interpolation="BILINEAR",
     fill_color=(0, 0, 0)
 ):
     imgtype = image.dtype
     if not is_numpy_image(image):
-        raise TypeError('img should be CV Image. Got {}'.format(type(image)))
+        raise TypeError("img should be CV Image. Got {}".format(type(image)))
 
     assert isinstance(translate, (tuple, list)) and len(translate) == 2, \
         "Argument translate should be a list or tuple of length 2"
@@ -43,12 +43,16 @@ def affine(
     M02 = center[0] - center[0] * M00 - center[1] * M01 + translate[0]
     M12 = center[1] - center[0] * M10 - center[1] * M11 + translate[1]
     affine_matrix = np.array([[M00, M01, M02], [M10, M11, M12]], dtype=np.float32)
-    dst_img = cv2.warpAffine(image, 
-                             affine_matrix, 
-                             (cols, rows), 
-                             flags=INTER_MODE[interpolation],
-                             borderMode=cv2.BORDER_CONSTANT, 
-                             borderValue=fill_color)
+
+    dst_img = cv2.warpAffine(
+        image,
+        affine_matrix,
+        (cols, rows),
+        flags=INTER_MODE[interpolation],
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=fill_color,
+    )
+    
     if gray_scale:
         dst_img = cv2.cvtColor(dst_img, cv2.COLOR_RGB2GRAY)
     return dst_img.astype(imgtype)
@@ -81,7 +85,7 @@ class Affine(BaseTransform):
         translate=(0, 0),
         scale=1,
         shear=0,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         fill_color=(0, 0, 0),
     ):
         self.degrees   = degrees
@@ -130,7 +134,7 @@ class RandomAffine(BaseRandomTransform):
         translate=None,
         scale=None,
         shear=None,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         fill_color=0,
         prob=0.5,
     ):
@@ -215,3 +219,4 @@ class RandomAffine(BaseRandomTransform):
             interpolation=self.interpolation,
             fill_color=self.fill_color,
         )
+    

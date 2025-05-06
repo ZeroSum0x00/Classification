@@ -31,3 +31,4 @@ class BaseRandomTransform(ABC):
             else:
                 images = self.image_transform(images)
         return images
+    

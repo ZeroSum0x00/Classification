@@ -8,7 +8,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def motion_blur(image, ksize_norm=0.1):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     k_size = int(min(image.shape[:2]) * ksize_norm)
     k_size = k_size + 1 if k_size % 2 == 0 else k_size

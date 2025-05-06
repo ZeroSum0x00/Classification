@@ -4,10 +4,10 @@ from tensorflow.keras import losses
 
 class SparseCategoricalCrossentropy(losses.Loss):
     def __init__(
-        self, 
+        self,
         from_logits=False,
         ignore_class=None,
-        reduction='sum_over_batch_size', 
+        reduction="sum_over_batch_size",
         name=None,
     ):
         super(SparseCategoricalCrossentropy, self).__init__(reduction=reduction, name=name)

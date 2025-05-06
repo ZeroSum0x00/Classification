@@ -26,7 +26,7 @@
 """
 
 import tensorflow as tf
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Input, Embedding, Reshape, Dense, Dropout, Concatenate,
     GlobalMaxPooling2D, GlobalAveragePooling2D
@@ -77,7 +77,6 @@ def BEiT(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,  # For text model, equals to vocab_size if include_head is True
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -120,7 +119,7 @@ def BEiT(
             include_head=include_head,
             default_size=224,
             min_size=32,
-            weights=weights
+            weights=weights,
         )
         
         """ forward_embeddings """
@@ -132,10 +131,10 @@ def BEiT(
         x = PatchConv2DWithResampleWeights(
             filters=embed_dim,
             kernel_size=patch_size,
-            strides=patch_size, 
-            padding="valid", 
-            kernel_initializer=kernel_initializer, 
-            use_bias=use_patch_bias, 
+            strides=patch_size,
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            use_bias=use_patch_bias,
             name="stem_conv"
         )(inputs)
         
@@ -171,17 +170,17 @@ def BEiT(
             pos_emb=not use_abs_pos_emb,
             rotate_pos_emb=use_rot_pos_emb,
             text_max_block_size=max_block_size if vocab_size > 0 else 0,
-            attn_dropout=attn_dropout
+            attn_dropout=attn_dropout,
         )
 
         x = AttentionMLPBlock(
             attention_layer=attent_layer,
-            mlp_ratio=mlp_ratio, 
-            layer_scale=attn_layer_scale, 
+            mlp_ratio=mlp_ratio,
+            layer_scale=attn_layer_scale,
             use_gated_mlp=use_gated_mlp,
             activation=activation,
             normalizer=normalizer,
-            use_mlp_norm=use_mlp_norm, 
+            use_mlp_norm=use_mlp_norm,
             norm_eps=norm_eps,
             drop_rate=block_drop_rate,
             drop_prob=0.0,
@@ -203,15 +202,16 @@ def BEiT(
         x = x[:, 0]
 
     if include_head:
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes, 
-            kernel_initializer=kernel_initializer, 
-            bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
-            name="predictions"
-        )(x)
-        
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(drop_rate),
+            Dense(
+                units=1 if num_classes == 2 else num_classes,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D(name="global_avgpool")(x)
@@ -250,7 +250,6 @@ def BEiT_B16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -271,7 +270,6 @@ def BEiT_B16(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -290,7 +288,6 @@ def BEiT_B32(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -311,7 +308,6 @@ def BEiT_B32(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -330,7 +326,6 @@ def BEiT_L16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -352,7 +347,6 @@ def BEiT_L16(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -371,7 +365,6 @@ def BEiT_L32(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -393,7 +386,6 @@ def BEiT_L32(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -412,7 +404,6 @@ def BEiT_H16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -434,7 +425,6 @@ def BEiT_H16(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -453,7 +443,6 @@ def BEiT_H32(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -475,7 +464,6 @@ def BEiT_H32(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,

@@ -10,7 +10,7 @@
        --------------------------------------
       |     Model Name      |    Params      |
       |--------------------------------------|
-      |     Xception        |   22,910,480   |
+      |     Xception        |   23,238,312   |
        --------------------------------------
 
   # Reference:
@@ -19,435 +19,312 @@
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import SeparableConv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, SeparableConv2D, Dense, Dropout,
+    MaxPooling2D, GlobalMaxPooling2D, GlobalAveragePooling2D,
+    add
+)
+from tensorflow.keras.regularizers import l2
 
+from .inception_v3 import convolution_block
 from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape
+from utils.model_processing import process_model_input
 
 
-TF_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels.h5'
-TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels_notop.h5'
+
+def xception_block(
+    inputs,
+    filters,
+    shortcut=True,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"xception_block_{K.get_uid('xception_block')}"
+
+    x = Sequential([
+        get_activation_from_name(activation),
+        SeparableConv2D(
+            filters=filters[0],
+            kernel_size=(3, 3),
+            padding='same',
+            use_bias=False,
+            depthwise_initializer=kernel_initializer,
+            pointwise_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            depthwise_regularizer=l2(regularizer_decay),
+            pointwise_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        SeparableConv2D(
+            filters=filters[1],
+            kernel_size=(3, 3),
+            padding='same',
+            use_bias=False,
+            depthwise_initializer=kernel_initializer,
+            pointwise_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            depthwise_regularizer=l2(regularizer_decay),
+            pointwise_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name=f"{name}.separable")(inputs)
+
+    if shortcut:
+        residual = Sequential([
+            Conv2D(
+                filters=filters[1],
+                kernel_size=(1, 1),
+                strides=(2, 2),
+                padding='same',
+                use_bias=False,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        ], name=f"{name}.residual")(inputs)
+    
+        x = MaxPooling2D(
+            pool_size=(3, 3),
+            strides=(2, 2),
+            padding='same',
+            name=f"{name}.pooling"
+        )(x)
+    
+        x = add([x, residual], name=f"{name}.add")
+        
+    return x
 
 
-def Xception(include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             activation="relu",
-             normalizer="batch-norm",
-             final_activation="softmax",
-             classes=1000,
-             kernel_initializer="glorot_uniform",
-             bias_initializer="zeros",
-             regularizer_decay=5e-4,
-             norm_eps=1e-6,
-             drop_rate=0.1):
-
-    if weights not in {'imagenet', None}:
+def Xception(
+    filters,
+    inputs=[299, 299, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
+    
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=299,
-                                      min_size=71,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-    """ 
-        Entry flow
-    """
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=299,
+        min_size=71,
+        weights=weights
+    )
+    
     # Block 1
-    x = Conv2D(filters=32,
-               kernel_size=(3, 3),
-               strides=(2, 2),
-               use_bias=False,
-               kernel_initializer=kernel_initializer,
-               bias_initializer=bias_initializer,
-               kernel_regularizer=l2(regularizer_decay),
-               name='block1_conv1')(img_input)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block1_conv1_batchnorm')(x)
-    x = get_activation_from_name(activation, name='block1_conv1_activation')(x)
+    x = Sequential([
+        Conv2D(
+            filters=filters,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters * 2,
+            kernel_size=(3, 3),
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=l2(regularizer_decay),
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name="stem")(inputs)
 
-    x = Conv2D(filters=64,
-               kernel_size=(3, 3),
-               use_bias=False,
-               kernel_initializer=kernel_initializer,
-               bias_initializer=bias_initializer,
-               kernel_regularizer=l2(regularizer_decay),
-               name='block1_conv2')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block1_conv2_batchnorm')(x)
-    x = get_activation_from_name(activation, name='block1_conv2_activation')(x)
+    x = xception_block(x, filters=[filters * 4, filters * 4], name="stage1")
+    x = xception_block(x, filters=[filters * 8, filters * 8], name="stage2")
+    x = xception_block(x, filters=[filters * 23, filters * 23], name="stage3")
 
-    residual = Conv2D(filters=128,
-                      kernel_size=(1, 1),
-                      strides=(2, 2),
-                      padding='same',
-                      use_bias=False,
-                      kernel_initializer=kernel_initializer,
-                      bias_initializer=bias_initializer,
-                      kernel_regularizer=l2(regularizer_decay),
-                      name='entry_residual1')(x)
-    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='entry_residual1_batchnorm')(residual)
-
-
-    # Block 2
-    x = SeparableConv2D(filters=128,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block2_sepconv1')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block2_sepconv1_batchnorm')(x)
-
-    x = get_activation_from_name(activation, name='block2_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=128,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block2_sepconv2')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block2_sepconv2_batchnorm')(x)
-    
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block2_maxpooling')(x)
-    
-    x = add([x, residual], name='block2_merge')
-
-
-    # Block 3
-    residual = Conv2D(filters=256,
-                      kernel_size=(1, 1),
-                      strides=(2, 2),
-                      padding='same',
-                      use_bias=False,
-                      kernel_initializer=kernel_initializer,
-                      bias_initializer=bias_initializer,
-                      kernel_regularizer=l2(regularizer_decay),
-                      name='entry_residual2')(x)
-    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='entry_residual2_batchnorm')(residual)
-
-    x = get_activation_from_name(activation, name='block3_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=256,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block3_sepconv1')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block3_sepconv1_batchnorm')(x)
-
-    x = get_activation_from_name(activation, name='block3_sepconv2_activation')(x)
-    x = SeparableConv2D(filters=256,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block3_sepconv2')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block3_sepconv2_batchnorm')(x)
-
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block3_maxpooling')(x)
-
-    x = add([x, residual], name='block3_merge')
-
-
-    # Block4
-    residual = Conv2D(filters=728,
-                      kernel_size=(1, 1),
-                      strides=(2, 2),
-                      padding='same',
-                      use_bias=False,
-                      kernel_initializer=kernel_initializer,
-                      bias_initializer=bias_initializer,
-                      kernel_regularizer=l2(regularizer_decay),
-                      name='entry_residual3')(x)
-    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='entry_residual3_batchnorm')(residual)
-
-    x = get_activation_from_name(activation, name='block4_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=728,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block4_sepconv1')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block4_sepconv1_batchnorm')(x)
-
-    x = get_activation_from_name(activation, name='block4_sepconv2_activation')(x)
-    x = SeparableConv2D(filters=728,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block4_sepconv2')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block4_sepconv2_batchnorm')(x)
-
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block4_maxpooling')(x)
-
-    x = add([x, residual], name='block4_merge')
-
-
-    """ 
-        Middle flow
-    """ 
-    # Block 5 - 12
     for i in range(8):
-        prefix = 'block' + str(i + 5)
         residual = x
+        x = Sequential([
+            get_activation_from_name(activation),
+            SeparableConv2D(
+                filters=filters * 23,
+                kernel_size=(3, 3),
+                padding='same',
+                use_bias=False,
+                depthwise_initializer=kernel_initializer,
+                pointwise_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                depthwise_regularizer=l2(regularizer_decay),
+                pointwise_regularizer=l2(regularizer_decay),
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+            SeparableConv2D(
+                filters=filters * 23,
+                kernel_size=(3, 3),
+                padding='same',
+                use_bias=False,
+                depthwise_initializer=kernel_initializer,
+                pointwise_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                depthwise_regularizer=l2(regularizer_decay),
+                pointwise_regularizer=l2(regularizer_decay),
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+            SeparableConv2D(
+                filters=filters * 23,
+                kernel_size=(3, 3),
+                padding='same',
+                use_bias=False,
+                depthwise_initializer=kernel_initializer,
+                pointwise_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                depthwise_regularizer=l2(regularizer_decay),
+                pointwise_regularizer=l2(regularizer_decay),
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        ], name=f"stage4.block{i + 1}.separable")(x)
+        
+        x = add([x, residual], name=f"stage4.block{i + 1}.add")
 
-        x = get_activation_from_name(activation, name=prefix + '_sepconv1_activation')(x)
-        x = SeparableConv2D(filters=728,
-                            kernel_size=(3, 3),
-                            padding='same',
-                            use_bias=False,
-                            kernel_initializer=kernel_initializer,
-                            bias_initializer=bias_initializer,
-                            kernel_regularizer=l2(regularizer_decay),
-                            name=prefix + '_sepconv1')(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name=prefix + '_sepconv1_batchnorm')(x)
+    x = xception_block(x, filters=[filters * 23, filters * 32], name="stage5")
+    x = xception_block(x, filters=[filters * 48, filters * 64], shortcut=False, name="stage6")
 
-        x = get_activation_from_name(activation, name=prefix + '_sepconv2_activation')(x)
-        x = SeparableConv2D(filters=728,
-                            kernel_size=(3, 3),
-                            padding='same',
-                            use_bias=False,
-                            kernel_initializer=kernel_initializer,
-                            bias_initializer=bias_initializer,
-                            kernel_regularizer=l2(regularizer_decay),
-                            name=prefix + '_sepconv2')(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name=prefix + '_sepconv2_batchnorm')(x)
-
-        x = get_activation_from_name(activation, name=prefix + '_sepconv3_activation')(x)
-        x = SeparableConv2D(filters=728,
-                            kernel_size=(3, 3),
-                            padding='same',
-                            use_bias=False,
-                            kernel_initializer=kernel_initializer,
-                            bias_initializer=bias_initializer,
-                            kernel_regularizer=l2(regularizer_decay),
-                            name=prefix + '_sepconv3')(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name=prefix + '_sepconv3_batchnorm')(x)
-
-        x = add([x, residual], name='block' + str(i + 5) + '_merge')
-
-
-    """ 
-        Exit flow
-    """ 
-    # Block 13
-    residual = Conv2D(filters=1024,
-                      kernel_size=(1, 1),
-                      strides=(2, 2),
-                      padding='same',
-                      use_bias=False,
-                      kernel_initializer=kernel_initializer,
-                      bias_initializer=bias_initializer,
-                      kernel_regularizer=l2(regularizer_decay),
-                      name='exit_residual1')(x)
-    residual = get_normalizer_from_name(normalizer, epsilon=norm_eps, name='exit_residual1_batchnorm')(residual)
-
-    x = get_activation_from_name(activation, name='block13_sepconv1_activation')(x)
-    x = SeparableConv2D(filters=728,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block13_sepconv1')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block13_sepconv1_batchnorm')(x)
-
-    x = get_activation_from_name(activation, name='block13_sepconv2_activation')(x)
-    x = SeparableConv2D(filters=1024,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block13_sepconv2')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block13_sepconv2_batchnorm')(x)
-
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='block13_maxpooling')(x)
-
-    x = add([x, residual], name='block13_merge')
-
-
-    # Block 14
-    x = SeparableConv2D(filters=1536,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block14_sepconv1')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block14_sepconv1_batchnorm')(x)
-    x = get_activation_from_name(activation, name='block14_sepconv1_activation')(x)
-
-    x = SeparableConv2D(filters=2048,
-                        kernel_size=(3, 3),
-                        padding='same',
-                        use_bias=False,
-                        kernel_initializer=kernel_initializer,
-                        bias_initializer=bias_initializer,
-                        kernel_regularizer=l2(regularizer_decay),
-                        name='block14_sepconv2')(x)
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps,  name='block14_sepconv2_batchnorm')(x)
-    x = get_activation_from_name(activation, name='block14_sepconv2_activation')(x)
-
-    # Final Block
-    if include_top:
-        x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+    if include_head:
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)
         elif pooling == 'max':
             x = GlobalMaxPooling2D(name='global_maxpool')(x)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-        
-    # Create model.
     model = Model(inputs, x, name='Xception')
-
-    # load weights
-    if weights == 'imagenet':
-        if include_top:
-            weights_path = get_file('xception_weights_tf_dim_ordering_tf_kernels.h5',
-                                    TF_WEIGHTS_PATH,
-                                    cache_subdir='models',
-                                    file_hash='0a58e3b7378bc2990ea3b43d5981f1f6')
-        else:
-            weights_path = get_file('xception_weights_tf_dim_ordering_tf_kernels_notop.h5',
-                                    TF_WEIGHTS_PATH_NO_TOP,
-                                    cache_subdir='models',
-                                    file_hash='b0042744bf5b25fce3cb969f33bebb97')
-        model.load_weights(weights_path)
-
-    elif weights is not None:
-        model.load_weights(weights)
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
     return model
 
 
-def Xception_backbone(input_shape=(299, 299, 3),
-                      include_top=False, 
-                      weights='imagenet', 
-                      input_tensor=None, 
-                      pooling=None, 
-                      final_activation="softmax",
-                      classes=1000,
-                      custom_layers=None) -> Model:
-
-    model = Xception(include_top=include_top, weights=weights,
-                     input_tensor=input_tensor, input_shape=input_shape,
-                     pooling=pooling, final_activation=final_activation, classes=classes)
-
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name='Xception_backbone')
-
-    else:
-        y_2 = model.get_layer("block2_sepconv2_batchnorm").output
-        y_4 = model.get_layer("block3_sepconv2_batchnorm").output
-        y_8 = model.get_layer("block4_sepconv2_batchnorm").output
-        y_16 = model.get_layer("block13_sepconv2_batchnorm").output
-        y_32 = model.get_layer("block14_sepconv2_activation").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='Xception_backbone')
-
-def Xception_backbone2(input_shape=(299, 299, 3), 
-                       include_top=False, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       custom_layers=None) -> Model:
+def Xception_backbone(
+    inputs=[299, 299, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
     
-    model = Xception(include_top=include_top, weights=weights,
-                     input_tensor=input_tensor, input_shape=input_shape,
-                     pooling=pooling, final_activation=final_activation, classes=classes)
+    model = Xception(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+    )
 
-    for l in model.layers:
-        l.trainable = True
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=[y_i], name='Xception_backbone')
-
-    else:
-        y_2 = model.get_layer("block2_merge").output
-        y_4 = model.get_layer("block3_merge").output
-        y_8 = model.get_layer("block4_merge").output
-        y_16 = model.get_layer("block12_merge").output
-        y_32 = model.get_layer("block14_sepconv2_activation").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='Xception_backbone')
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
-if __name__ == '__main__':
-    model = Xception(input_shape=(299, 299, 3), include_top=False, pooling='avg')
+def Xception_base(
+    inputs=[299, 299, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Xception(
+        filters=32,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+def Xception_base_backbone(
+    inputs=[299, 299, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    model = Xception_base(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")

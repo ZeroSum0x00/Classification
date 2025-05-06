@@ -3,11 +3,12 @@ import cv2
 import imagesize
 from tqdm import tqdm
 from utils.files import valid_image
+from utils.logger import logger
 
 
 class ParseDirName:
     def __init__(
-        self, 
+        self,
         data_dir,
         classes,
         load_memory,
@@ -23,14 +24,14 @@ class ParseDirName:
 
         for filename in tqdm(image_files):
             info_dict = {}
-            info_dict['filename'] = os.path.basename(filename)
-            info_dict['image'] = None
+            info_dict["filename"] = os.path.basename(filename)
+            info_dict["image"] = None
             label = os.path.dirname(filename)
-            info_dict['label'] = self.classes.index(label)
-            info_dict['path'] = os.path.join(self.data_dir, label)
+            info_dict["label"] = self.classes.index(label)
+            info_dict["path"] = os.path.join(self.data_dir, label)
             image_path = os.path.join(self.data_dir, filename)
             width, height = imagesize.get(image_path)
-            info_dict['image_size'] = (height, width)
+            info_dict["image_size"] = (height, width)
 
             if self.check_data:
                 try:
@@ -38,13 +39,14 @@ class ParseDirName:
                     img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
                     shape = img.shape
                 except Exception as e:
-                    print(f"Error: File {filename} is can't loaded: {e}")
+                    logger.error(f"Error: File {filename} is can't loaded: {e}")
                     continue
                 
             if self.load_memory:
                 img = cv2.imread(image_path)
-                info_dict['image'] = img
+                info_dict["image"] = img
                 
             if info_dict:
                 data_extraction.append(info_dict)
         return data_extraction
+    

@@ -35,6 +35,7 @@ class TrainLogger(tf.keras.callbacks.Callback):
         self.logger.addHandler(self.file_handler)
 
     def on_epoch_end(self, epoch: int, logs: dict=None):
-        epoch_message = f"Epoch {epoch + 1}/{self.params['epochs']}\n\t"
+        epoch_message = f"Epoch {epoch + 1}/{self.params["epochs"]}\n\t"
         logs_message = " - ".join([f"{key}: {value:.4f}" for key, value in logs.items()])
         self.logger.info(epoch_message + logs_message)
+        

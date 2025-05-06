@@ -64,3 +64,4 @@ class RandomColorJitter(BaseRandomTransform):
         random.shuffle(self.transforms)
         transform = ComposeTransform(self.transforms)
         return transform(image)
+    

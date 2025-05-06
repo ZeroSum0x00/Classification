@@ -9,10 +9,10 @@ from ..blends import blend
 
 def brightness(image, factor):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     if factor < 0:
-        raise ValueError('Brightness should be a non-negative real number')
+        raise ValueError("Brightness should be a non-negative real number")
 
     degenerate = np.zeros_like(image)
     return blend(degenerate, image, factor)
@@ -30,7 +30,7 @@ class RandomBrightness(BaseRandomTransform):
     def __init__(self, factor, prob=0.5):
 
         if isinstance(factor, numbers.Number) and factor < 0:
-            raise ValueError('Brightness factor should be a non-negative real number')
+            raise ValueError("Brightness factor should be a non-negative real number")
 
         self.factor = factor
         self.prob = prob
@@ -53,3 +53,4 @@ class RandomBrightness(BaseRandomTransform):
     def image_transform(self, image):
         brightness_factor = self.get_params(self.factor)
         return brightness(image, brightness_factor)
+    

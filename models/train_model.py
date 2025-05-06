@@ -8,21 +8,33 @@ from utils.logger import logger
 
 class TrainModel(tf.keras.Model):
     def __init__(
-        self, 
+        self,
         architecture,
         classes=None,
         inputs=(224, 224, 3),
-        global_clipnorm=5.,
+        use_ema=False,
+        model_clip_gradient=5.,
+        gradient_accumulation_steps=1,
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.architecture = architecture
         self.classes = classes
         self.inputs = inputs
-        self.global_clipnorm = global_clipnorm
-        self.total_loss_tracker = tf.keras.metrics.Mean(name="loss")
+        self.model_clip_gradient = model_clip_gradient
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        
+        self.total_loss_tracker = tf.keras.metrics.Mean(name="loss")        
+        self.accumulated_gradients = None
+        self.step_counter = tf.Variable(0, trainable=False, dtype=tf.int64)
+        self.current_epoch = tf.Variable(0, trainable=False, dtype=tf.int64)
         self.model_param_call = {}
-
+        self.list_metrics = []
+        
+        if use_ema:
+            self.ema = tf.train.ExponentialMovingAverage(decay=0.99)
+            self.ema.apply(self.architecture.trainable_variables)
+            
     def compile(self, optimizer, loss, metrics=None, **kwargs):
         super().compile(**kwargs)
         self.optimizer = optimizer
@@ -43,34 +55,76 @@ class TrainModel(tf.keras.Model):
         loss_value += tf.reduce_sum(self.architecture.losses)
         return y_pred, loss_value
         
+    def reset_metrics(self):
+        super().reset_metrics()
+        self.step_counter.assign(0)
+        if self.accumulated_gradients is not None:
+            for accum_grad in self.accumulated_gradients:
+                accum_grad.assign(tf.zeros_like(accum_grad))
+
+    @tf.function
     def train_step(self, data):
         images, labels = data
-        
+
         with tf.GradientTape() as tape:
             y_pred, loss_value = self._compute_loss(images, labels, training=True)
-            
-        gradients = tape.gradient(loss_value, self.architecture.trainable_variables)
-        gradients, _ = tf.clip_by_global_norm(gradients, self.global_clipnorm)
-        self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
-        self.total_loss_tracker.update_state(loss_value)
+            scale_loss_value = loss_value / tf.constant(self.gradient_accumulation_steps, dtype=tf.float32)
+
+        gradients = tape.gradient(scale_loss_value, self.architecture.trainable_variables)
         
+        if self.gradient_accumulation_steps == 1:
+            if self.model_clip_gradient > 0:
+                gradients, _ = tf.clip_by_global_norm(gradients, self.model_clip_gradient)
+            self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
+        else:
+            if self.accumulated_gradients is None:
+                self.accumulated_gradients = [
+                    tf.Variable(tf.zeros_like(var), trainable=False)
+                    for var in self.architecture.trainable_variables
+                ]
+                
+            for accum_grad, grad in zip(self.accumulated_gradients, gradients):
+                if grad is not None:
+                    accum_grad.assign_add(grad)
+    
+            self.step_counter.assign_add(1)
+            if self.step_counter % self.gradient_accumulation_steps == 0:
+                if self.model_clip_gradient > 0:
+                    clipped_grads, _ = tf.clip_by_global_norm(self.accumulated_gradients, self.model_clip_gradient)
+                else:
+                    clipped_grads = self.accumulated_gradients
+            
+                self.optimizer.apply_gradients(zip(clipped_grads, self.architecture.trainable_variables))
+            
+                for accum_grad in self.accumulated_gradients:
+                    accum_grad.assign(tf.zeros_like(accum_grad))
+
+        if hasattr(self, "ema"):
+            self.ema.apply(self.architecture.trainable_variables)
+            
+        self.total_loss_tracker.update_state(loss_value)
+    
         for metric in self.list_metrics:
             metric.update_state(labels, y_pred)
-            
-        return {m.name: m.result() for m in self.metrics} | {"learning_rate": self.optimizer.learning_rate}
-
+    
+        return {m.name: m.result() for m in self.metrics}
+        
+    @tf.function
     def test_step(self, data):
         images, labels = data
         y_pred, loss_value = self._compute_loss(images, labels, training=False)
         self.total_loss_tracker.update_state(loss_value)
-        
+
         for metric in self.list_metrics:
             metric.update_state(labels, y_pred)
-            
+
         return {m.name: m.result() for m in self.metrics}
 
     def call(self, inputs):
         try:
+            if self.use_ema:
+                self.ema.apply(self.architecture.trainable_variables)
+
             return self.predict(inputs)
         except Exception as e:
             logger.warning(f"Error in call(): {e}")
@@ -119,3 +173,4 @@ class TrainModel(tf.keras.Model):
             logger.info(f"Model loaded from: {model_path}")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
+            

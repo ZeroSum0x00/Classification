@@ -47,3 +47,4 @@ class DropPath(tf.keras.layers.Layer):
         if training and self.drop_layer is not None:
             inputs = self.drop_layer(inputs)
         return inputs
+    

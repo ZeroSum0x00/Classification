@@ -8,7 +8,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def scratches(image, num_scratches=20, alpha=None):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     alpha = alpha if alpha is not None else .5
     h, w = image.shape[:2]
@@ -74,3 +74,4 @@ class RandomScratches(BaseRandomTransform):
 
     def image_transform(self, image):
         return scratches(image, self.num_scratches, self.alpha)
+    

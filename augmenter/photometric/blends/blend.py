@@ -7,10 +7,10 @@ from utils.auxiliary_processing import is_numpy_image
 # def blend(image1, image2, ratio=0.8):
 
 #     if not is_numpy_image(image1):
-#         raise TypeError('img1 should be image. Got {}'.format(type(image1)))
+#         raise TypeError("img1 should be image. Got {}".format(type(image1)))
 
 #     if not is_numpy_image(image2):
-#         raise TypeError('img2 should be image. Got {}'.format(type(image2)))
+#         raise TypeError("img2 should be image. Got {}".format(type(image2)))
     
 #     if ratio == 0.0:
 #         return image1
@@ -25,10 +25,10 @@ from utils.auxiliary_processing import is_numpy_image
 
 def blend(image1, image2, factor):
     if not is_numpy_image(image1):
-        raise TypeError('img1 should be image. Got {}'.format(type(image1)))
+        raise TypeError("img1 should be image. Got {}".format(type(image1)))
 
     if not is_numpy_image(image2):
-        raise TypeError('img2 should be image. Got {}'.format(type(image2)))
+        raise TypeError("img2 should be image. Got {}".format(type(image2)))
     
     if factor == 0.0:
         return image1
@@ -61,3 +61,4 @@ class Blend:
 
     def __call__(self, image1, image2):
         return blend(image1, image2, factor=self.ratio)
+    

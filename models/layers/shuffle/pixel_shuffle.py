@@ -2,9 +2,9 @@ import tensorflow as tf
 
 
 class PixelShuffle(tf.keras.layers.Layer):
-    def __init__(self, upscale_factor=4, **kwargs):
-        super(PixelShuffle, self).__init__(**kwargs)
-        self.upscale_factor  = upscale_factor 
+    def __init__(self, upscale_factor=4, *args, **kwargs):
+        super(PixelShuffle, self).__init__(*args, **kwargs)
+        self.upscale_factor = upscale_factor 
 
     def call(self, inputs, training=False):
         N, H, W, C = tf.shape(inputs)
@@ -13,3 +13,4 @@ class PixelShuffle(tf.keras.layers.Layer):
         x = tf.transpose(x, perm=[0, 1, 3, 2, 4, 5])
         x = tf.reshape(x, shape=(N, H * S, W * S, -1))
         return x
+    

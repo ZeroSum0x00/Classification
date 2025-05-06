@@ -9,11 +9,11 @@ from utils.constants import INTER_MODE
 
 
 
-def resize(image, size, interpolation='BILINEAR'):
+def resize(image, size, interpolation="BILINEAR"):
     if not is_numpy_image(image):
-        raise TypeError('Image input should be CV Image. Got {}'.format(type(image)))
+        raise TypeError("Image input should be CV Image. Got {}".format(type(image)))
     if not (isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)):
-        raise TypeError('Got inappropriate size arg: {}'.format(size))
+        raise TypeError("Got inappropriate size arg: {}".format(size))
 
     if isinstance(size, int):
         h, w, c = image.shape
@@ -45,10 +45,11 @@ class Resize(BaseTransform):
         interpolation (int, optional): Desired interpolation. Default is ``BILINEAR``
     """
 
-    def __init__(self, size, interpolation='BILINEAR'):
+    def __init__(self, size, interpolation="BILINEAR"):
         assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
         self.size = size
         self.interpolation = interpolation
 
     def image_transform(self, image):
         return resize(image, self.size, self.interpolation)
+    

@@ -22,3 +22,4 @@ class RandomPoissonNoise(BaseRandomTransform):
 
     def image_transform(self, image):
         return poisson_noise(image)
+    

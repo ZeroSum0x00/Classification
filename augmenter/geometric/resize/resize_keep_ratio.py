@@ -7,10 +7,10 @@ from .resize import resize
 
 class ResizeKeepRatio(BaseTransform):
     def __init__(
-        self, 
+        self,
         size,
         longest=0.,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         random_scale_prob=0.,
         random_scale_range=(0.85, 1.05),
         random_scale_area=False,
@@ -76,3 +76,4 @@ class ResizeKeepRatio(BaseTransform):
             random_aspect_range=self.random_aspect_range,
         )
         return resize(image, target_size, self.interpolation)
+    

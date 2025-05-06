@@ -4,10 +4,10 @@ from tensorflow.keras import losses
 
 class BinaryCrossentropy(losses.Loss):
     def __init__(
-        self, 
+        self,
         from_logits=False,
         label_smoothing=0.0,
-        reduction='sum_over_batch_size', 
+        reduction="sum_over_batch_size",
         name=None,
     ):
         super(BinaryCrossentropy, self).__init__(reduction=reduction, name=name)

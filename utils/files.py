@@ -16,14 +16,14 @@ def extract_zip(archive, destination):
 
 
 def extract_data_folder(data_dir, dst_dir=None):
-    ACCEPTABLE_EXTRACT_FORMATS = ['.zip', '.rar', '.tar']
+    ACCEPTABLE_EXTRACT_FORMATS = [".zip", ".rar", ".tar"]
     if (os.path.isfile(data_dir)) and os.path.splitext(data_dir)[-1] in ACCEPTABLE_EXTRACT_FORMATS:
         if dst_dir is not None:
             data_destination = dst_dir
         else:
-            data_destination = '/'.join(data_dir.split('/')[: -1])
+            data_destination = "/".join(data_dir.split("/")[: -1])
 
-        folder_name = data_dir.split('/')[-1]
+        folder_name = data_dir.split("/")[-1]
         folder_name = os.path.splitext(folder_name)[0]
         data_destination = os.path.join(data_destination, folder_name) 
 
@@ -36,12 +36,12 @@ def extract_data_folder(data_dir, dst_dir=None):
 
 
 def verify_folder(folder):
-    if folder[-1] != '/':
-        folder += '/'
+    if folder[-1] != "/":
+        folder += "/"
     return folder
 
 
-def get_files(folder_path, extensions=['py', 'png', 'JPEG'], prefix=''):
+def get_files(folder_path, extensions=["py", "png", "JPEG"], prefix=""):
     if isinstance(extensions, str):
         extensions = [extensions]
     else:
@@ -50,10 +50,11 @@ def get_files(folder_path, extensions=['py', 'png', 'JPEG'], prefix=''):
     result = []
     
     if os.path.isdir(folder_path):
-        result = [os.path.join(prefix, x) for x in os.listdir(folder_path) if x.split('.')[-1].lower() in extensions]
+        result = [os.path.join(prefix, x) for x in os.listdir(folder_path) if x.split(".")[-1].lower() in extensions]
         
     return result
 
 
 def valid_image(image_path):
     subprocess.run(f"mogrify {image_path}", shell=True)
+    

@@ -40,3 +40,4 @@ class RandomSaltPepperNoise(BaseRandomTransform):
     def image_transform(self, image):
         threshold_factor = self.get_params(self.threshold_range)
         return salt_and_pepper_noise(image, threshold_factor)
+    

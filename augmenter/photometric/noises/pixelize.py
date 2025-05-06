@@ -6,7 +6,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def pixelize(image, ratio=.2):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     im_height, im_width = image.shape[:2]
     tmp_w, tmp_h = int(im_width * ratio), int(im_height * ratio)

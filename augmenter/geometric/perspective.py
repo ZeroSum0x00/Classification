@@ -13,11 +13,11 @@ def perspective(
     fov=45,
     anglex=0,
     angley=0,
-    anglez=0, 
+    anglez=0,
     translate=(0, 0),
     scale=(1, 1),
     shear=0,
-    interpolation='BILINEAR',
+    interpolation="BILINEAR",
     fill_color=(0, 0, 0),
 ):
     imgtype = image.dtype
@@ -97,11 +97,11 @@ def perspective(
     perspective_matrix = cv2.getPerspectiveTransform(org, dst)
     total_matrix = perspective_matrix @ affine_matrix
 
-    result_img = cv2.warpPerspective(image, 
-                                     total_matrix, 
-                                     (w, h), 
+    result_img = cv2.warpPerspective(image,
+                                     total_matrix,
+                                     (w, h),
                                      flags=INTER_MODE[interpolation],
-                                     borderMode=cv2.BORDER_CONSTANT, 
+                                     borderMode=cv2.BORDER_CONSTANT,
                                      borderValue=fill_color)
     if gray_scale:
         result_img = cv2.cvtColor(result_img, cv2.COLOR_RGB2GRAY)
@@ -142,9 +142,9 @@ class Perspective(BaseTransform):
         angley=0,
         anglez=0,
         translate=(0, 0),
-        scale=(1, 1), 
+        scale=(1, 1),
         shear=0,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         fill_color=(0, 0, 0),
     ):
         self.fov    = fov
@@ -214,11 +214,11 @@ class RandomPerspective(BaseRandomTransform):
         fov=0,
         anglex=0,
         angley=0,
-        anglez=0, 
+        anglez=0,
         translate=(0, 0),
         scale=(1, 1),
-        shear=0, 
-        interpolation='BILINEAR',
+        shear=0,
+        interpolation="BILINEAR",
         fill_color=(0, 0, 0),
         prob=0.5,
     ):
@@ -226,8 +226,8 @@ class RandomPerspective(BaseRandomTransform):
                     isinstance(angley, (tuple, list)) or angley >= 0,
                     isinstance(anglez, (tuple, list)) or anglez >= 0,
                     isinstance(shear, (tuple, list)) or shear >= 0]), \
-            'All angles must be positive or tuple or list'
-        assert 80 >= fov >= 0, 'fov should be in (0, 80)'
+            "All angles must be positive or tuple or list"
+        assert 80 >= fov >= 0, "fov should be in (0, 80)"
         self.fov    = fov
         self.anglex = (-anglex, anglex) if isinstance(anglex, numbers.Number) else anglex
         self.angley = (-angley, angley) if isinstance(angley, numbers.Number) else angley
@@ -254,7 +254,7 @@ class RandomPerspective(BaseRandomTransform):
         fov_range,
         anglex_ranges,
         angley_ranges,
-        anglez_ranges, 
+        anglez_ranges,
         translate,
         scale_ranges,
         shear_ranges,
@@ -293,3 +293,4 @@ class RandomPerspective(BaseRandomTransform):
             interpolation=self.interpolation,
             fill_color=self.fill_color,
         )
+    

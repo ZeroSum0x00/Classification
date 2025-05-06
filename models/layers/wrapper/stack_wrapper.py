@@ -2,8 +2,8 @@ import tensorflow as tf
 
 
 class StackWrapper(tf.keras.layers.Layer):
-    def __init__(self, axis=0, **kwargs):
-        super(StackWrapper, self).__init__(**kwargs)
+    def __init__(self, axis=0, *args, **kwargs):
+        super(StackWrapper, self).__init__(*args, **kwargs)
         self.axis = axis
 
     def call(self, inputs):
@@ -11,10 +11,11 @@ class StackWrapper(tf.keras.layers.Layer):
 
 
 class UnstackWrapper(tf.keras.layers.Layer):
-    def __init__(self, num=None, axis=0, **kwargs):
-        super(UnstackWrapper, self).__init__(**kwargs)
-        self.num  = num
+    def __init__(self, num=None, axis=0, *args, **kwargs):
+        super(UnstackWrapper, self).__init__(*args, **kwargs)
+        self.num = num
         self.axis = axis
 
     def call(self, inputs):
         return tf.unstack(inputs, num=self.num, axis=self.axis)
+    

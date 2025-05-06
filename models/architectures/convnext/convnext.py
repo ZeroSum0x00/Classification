@@ -25,7 +25,7 @@
 
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv2D, Dense, Dropout, Lambda, GlobalMaxPooling2D, GlobalAveragePooling2D
 )
@@ -55,10 +55,10 @@ def stem_cell(
         name = f"stem_cell{K.get_uid('stem_cell')}"
     
     x = Conv2D(
-        filters=out_filter, 
-        kernel_size=(4, 4), 
-        strides=(4, 4), 
-        padding="same", 
+        filters=out_filter,
+        kernel_size=(4, 4),
+        strides=(4, 4),
+        padding="same",
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         kernel_regularizer=l2(regularizer_decay),
@@ -75,8 +75,8 @@ def stem_cell(
 
 
 def Downsample(
-    inputs, 
-    out_filter, 
+    inputs,
+    out_filter,
     normalizer="layer-norm",
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -95,8 +95,8 @@ def Downsample(
     
     x = Conv2D(
         filters=out_filter,
-        kernel_size=(2, 2), 
-        strides=(2, 2), 
+        kernel_size=(2, 2),
+        strides=(2, 2),
         padding="same",
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -108,9 +108,9 @@ def Downsample(
 
 
 def ConvNextBlock(
-    inputs, 
-    drop_prob=0, 
-    layer_scale_init_value=1e-6, 
+    inputs,
+    drop_prob=0,
+    layer_scale_init_value=1e-6,
     activation="gelu",
     normalizer="layer-norm",
     kernel_initializer="glorot_uniform",
@@ -182,12 +182,11 @@ def ConvNext(
     num_blocks,
     layer_scale_init_value,
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -237,7 +236,7 @@ def ConvNext(
     for i in range(num_blocks[0]):
         x = create_layer_instance(
             ConvNextBlock,
-            inputs=x, 
+            inputs=x,
             drop_prob=dp_rates[cur + i],
             layer_scale_init_value=layer_scale_init_value,
             **layer_constant_dict,
@@ -256,8 +255,8 @@ def ConvNext(
     for i in range(num_blocks[1]):
         x = create_layer_instance(
             ConvNextBlock,
-            inputs=x, 
-            drop_prob=dp_rates[cur + i], 
+            inputs=x,
+            drop_prob=dp_rates[cur + i],
             layer_scale_init_value=layer_scale_init_value,
             **layer_constant_dict,
             name=f"stage2.block{str(i+2)}"
@@ -275,8 +274,8 @@ def ConvNext(
     for i in range(num_blocks[2]):
         x = create_layer_instance(
             ConvNextBlock,
-            inputs=x, 
-            drop_prob=dp_rates[cur + i], 
+            inputs=x,
+            drop_prob=dp_rates[cur + i],
             layer_scale_init_value=layer_scale_init_value,
             **layer_constant_dict,
             name=f"stage3.block{str(i+2)}"
@@ -294,25 +293,26 @@ def ConvNext(
     for i in range(num_blocks[3]):
         x = create_layer_instance(
             ConvNextBlock,
-            inputs=x, 
-            drop_prob=dp_rates[cur + i], 
+            inputs=x,
+            drop_prob=dp_rates[cur + i],
             layer_scale_init_value=layer_scale_init_value,
             **layer_constant_dict,
             name=f"stage4.block{str(i+2)}"
         )
 
     if include_head:
-        x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="final_norm")(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes, 
-            kernel_initializer=kernel_initializer, 
-            bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
-            name="predictions"
-        )(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            Dense(
+                units=1 if num_classes == 2 else num_classes,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D(name="global_avgpool")(x)
@@ -345,8 +345,8 @@ def ConvNext_backbone(
     num_blocks,
     layer_scale_init_value,
     inputs=[224, 224, 3],
-    weights="imagenet", 
-    pooling=None, 
+    weights="imagenet",
+    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     custom_layers=[],
@@ -382,7 +382,6 @@ def ConvNextT(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -402,7 +401,6 @@ def ConvNextT(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -416,8 +414,8 @@ def ConvNextT(
 
 def ConvNextT_backbone(
     inputs=[224, 224, 3],
-    weights="imagenet", 
-    pooling=None, 
+    weights="imagenet",
+    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     custom_layers=[],
@@ -450,7 +448,6 @@ def ConvNextS(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -470,7 +467,6 @@ def ConvNextS(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -484,8 +480,8 @@ def ConvNextS(
 
 def ConvNextS_backbone(
     inputs=[224, 224, 3],
-    weights="imagenet", 
-    pooling=None, 
+    weights="imagenet",
+    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     custom_layers=[],
@@ -518,7 +514,6 @@ def ConvNextB(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -538,7 +533,6 @@ def ConvNextB(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -552,8 +546,8 @@ def ConvNextB(
 
 def ConvNextB_backbone(
     inputs=[224, 224, 3],
-    weights="imagenet", 
-    pooling=None, 
+    weights="imagenet",
+    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     custom_layers=[],
@@ -586,7 +580,6 @@ def ConvNextL(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -606,7 +599,6 @@ def ConvNextL(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -620,8 +612,8 @@ def ConvNextL(
 
 def ConvNextL_backbone(
     inputs=[224, 224, 3],
-    weights="imagenet", 
-    pooling=None, 
+    weights="imagenet",
+    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     custom_layers=[],
@@ -654,7 +646,6 @@ def ConvNextXL(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -674,7 +665,6 @@ def ConvNextXL(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -688,8 +678,8 @@ def ConvNextXL(
 
 def ConvNextXL_backbone(
     inputs=[224, 224, 3],
-    weights="imagenet", 
-    pooling=None, 
+    weights="imagenet",
+    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     custom_layers=[],
@@ -713,8 +703,3 @@ def ConvNextXL_backbone(
     outputs = [model.get_layer(layer).output for layer in custom_layers]
     final_output = model.get_layer(model.layers[-1].name).output
     return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
-
-
-if __name__ == "__main__":
-    model = ConvNextL(input_shape=(224, 224, 3), weights=None)
-    model.summary()

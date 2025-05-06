@@ -77,13 +77,15 @@ class GroupNormalization(tf.keras.layers.Layer):
     Authors: Lucas Beyer, Joan Puigcerver.
     """
 
-    def __init__(self,
-                 num_groups=None,
-                 group_size=None,
-                 eps=1e-5,
-                 beta_init=tf.zeros_initializer(),
-                 gamma_init=tf.ones_initializer(),
-                 **kwargs):
+    def __init__(
+        self,
+        num_groups=None,
+        group_size=None,
+        eps=1e-5,
+        beta_init=tf.zeros_initializer(),
+        gamma_init=tf.ones_initializer(),
+        *args, **kwargs
+    ):
         """Initializer.
 
         Args:
@@ -94,7 +96,7 @@ class GroupNormalization(tf.keras.layers.Layer):
             gamma_init: initializer for scale, defaults to ones.
             **kwargs: other tf.keras.layers.Layer arguments.
         """
-        super(GroupNormalization, self).__init__(**kwargs)
+        super(GroupNormalization, self).__init__(*args, **kwargs)
         if num_groups is None and group_size is None:
             num_groups = 32
 

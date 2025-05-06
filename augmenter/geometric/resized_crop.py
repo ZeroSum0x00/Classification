@@ -16,9 +16,9 @@ def resized_crop(
     height,
     width,
     size,
-    interpolation='BILINEAR',
+    interpolation="BILINEAR",
 ):
-    assert is_numpy_image(image), 'image should be CV Image'
+    assert is_numpy_image(image), "image should be CV Image"
     image = crop(image, top, left, height, width)
     image = resize(image, size, interpolation)
     return image
@@ -45,7 +45,7 @@ class ResizedCrop(BaseTransform):
         height,
         width,
         size,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
     ):
         self.top = top
         self.left = left
@@ -87,7 +87,7 @@ class RandomResizedCrop(BaseRandomTransform):
         size,
         scale=(0.08, 1.0),
         ratio=(3. / 4., 4. / 3.),
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         prob=0.5,
     ):
         if isinstance(size, numbers.Number):
@@ -143,3 +143,4 @@ class RandomResizedCrop(BaseRandomTransform):
             size=self.size,
             interpolation=self.interpolation,
         )
+    

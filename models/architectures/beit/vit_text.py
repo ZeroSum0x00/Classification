@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
 )
@@ -21,12 +21,11 @@ def ViT_Text(
     text_positional_dropout=0,
     text_use_positional_embedding=True,
     inputs=[None],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -79,15 +78,16 @@ def ViT_Text(
     x = backbone.output
 
     if include_head:
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes, 
-            kernel_initializer=kernel_initializer, 
-            bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
-            name="predictions"
-        )(x)
-        
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(drop_rate),
+            Dense(
+                units=1 if num_classes == 2 else num_classes,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D(name="global_avgpool")(x)
@@ -120,12 +120,11 @@ def ViT_Text_L14(
     inputs=[None],
     vocab_size=49408,
     max_block_size=77,
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -144,11 +143,10 @@ def ViT_Text_L14(
         hidden_dim=768,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,

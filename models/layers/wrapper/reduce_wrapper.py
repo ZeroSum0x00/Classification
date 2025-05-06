@@ -2,10 +2,10 @@ import tensorflow as tf
 
 
 class ReduceWrapper(tf.keras.layers.Layer):
-    def __init__(self, reduce_mode='mean', axis=1, **kwargs):
-        super(ReduceWrapper, self).__init__(**kwargs)
+    def __init__(self, reduce_mode='mean', axis=1, *args, **kwargs):
+        super(ReduceWrapper, self).__init__(*args, **kwargs)
         self.reduce_mode = reduce_mode
-        self.axis        = axis
+        self.axis = axis
 
     def call(self, inputs):
         if self.reduce_mode.lower() == "all":
@@ -32,3 +32,4 @@ class ReduceWrapper(tf.keras.layers.Layer):
             return tf.reduce_variance(inputs, axis=self.axis)
         else:
             raise ValueError('reduce_mode mutch in ["all", "any", "euclidean", "logsumexp", "max", "mean", "min", "prod", "std", "sum", "variance]')
+        

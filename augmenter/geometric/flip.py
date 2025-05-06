@@ -7,14 +7,14 @@ from utils.auxiliary_processing import is_numpy_image
 
 def vflip(image):
     if not is_numpy_image(image):
-        raise TypeError('Image input should be CV Image. Got {}'.format(type(image)))
+        raise TypeError("Image input should be CV Image. Got {}".format(type(image)))
 
     return cv2.flip(image, 0)
 
     
 def hflip(image):
     if not is_numpy_image(image):
-        raise TypeError('Image input should be CV Image. Got {}'.format(type(image)))
+        raise TypeError("Image input should be CV Image. Got {}".format(type(image)))
 
     return cv2.flip(image, 1)
 
@@ -27,11 +27,11 @@ class Flip(BaseTransform):
         mode ({horizontal, vertical, synthetic}): A flip mode.
     """
 
-    def __init__(self, mode='horizontal'):
+    def __init__(self, mode="horizontal"):
         self.mode = mode
-        self.horizontal_list = ['horizontal', 'h']
-        self.vertical_list = ['vertical', 'v']
-        self.mix_list = ['synthetic', 's']
+        self.horizontal_list = ["horizontal", "h"]
+        self.vertical_list = ["vertical", "v"]
+        self.mix_list = ["synthetic", "s"]
 
     def image_transform(self, image):
         if self.mode.lower() in self.horizontal_list or self.mode.lower() in self.mix_list:
@@ -62,7 +62,7 @@ class RandomFlip(BaseRandomTransform):
         prob (float): probability of the image being flipped. Default value is 0.5
     """
 
-    def __init__(self, mode='horizontal', prob=0.5):
+    def __init__(self, mode="horizontal", prob=0.5):
         self.mode = mode
         self.prob = prob
         self.aug = Flip(mode=self.mode)
@@ -94,3 +94,4 @@ class RandomVerticalFlip(BaseRandomTransform):
 
     def image_transform(self, image):
         return vflip(image)
+    

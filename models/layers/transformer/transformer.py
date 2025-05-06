@@ -41,10 +41,14 @@ class ClassToken(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         self.token_init = tf.keras.initializers.TruncatedNormal(stddev=0.2)
-        self.class_tokens = self.add_weight(name="tokens",
-                                            shape=(1, 1, input_shape[-1]),
-                                            initializer=self.token_init,
-                                            trainable=True)
+        
+        self.class_tokens = self.add_weight(
+            name="tokens",
+            shape=(1, 1, input_shape[-1]),
+            initializer=self.token_init,
+            trainable=True,
+        )
+        
         super().build(input_shape)
 
     def call(self, inputs, training=False):
@@ -84,11 +88,14 @@ class ExtractPatches(tf.keras.layers.Layer):
         self.hidden_dim = hidden_dim
 
     def build(self, input_shape):
-        self.extractor = Conv2D(filters=self.hidden_dim,
-                                kernel_size=self.patch_size,
-                                strides=self.patch_size,
-                                padding="valid",
-                                name="embedding")
+        self.extractor = Conv2D(
+            filters=self.hidden_dim,
+            kernel_size=self.patch_size,
+            strides=self.patch_size,
+            padding="valid",
+            name="embedding"
+        )
+        
         self.reshape = Reshape((-1, self.hidden_dim))
         
     def call(self, inputs, training=False):
@@ -116,9 +123,12 @@ class ClassificationToken(tf.keras.layers.Layer):
     def build(self, input_shape):
         cls_init = tf.zeros_initializer()
         self.hidden_size = input_shape[-1]
-        self.cls = tf.Variable(name="cls_variable",
-                               initial_value=cls_init(shape=(1, 1, input_shape[-1]), dtype=tf.float32),
-                               trainable=True)
+        
+        self.cls = tf.Variable(
+            name="cls_variable",
+            initial_value=cls_init(shape=(1, 1, input_shape[-1]), dtype=tf.float32),
+            trainable=True,
+        )
     
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
@@ -141,10 +151,13 @@ class DistillationToken(tf.keras.layers.Layer):
     def build(self, input_shape):
         dist_init = tf.zeros_initializer()
         self.hidden_size = input_shape[-1]
-        self.dist = tf.Variable(name="dist_variable",
-                                initial_value=dist_init(shape=(1, 1, input_shape[-1]),
-                                dtype=tf.float32),
-                                trainable=True)
+        
+        self.dist = tf.Variable(
+            name="dist_variable",
+            initial_value=dist_init(shape=(1, 1, input_shape[-1]),
+            dtype=tf.float32),
+            trainable=True,
+        )
     
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
@@ -170,10 +183,13 @@ class PositionalEmbedding(tf.keras.layers.Layer):
             raise ValueError(f"Number of dimensions should be 3, got {len(input_shape)}")
 
         pe_init = tf.random_normal_initializer(stddev=0.06)
-        self.pos_embedding = tf.Variable(name="pos_embedding",
-                                         initial_value=pe_init(shape=(1, input_shape[1], input_shape[2])),
-                                         dtype=tf.float32,
-                                         trainable=True)
+        
+        self.pos_embedding = tf.Variable(
+            name="pos_embedding",
+            initial_value=pe_init(shape=(1, input_shape[1], input_shape[2])),
+            dtype=tf.float32,
+            trainable=True,
+        )
 
     def call(self, inputs, training=False):
         return inputs + tf.cast(self.pos_embedding, dtype=inputs.dtype)
@@ -341,12 +357,12 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     def call(self, inputs, attn_mask=None, training=False, return_weight=False):
-        if hasattr(self, 'key_project') and hasattr(self, 'value_project'):
+        if hasattr(self, "key_project") and hasattr(self, "value_project"):
             query, key, value = inputs
             query = self.query_project(query, training=training)
             key   = self.key_project(key, training=training)
             value = self.value_project(value, training=training)
-        elif hasattr(self, 'keyvalue_project'):
+        elif hasattr(self, "keyvalue_project"):
             query, key_value = inputs
             query = self.query_project(query, training=training)
             kv    = self.keyvalue_project(key_value, training=training)
@@ -398,7 +414,7 @@ class MLPBlock(tf.keras.layers.Layer):
         use_conv=False,
         use_bias=True,
         use_gated=False,
-        activation='gelu',
+        activation="gelu",
         normalizer=None,
         kernel_initializer="he_normal",
         bias_initializer="zeros",
@@ -513,8 +529,8 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
         mlp_ratio=4,
         layer_scale=0.1,
         use_gated_mlp=False,
-        activation='gelu',
-        normalizer='layer-norm',
+        activation="gelu",
+        normalizer="layer-norm",
         use_mlp_norm=False,
         kernel_initializer="he_normal",
         bias_initializer="zeros",
@@ -584,7 +600,7 @@ class TransformerBlock(tf.keras.layers.Layer):
         self,
         attention_block=None,
         mlp_block=None,
-        activation='gelu',
+        activation="gelu",
         normalizer=None,
         norm_eps=1e-6,
         drop_rate=0.1,
@@ -765,10 +781,13 @@ class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
         num_heads = attn_shape[1] if self.num_heads == -1 else self.num_heads
         num_relative_distance = (2 * height - 1) * (2 * width - 1) + self.cls_token_pos_len
         pos_shape = (num_heads, num_relative_distance)
-        self.positional_embedding = self.add_weight(name="positional_embedding",
-                                                    shape=pos_shape,
-                                                    initializer="zeros",
-                                                    trainable=True)
+        
+        self.positional_embedding = self.add_weight(
+            name="positional_embedding",
+            shape=pos_shape,
+            initializer="zeros",
+            trainable=True,
+        )
 
         hh, ww = np.meshgrid(range(height), range(width))
         coords = np.stack([hh, ww], axis=-1)
@@ -802,9 +821,9 @@ class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
     def get_config(self):
         base_config = super().get_config()
         base_config.update({
-                "attn_height": self.attn_height,
-                "num_heads": self.num_heads,
-                "cls_token": self.cls_token
+            "attn_height": self.attn_height,
+            "num_heads": self.num_heads,
+            "cls_token": self.cls_token
         })
         return base_config
 
@@ -913,9 +932,11 @@ class EnhanceSelfAttention(tf.keras.layers.Layer):
         if self.rotate_pos_emb and is_text_inputs:
             self.rope_layer = PositionalEncodingFourierRot1D(max_block_size=self.text_max_block_size)
         elif self.rotate_pos_emb:
-            self.rope_layer = PositionalEncodingFourierRot(num_heads=self.num_heads,
-                                                           attn_height=self.attn_height,
-                                                           cls_token=True)
+            self.rope_layer = PositionalEncodingFourierRot(
+                num_heads=self.num_heads,
+                attn_height=self.attn_height,
+                cls_token=True,
+            )
         else:
             self.rope_layer = None
 

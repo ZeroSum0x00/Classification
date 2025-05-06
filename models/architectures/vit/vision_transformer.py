@@ -126,8 +126,11 @@ def ViT(attention_block=None,
     x = Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
 
     if include_top:
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            activation=final_activation,
+            name="predictions"
+        )(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)

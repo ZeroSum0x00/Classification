@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
@@ -9,13 +9,13 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 def plot_roc_curve(fpr, tpr, roc, iter):
     fig = plt.figure()
     linewidth = 2
-    plt.plot(fpr, tpr, color='darkorange', linewidth=linewidth, label='ROC curve (area = %0.2f)' % roc)
-    plt.plot([0, 1], [0, 1], color='navy', linewidth=linewidth, linestyle='--')
+    plt.plot(fpr, tpr, color="darkorange", linewidth=linewidth, label="ROC curve (area = %0.2f)" % roc)
+    plt.plot([0, 1], [0, 1], color="navy", linewidth=linewidth, linestyle="--")
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title(f'ROC curve in epoch {iter}')
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title(f"ROC curve in epoch {iter}")
     plt.legend(loc="lower right")
 
     canvas = FigureCanvas(fig)

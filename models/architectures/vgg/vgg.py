@@ -34,23 +34,28 @@ from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import process_model_input
 
 
-# BASE_WEIGTHS_PATH = ('https://github.com/fchollet/deep-learning-models/releases/download/v0.1/')
-# VGG16_WEIGHT_PATH = (BASE_WEIGTHS_PATH + 'vgg16_weights_tf_dim_ordering_tf_kernels.h5')
-# VGG16_WEIGHT_PATH_NO_TOP = (BASE_WEIGTHS_PATH + 'vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5')
-# VGG19_WEIGHT_PATH = (BASE_WEIGTHS_PATH + 'vgg19_weights_tf_dim_ordering_tf_kernels.h5')
-# VGG19_WEIGHT_PATH_NO_TOP = (BASE_WEIGTHS_PATH + 'vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5')
 
+def VGGBlock(
+    inputs,
+    filters,
+    num_blocks,
+    activation="relu",
+    normalizer=None,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=0,
+    norm_eps=0.001,
+    name=None,
+):
+    if name is None:
+        name = f"vgg_block_{K.get_uid('vgg_block')}"
 
-def VGGBlock(x,
-             filters,
-             num_blocks,
-             activation='relu',
-             normalizer='batch-norm',
-             kernel_initializer="he_normal",
-             bias_initializer="zeros",
-             regularizer_decay=5e-4,
-             norm_eps=1e-6,
-             name='vgg_block'):
+    if regularizer_decay and regularizer_decay > 0:
+        kernel_regularizer = l2(regularizer_decay)
+    else:
+        kernel_regularizer = None
+        
+    x = inputs
     for i in range(num_blocks):
         x = Sequential([
             Conv2D(
@@ -60,12 +65,13 @@ def VGGBlock(x,
                 padding="same",
                 kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer,
-                kernel_regularizer=l2(regularizer_decay),
+                kernel_regularizer=kernel_regularizer,
             ),
             get_normalizer_from_name(normalizer, epsilon=norm_eps),
             get_activation_from_name(activation),
-        ], name=name + f".block{i + 1}")(x)
-    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name=name + ".pool")(x)
+        ], name=f"{name}.block{i + 1}")(x)
+        
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name=f"{name}.pool")(x)
     return x
 
 
@@ -77,13 +83,12 @@ def VGG(
     weights="imagenet",
     pooling=None,
     activation="relu",
-    normalizer="batch-norm",
-    final_activation="softmax",
+    normalizer=None,
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
+    regularizer_decay=0,
+    norm_eps=0.001,
     drop_rate=0.1
 ):
 
@@ -105,6 +110,8 @@ def VGG(
         "norm_eps": norm_eps,
     }
     
+    filters = filters if isinstance(filters, (tuple, list)) else [filters * 2**i for i in range(len(num_blocks) - 1)]
+
     inputs = process_model_input(
         inputs,
         include_head=include_head,
@@ -112,131 +119,58 @@ def VGG(
         min_size=32,
         weights=weights,
     )
-
-    # Stage 0:
+    
     x = VGGBlock(
-        x=inputs,
-        filters=filters,
+        inputs=inputs,
+        filters=filters[0],
         num_blocks=num_blocks[0],
         **layer_constant_dict,
-        name='stem'
+        name="stem"
     )
-
-    # Stage 1:
-    x = VGGBlock(
-        x=x,
-        filters=filters * 2,
-        num_blocks=num_blocks[1],
-        **layer_constant_dict,
-        name='stage1'
-    )
-
-    # Stage 2:
-    x = VGGBlock(
-        x=x,
-        filters=filters * 4,
-        num_blocks=num_blocks[2],
-        **layer_constant_dict,
-        name='stage2'
-    )
-
-    # Stage 3:
-    x = VGGBlock(
-        x=x,
-        filters=filters * 8,
-        num_blocks=num_blocks[3],
-        **layer_constant_dict,
-        name='stage3'
-    )
-
-    # Stage 4:
-    x = VGGBlock(
-        x=x,
-        filters=filters * 8,
-        num_blocks=num_blocks[4],
-        **layer_constant_dict,
-        name='stage4'
-    )
+    
+    for i in range(len(num_blocks) - 1):
+        x = VGGBlock(
+            inputs=x,
+            filters=filters[i + 1] if i <= len(num_blocks) - 3 else filters[i],
+            num_blocks=num_blocks[i + 1],
+            **layer_constant_dict,
+            name=f"stage{i + 1}",
+        )
 
     if include_head:
-        x = Flatten(name='flatten')(x)
-        x = Dense(4096, name='fc1')(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps)(x)
-        x = get_activation_from_name(activation)(x)
-        x = Dropout(rate=drop_rate)(x)
-        
-        x = Dense(4096, name='fc2')(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps)(x)
-        x = get_activation_from_name(activation)(x)
-        x = Dropout(rate=drop_rate)(x)
-
-        x = Dense(1 if num_classes == 2 else num_classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Flatten(),
+            Dense(4096),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+            Dropout(rate=drop_rate),
+            Dense(4096),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
-        if pooling == 'avg':
+        if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
+        elif pooling == "max":
             x = GlobalMaxPooling2D()(x)
-    
-    # Create model.
-    if filters == 64 and num_blocks == [1, 1, 2, 2, 2]:
-        model = Model(inputs=inputs, outputs=x, name='VGG-11')
-        model_type = 1
-    elif filters == 64 and num_blocks == [2, 2, 2, 2, 2]:
-        model = Model(inputs=inputs, outputs=x, name='VGG-13')
-        model_type = 2
-    elif filters == 64 and num_blocks == [2, 2, 3, 3, 3]:
-        model = Model(inputs=inputs, outputs=x, name='VGG-16')
-        model_type = 3
-    elif filters == 64 and num_blocks == [2, 2, 4, 4, 4]:
-        model = Model(inputs=inputs, outputs=x, name='VGG-19')
-        model_type = 4
+
+    if filters == [64, 128, 256, 512]:
+        if num_blocks == [1, 1, 2, 2, 2]:
+            model = Model(inputs=inputs, outputs=x, name="VGG-11")
+        elif num_blocks == [2, 2, 2, 2, 2]:
+            model = Model(inputs=inputs, outputs=x, name="VGG-13")
+        elif num_blocks == [2, 2, 3, 3, 3]:
+            model = Model(inputs=inputs, outputs=x, name="VGG-16")
+        elif num_blocks == [2, 2, 4, 4, 4]:
+            model = Model(inputs=inputs, outputs=x, name="VGG-19")
+        else:
+            model = Model(inputs=inputs, outputs=x, name="VGG")
     else:
-        model = Model(inputs=inputs, outputs=x, name='VGG')
-        model_type = 0
-
-    # Load weights.
-    if weights == 'imagenet':
-        # if include_head:
-        #     if model_type == 1:
-        #         weights_path = None
-        #     elif model_type == 2:
-        #         weights_path = None
-        #     elif model_type == 3:
-        #         weights_path = get_file(
-        #             'vgg16_weights_tf_dim_ordering_tf_kernels.h5',
-        #             VGG16_WEIGHT_PATH,
-        #             cache_subdir='models',
-        #             file_hash='64373286793e3c8b2b4e3219cbf3544b')
-        #     elif model_type == 4:
-        #         weights_path = get_file(
-        #             'vgg19_weights_tf_dim_ordering_tf_kernels.h5',
-        #             VGG19_WEIGHT_PATH,
-        #             cache_subdir='models',
-        #             file_hash='cbe5617147190e668d6c5d5026f83318')
-        # else:
-        #     if model_type == 1:
-        #         weights_path = None
-        #     elif model_type == 2:
-        #         weights_path = None
-        #     elif model_type == 3:
-        #         weights_path = get_file(
-        #             'vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5',
-        #             VGG16_WEIGHT_PATH_NO_TOP,
-        #             cache_subdir='models',
-        #             file_hash='6d6bbae143d832006294945121d1f1fc')
-        #     elif model_type == 4:
-        #         weights_path = get_file(
-        #             'vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5',
-        #             VGG19_WEIGHT_PATH_NO_TOP,
-        #             cache_subdir='models',
-        #             file_hash='253f8cb515780f3b799900260a226db6')
-        # if weights_path is not None:
-        #     model.load_weights(weights_path)
-        pass
-    elif weights is not None:
-        model.load_weights(weights)
-
+        model = Model(inputs=inputs, outputs=x, name="VGG")
+        
     return model
 
 
@@ -246,7 +180,7 @@ def VGG_backbone(
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
-    normalizer="batch-norm",
+    normalizer=None,
     custom_layers=[]
 ) -> Model:
 
@@ -277,14 +211,12 @@ def VGG11(
     weights="imagenet",
     pooling=None,
     activation="relu",
-    normalizer="batch-norm",
-    final_activation="softmax",
+    normalizer=None,
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
+    regularizer_decay=0,
+    norm_eps=0.001,
     drop_rate=0.1
 ) -> Model:
     
@@ -297,13 +229,12 @@ def VGG11(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -312,7 +243,7 @@ def VGG11_backbone(
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
-    normalizer="batch-norm",
+    normalizer=None,
     custom_layers=[]
 ) -> Model:
     
@@ -321,7 +252,7 @@ def VGG11_backbone(
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
     )
 
     custom_layers = custom_layers or [
@@ -342,14 +273,12 @@ def VGG13(
     weights="imagenet",
     pooling=None,
     activation="relu",
-    normalizer="batch-norm",
-    final_activation="softmax",
+    normalizer=None,
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
+    regularizer_decay=0,
+    norm_eps=0.001,
     drop_rate=0.1
 ) -> Model:
     
@@ -362,13 +291,12 @@ def VGG13(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -377,7 +305,7 @@ def VGG13_backbone(
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
-    normalizer="batch-norm",
+    normalizer=None,
     custom_layers=[]
 ) -> Model:
     
@@ -386,7 +314,7 @@ def VGG13_backbone(
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
     )
 
     custom_layers = custom_layers or [
@@ -407,14 +335,12 @@ def VGG16(
     weights="imagenet",
     pooling=None,
     activation="relu",
-    normalizer="batch-norm",
-    final_activation="softmax",
+    normalizer=None,
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
+    regularizer_decay=0,
+    norm_eps=0.001,
     drop_rate=0.1
 ) -> Model:
     
@@ -427,13 +353,12 @@ def VGG16(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -442,7 +367,7 @@ def VGG16_backbone(
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
-    normalizer="batch-norm",
+    normalizer=None,
     custom_layers=[]
 ) -> Model:
     
@@ -451,7 +376,7 @@ def VGG16_backbone(
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
     )
 
     custom_layers = custom_layers or [
@@ -472,14 +397,12 @@ def VGG19(
     weights="imagenet",
     pooling=None,
     activation="relu",
-    normalizer="batch-norm",
-    final_activation="softmax",
+    normalizer=None,
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
-    deploy=False,
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
+    regularizer_decay=0,
+    norm_eps=0.001,
     drop_rate=0.1
 ) -> Model:
     
@@ -492,13 +415,12 @@ def VGG19(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -507,7 +429,7 @@ def VGG19_backbone(
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="relu",
-    normalizer="batch-norm",
+    normalizer=None,
     custom_layers=[]
 ) -> Model:
     
@@ -516,7 +438,7 @@ def VGG19_backbone(
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
     )
 
     custom_layers = custom_layers or [

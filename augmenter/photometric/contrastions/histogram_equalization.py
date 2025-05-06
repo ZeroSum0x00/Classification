@@ -7,7 +7,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def histogram_equalization(image):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     # segregate color streams
     b, g, r = cv2.split(image)
@@ -22,16 +22,16 @@ def histogram_equalization(image):
     # mask all pixels with value=0 and replace it with mean of the pixel values
     cdf_m_b = np.ma.masked_equal(cdf_b, 0)
     cdf_m_b = (cdf_m_b - cdf_m_b.min()) * 255 / (cdf_m_b.max() - cdf_m_b.min())
-    cdf_final_b = np.ma.filled(cdf_m_b, 0).astype('uint8')
+    cdf_final_b = np.ma.filled(cdf_m_b, 0).astype("uint8")
 
     cdf_m_g = np.ma.masked_equal(cdf_g, 0)
     cdf_m_g = (cdf_m_g - cdf_m_g.min()) * 255 / (cdf_m_g.max() - cdf_m_g.min())
-    cdf_final_g = np.ma.filled(cdf_m_g, 0).astype('uint8')
+    cdf_final_g = np.ma.filled(cdf_m_g, 0).astype("uint8")
 
 
     cdf_m_r = np.ma.masked_equal(cdf_r, 0)
     cdf_m_r = (cdf_m_r - cdf_m_r.min()) * 255 / (cdf_m_r.max() - cdf_m_r.min())
-    cdf_final_r = np.ma.filled(cdf_m_r, 0).astype('uint8')
+    cdf_final_r = np.ma.filled(cdf_m_r, 0).astype("uint8")
 
     img_b = cdf_final_b[b]
     img_g = cdf_final_g[g]
@@ -56,3 +56,4 @@ class RandomHistogramEqualization(BaseRandomTransform):
 
     def image_transform(self, image):
         return histogram_equalization(image)
+    

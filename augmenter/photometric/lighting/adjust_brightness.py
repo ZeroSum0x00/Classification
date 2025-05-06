@@ -10,7 +10,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def adjust_brightness(image, brightness_factor):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     img = image.astype(np.float32) * brightness_factor
     img = img.clip(min=0, max=255)
@@ -49,3 +49,4 @@ class RandomAdjustBrightness(BaseRandomTransform):
     def image_transform(self, image):
         brightness_factor = self.get_params(self.brightness_range)
         return adjust_brightness(image, brightness_factor)
+    

@@ -485,8 +485,11 @@ def Swin(embed_dim=96,
 
     if include_top:
         x = GlobalAveragePooling1D()(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            activation=final_activation,
+            name="predictions"
+        )(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_avgpool')(x)

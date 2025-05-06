@@ -8,10 +8,10 @@ from utils.auxiliary_processing import is_numpy_image
 
 def adjust_gamma(img, gamma, gain=1):
     if not is_numpy_image(img):
-        raise TypeError('img should be image. Got {}'.format(type(img)))
+        raise TypeError("img should be image. Got {}".format(type(img)))
 
     if gamma < 0:
-        raise ValueError('Gamma should be a non-negative real number')
+        raise ValueError("Gamma should be a non-negative real number")
 
     im = img.astype(np.float32)
     im = 255. * gain * np.power(im / 255., gamma)
@@ -32,7 +32,7 @@ class RandomAdjustGamma(BaseRandomTransform):
     def __init__(self, gamma, gain=1, prob=0.5):
 
         if isinstance(gamma, numbers.Number) and gamma < 0:
-            raise ValueError('Gamma should be a non-negative real number')
+            raise ValueError("Gamma should be a non-negative real number")
 
         self.gamma = gamma
         self.gain = gain
@@ -56,3 +56,4 @@ class RandomAdjustGamma(BaseRandomTransform):
     def image_transform(self, image):
         gamma_factor = self.get_params(self.gamma)
         return adjust_gamma(image, gamma_factor, gain=self.gain)
+    

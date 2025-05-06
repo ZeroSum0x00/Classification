@@ -10,10 +10,10 @@ from ..blends import blend
 
 def contrast(image, contrast_factor):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     if contrast_factor < 0:
-        raise ValueError('Gamma should be a non-negative real number')
+        raise ValueError("Gamma should be a non-negative real number")
 
     degenerate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -41,7 +41,7 @@ class RandomContrast(BaseRandomTransform):
     def __init__(self, contrast_range, prob=0.5):
 
         if isinstance(contrast_range, numbers.Number) and contrast_range < 0:
-            raise ValueError('Contrast factor should be a non-negative real number')
+            raise ValueError("Contrast factor should be a non-negative real number")
 
         self.contrast_range = contrast_range
         self.prob = prob
@@ -64,3 +64,4 @@ class RandomContrast(BaseRandomTransform):
     def image_transform(self, image):
         contrast_factor = self.get_params(self.contrast_range)
         return contrast(image, contrast_factor)
+    

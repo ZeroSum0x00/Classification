@@ -7,25 +7,28 @@ class AconC(tf.keras.layers.Layer):
     according to "Activate or Not: Learning Customized Activation" <https://arxiv.org/pdf/2009.04759.pdf>.
     """
     
-    def __init__(self, **kwargs):
-        super(AconC, self).__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super(AconC, self).__init__(*args, **kwargs)
 
     def build(self, input_shape):
         out_dim = input_shape[-1]
+        
         self.p1 = self.add_weight(
-            'aconc/p1',
+            "aconc/p1",
             shape       = (1, 1, 1, out_dim),
             initializer = tf.initializers.RandomNormal(),
             trainable   = True
         )
+        
         self.p2 = self.add_weight(
-            'aconc/p2',
+            "aconc/p2",
             shape       = (1, 1, 1, out_dim),
             initializer = tf.initializers.RandomNormal(),
             trainable   = True
         )
+        
         self.beta = self.add_weight(
-            'aconc/beta',
+            "aconc/beta",
             shape       = (1, 1, 1, out_dim),
             initializer = tf.initializers.RandomNormal(),
             trainable   = True
@@ -34,3 +37,4 @@ class AconC(tf.keras.layers.Layer):
     def call(self, inputs, training=False):
         dpx = (self.p1 - self.p2) * inputs
         return dpx * tf.keras.backend.sigmoid(self.beta * dpx) + self.p2 * inputs
+    

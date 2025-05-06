@@ -4,8 +4,8 @@ import tensorflow as tf
 class MemoryEfficientMish(tf.keras.layers.Layer):
     """  Mish activation memory-efficient """
 
-    def __init__(self, **kwargs):
-        super(MemoryEfficientMish, self).__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super(MemoryEfficientMish, self).__init__(*args, **kwargs)
 
     def call(self, inputs, training=False):
         if training:
@@ -15,3 +15,4 @@ class MemoryEfficientMish(tf.keras.layers.Layer):
             return fx + inputs * sx * (1 - fx * fx)
         else:
             return inputs * tf.math.tanh(tf.math.softplus(inputs))
+        

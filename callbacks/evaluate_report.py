@@ -3,7 +3,7 @@ import matplotlib
 import numpy as np
 import tensorflow as tf
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from utils.eval_caculator import classification_report
@@ -13,7 +13,7 @@ from utils.logger import logger
 
 class Evaluate(tf.keras.callbacks.Callback):
     def __init__(
-        self, 
+        self,
         result_path=None,
         sample_weight=None,
         min_ratio=0.2,
@@ -36,7 +36,7 @@ class Evaluate(tf.keras.callbacks.Callback):
         self.eval_dataset = None
         
         if self.save_mode not in ["model", "weights"]:
-            raise ValueError(f'Invalid input: {self.save_mode}. Expected values are ["model", "weights"].')
+            raise ValueError(f"Invalid input: {self.save_mode}. Expected values are ['model', 'weights'].")
 
     def pass_data(self, data):
         self.eval_dataset = data
@@ -48,7 +48,7 @@ class Evaluate(tf.keras.callbacks.Callback):
         temp_epoch = epoch + 1
         if temp_epoch % self.show_frequency == 0:
             if self.eval_dataset is not None and self.classes:
-                print("\nGet report.")
+                logger.info("\nGet evaluate metrics report.")
 
                 predictions = []
                 gts         = []
@@ -75,19 +75,19 @@ class Evaluate(tf.keras.callbacks.Callback):
 
                 if self.save_best:
                     if accuracy > self.current_value and accuracy > self.min_ratio:
-                        logger.info(f'Evaluate accuracy score increase {self.current_value*100:.2f}% to {accuracy*100:.2f}%')
+                        logger.info(f"Evaluate accuracy score increase {self.current_value*100:.2f}% to {accuracy*100:.2f}%")
                         self.current_value = accuracy
                         if self.save_mode == "model":
                             weight_path = os.path.join(self.result_path, "weights", "best_eval_acc.keras")
-                            logger.info(f'Save best evaluate accuracy model to {weight_path}')
+                            logger.info(f"Save best evaluate accuracy model to {weight_path}")
                             self.model.save_model(weight_path, save_head=self.save_head)
                         elif self.save_mode == "weights":
                             weight_path = os.path.join(self.result_path, "weights", "best_eval_acc.weights.h5")
-                            logger.info(f'Save best evaluate accuracy weights to {weight_path}')
+                            logger.info(f"Save best evaluate accuracy weights to {weight_path}")
                             self.model.save_weights(weight_path, save_head=self.save_head)
                         
                 self.epoches.append(temp_epoch)
-                with open(os.path.join(self.result_path, 'summary', "best_eval_acc.txt"), 'a') as f:
+                with open(os.path.join(self.result_path, "summary", "evaluate_report.txt"), "a") as f:
                     f.write(f"Epoch {epoch + 1}: {accuracy}\n")
 
                 f = plt.figure()
@@ -101,19 +101,20 @@ class Evaluate(tf.keras.callbacks.Callback):
                     i=np.argmax(self.metric_values),
                     max_size=[max_height, max_width],
                     linewidth=2,
-                    line_color='red',
-                    label='acc mean',
+                    line_color="red",
+                    label="acc mean",
                 )
                 
                 plt.grid(True)
-                plt.xlabel('Epoch')
-                plt.ylabel('Evaluate accuracy')
-                plt.title('A evaluate accuracy graph')
+                plt.xlabel("Epoch")
+                plt.ylabel("Evaluate accuracy")
+                plt.title("A evaluate accuracy graph")
                 
                 handles, labels = plt.gca().get_legend_handles_labels()
                 if labels:
                     plt.legend(fontsize=7, loc="upper left")
     
-                plt.savefig(os.path.join(self.result_path, 'summary', "epoch_eval_acc.png"))
+                plt.savefig(os.path.join(self.result_path, "summary", "epoch_eval_acc.png"))
                 plt.cla()
                 plt.close("all")
+                

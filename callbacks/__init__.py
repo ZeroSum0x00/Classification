@@ -1,5 +1,6 @@
 import os
 import copy
+from .checkpoint_saver import CheckpointSaver
 from .evaluate_report import Evaluate
 from .loss_history import LossHistory
 from .metric_history import MetricHistory

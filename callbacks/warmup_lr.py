@@ -3,16 +3,16 @@ import numpy as np
 import tensorflow as tf
 
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from visualizer import value_above_line
 
 
 class WarmUpLearningRate(tf.keras.callbacks.Callback):
-    def __init__(self, 
-                 steps_per_epoch, 
+    def __init__(self,
+                 steps_per_epoch,
                  epochs,
-                 lr_init, 
+                 lr_init,
                  lr_end,
                  warmup_epochs):
         self.global_steps = tf.Variable(1, trainable=False, dtype=tf.int64)
@@ -33,17 +33,17 @@ class WarmUpLearningRate(tf.keras.callbacks.Callback):
 
 class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
     def __init__(
-        self, 
+        self,
         result_path=None,
         lr_init=0.01,
         lr_end=0.001,
         epochs=100,
-        warmup_epoch_ratio=0., 
+        warmup_epoch_ratio=0.,
         warmup_lr_ratio=0.,
         no_aug_epoch_ratio=0.,
     ):
         self.result_path = result_path
-        self.result_path = os.path.join(result_path, 'summary')
+        self.result_path = os.path.join(result_path, "summary")
         self.lr_init = lr_init
         self.lr_end = lr_end
         self.epochs = epochs
@@ -76,16 +76,16 @@ class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
                 i=-1,
                 max_size=[np.max(self.lr_list), np.max(self.epochs_list)],
                 linewidth=2,
-                line_color='red',
-                text_color='white', 
-                box_color='hotpink',
-                label='learning rate',
+                line_color="red",
+                text_color="white",
+                box_color="hotpink",
+                label="learning rate",
             )
             
             plt.grid(True)
-            plt.xlabel('Epoch')
-            plt.ylabel('Learning Rate')
-            plt.title('Learning Rate Schedule')
+            plt.xlabel("Epoch")
+            plt.ylabel("Learning Rate")
+            plt.title("Learning Rate Schedule")
             
             handles, labels = plt.gca().get_legend_handles_labels()
             if labels:
@@ -98,10 +98,10 @@ class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
 
 
 class BasicReduceLearningRate(tf.keras.callbacks.Callback):
-    def __init__(self, 
-                 lr_init, 
-                 lr_end, 
-                 epochs, 
+    def __init__(self,
+                 lr_init,
+                 lr_end,
+                 epochs,
                  num_steps = 10):
         self.decay_rate  = (lr_end / lr_init) ** (1 / (num_steps - 1))
         step_size   = epochs / num_steps
@@ -112,3 +112,4 @@ class BasicReduceLearningRate(tf.keras.callbacks.Callback):
         out_lr  = lr * self.decay_rate ** n
         self.model.optimizer.learning_rate.assign(lr.numpy())
         return lr.numpy()
+    

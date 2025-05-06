@@ -17,7 +17,7 @@
 """
 
 import tensorflow as tf
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv2D, Flatten, Dense, Dropout, MaxPooling2D,
     GlobalAveragePooling2D, GlobalMaxPooling2D
@@ -31,12 +31,11 @@ from utils.model_processing import process_model_input
 
 def AlexNet(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="relu",
     normalizer=None,
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -124,23 +123,20 @@ def AlexNet(
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stage3.pool")(x)
 
     if include_head:
-        x = Dropout(rate=drop_rate)(x)
-        x = Flatten(name="flatten")(x)
-        x = Dense(units=4096)(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps)(x)
-        x = get_activation_from_name(activation)(x)
-        x = Dropout(rate=drop_rate)(x)
-
-        x = Dense(units=4096)(x)
-        x = get_normalizer_from_name(normalizer, epsilon=norm_eps)(x)
-        x = get_activation_from_name(activation)(x)
-        x = Dropout(rate=drop_rate)(x)
-        
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            name="predictions"
-        )(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(rate=drop_rate),
+            Flatten(name="flatten"),
+            Dense(units=4096),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+            Dropout(rate=drop_rate),
+            Dense(units=4096),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
@@ -154,7 +150,7 @@ def AlexNet(
 def AlexNet_backbone(
     inputs=[224, 224, 3],
     weights="imagenet",
-    activation="leaky-relu", 
+    activation="leaky-relu",
     normalizer="batch-norm",
     custom_layers=[]
 ) -> Model:

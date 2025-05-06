@@ -16,13 +16,13 @@ def rotate(
     expand=False,
     center=None,
     fill_color=None,
-    interpolation='BILINEAR',
+    interpolation="BILINEAR",
 ):
     rank_size = len(image.shape)
     imgtype = image.dtype
     
     if not is_numpy_image(image):
-        raise TypeError('Image should be CV Image. Got {}'.format(type(image)))
+        raise TypeError("Image should be CV Image. Got {}".format(type(image)))
         
     h, w, _ = image.shape
     point = center or (w // 2, h // 2)
@@ -97,7 +97,7 @@ class Rotation(BaseTransform):
         expand=False,
         center=None,
         fill_color=None,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
     ):
         self.degrees = degrees
         self.expand = expand
@@ -141,7 +141,7 @@ class RandomRotation(BaseRandomTransform):
         expand=False,
         center=None,
         fill_color=None,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         prob=0.5,
     ):
         if isinstance(degrees, numbers.Number):
@@ -173,3 +173,4 @@ class RandomRotation(BaseRandomTransform):
             fill_color=self.fill_color,
             interpolation=self.interpolation,
         )
+    

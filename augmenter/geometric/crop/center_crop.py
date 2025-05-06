@@ -8,7 +8,7 @@ def center_crop(
     image,
     size,
     fill_color=0,
-    padding_mode='constant',
+    padding_mode="constant",
 ):
     if isinstance(size, numbers.Number):
         size = (int(size), int(size))
@@ -48,7 +48,7 @@ class CenterCrop(BaseTransform):
         self,
         size,
         fill_color=0,
-        padding_mode='constant',
+        padding_mode="constant",
     ):
         self.size         = size
         self.fill_color   = fill_color
@@ -61,3 +61,4 @@ class CenterCrop(BaseTransform):
             fill_color=self.fill_color,
             padding_mode=self.padding_mode,
         )
+    

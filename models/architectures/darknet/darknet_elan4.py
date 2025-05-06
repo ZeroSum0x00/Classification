@@ -42,8 +42,8 @@ class AverageConvolutionBlock(tf.keras.layers.Layer):
         self,
         filters,
         kernel_size=3,
-        activation='leaky',
-        normalizer='batch-norm',
+        activation="leaky",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -87,8 +87,8 @@ class AverageConvolutionDown(tf.keras.layers.Layer):
         self,
         filters,
         kernel_size=3,
-        activation='leaky',
-        normalizer='batch-norm',
+        activation="leaky",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -154,8 +154,8 @@ class RepSimpleBlock(tf.keras.layers.Layer):
         strides=(1, 1),
         dilation_rate=1,
         groups=1,
-        activation='silu',
-        normalizer='batch-norm',
+        activation="silu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -223,8 +223,8 @@ class RepBottleneck(Bottleneck):
         groups=1,
         expansion=1,
         shortcut=True,
-        activation='silu',
-        normalizer='batch-norm',
+        activation="silu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -286,8 +286,8 @@ class ResNBlock(tf.keras.layers.Layer):
         groups=1,
         expansion=1,
         shortcut=True,
-        activation='silu',
-        normalizer='batch-norm',
+        activation="silu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -367,8 +367,8 @@ class RepResNBlock(ResNBlock):
         groups=1,
         expansion=1,
         shortcut=True,
-        activation='silu',
-        normalizer='batch-norm',
+        activation="silu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -585,8 +585,8 @@ class SPPELAN(tf.keras.layers.Layer):
     def __init__(
         self,
         filters,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -658,8 +658,8 @@ class RepNCSPELAN4(tf.keras.layers.Layer):
         groups=1,
         expansion=0.5,
         shortcut=True,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -854,11 +854,10 @@ def DarkNetELAN4_A(
     final_channel_scale=1,
     inputs=[640, 640, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
-    activation='silu',
-    normalizer='batch-norm',
-    final_activation="softmax",
+    activation="silu",
+    normalizer="batch-norm",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -867,12 +866,12 @@ def DarkNetELAN4_A(
     drop_rate=0.1,
 ):
 
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_head and num_classes != 1000:
+    if weights == "imagenet" and include_head and num_classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
 
@@ -901,7 +900,7 @@ def DarkNetELAN4_A(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
     
     if isinstance(feature_extractor, (tuple, list)):
@@ -927,7 +926,7 @@ def DarkNetELAN4_A(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stem.block{i + 1}",
+            name=f"stem.block{i + 1}"
         )(x)
 
     for i in range(len(num_blocks) - 1):
@@ -947,7 +946,7 @@ def DarkNetELAN4_A(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stage{i + 1}.block1",
+            name=f"stage{i + 1}.block1"
         )(x)
         
         x = create_layer_instance(
@@ -956,7 +955,7 @@ def DarkNetELAN4_A(
             iters=num_blocks[i + 1],
             shortcut=True,
             **layer_constant_dict,
-            name=f"stage{i + 1}.block2",
+            name=f"stage{i + 1}.block2"
         )(x)
 
     if pyramid_pooling:
@@ -965,31 +964,33 @@ def DarkNetELAN4_A(
                 pooling,
                 filters=int(filters[-1] * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}",
+                name=f"stage{i + 1}.block{j + 3}"
             )(x)
     else:
         x = LinearLayer(name=f"stage{i + 1}.block3")(x)
         
     if include_head:
-        x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
-        if pooling == 'avg':
+        if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
+        elif pooling == "max":
             x = GlobalMaxPooling2D()(x)
 
     if filters == [64, 128, 256, 512] and num_blocks == [1, 1, 1, 1, 1]:
         if extractor_block2 == AverageConvolutionDown:
-            model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-Small')
+            model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-Small")
         elif extractor_block2 == ConvolutionBlock:
-            model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-Base')
+            model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-Base")
         else:
-            model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-A')
+            model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-A")
     else:
-        model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-A')
+        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-A")
 
     return model
 
@@ -1003,10 +1004,10 @@ def DarkNetELAN4_A_backbone(
     channel_scale=2,
     final_channel_scale=1,
     inputs=[640, 640, 3],
-    weights='imagenet',
-    activation='silu',
-    normalizer='batch-norm',
-    custom_layers=[],
+    weights="imagenet",
+    activation="silu",
+    normalizer="batch-norm",
+    custom_layers=[]
 ) -> Model:
 
     model = DarkNetELAN4_A(
@@ -1044,25 +1045,24 @@ def DarkNetELAN4_B(
     final_channel_scale=1,
     inputs=[640, 640, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
-    activation='silu',
-    normalizer='batch-norm',
-    final_activation="softmax",
+    activation="silu",
+    normalizer="batch-norm",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ):
 
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_head and num_classes != 1000:
+    if weights == "imagenet" and include_head and num_classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
 
@@ -1091,7 +1091,7 @@ def DarkNetELAN4_B(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
 
     if isinstance(feature_extractor, (tuple, list)):
@@ -1116,7 +1116,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stem.branch1.block1'
+        name="stem.branch1.block1"
     )(inputs)
     
     y0 = create_layer_instance(
@@ -1125,7 +1125,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stem.branch2.block1'
+        name="stem.branch2.block1"
     )(inputs)
 
 
@@ -1136,10 +1136,10 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage1.branch1.block1'
+        name="stage1.branch1.block1"
     )(x)
     
-    y1 = CBLinear([filters[0]], name='stage1.branch2.block1')(x)
+    y1 = CBLinear([filters[0]], name="stage1.branch2.block1")(x)
 
     x = create_layer_instance(
         fusion_block1,
@@ -1149,10 +1149,10 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage1.branch1.block2'
+        name="stage1.branch1.block2"
     )(x)
     
-    y2 = CBLinear([filters[0], filters[1]], name='stage1.branch2.block2')(x)
+    y2 = CBLinear([filters[0], filters[1]], name="stage1.branch2.block2")(x)
 
     
     # Stage 2:
@@ -1162,7 +1162,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage2.branch1.block1'
+        name="stage2.branch1.block1"
     )(x)
     
     x = create_layer_instance(
@@ -1173,10 +1173,10 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage2.branch1.block2'
+        name="stage2.branch1.block2"
     )(x)
     
-    y3 = CBLinear([filters[0], filters[1], filters[2]], name='stage2.branch2.block1')(x)
+    y3 = CBLinear([filters[0], filters[1], filters[2]], name="stage2.branch2.block1")(x)
 
 
     # Stage 3:
@@ -1186,7 +1186,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage3.branch1.block1'
+        name="stage3.branch1.block1"
     )(x)
 
     x = create_layer_instance(
@@ -1197,10 +1197,10 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage3.branch1.block2'
+        name="stage3.branch1.block2"
     )(x)
     
-    y4 = CBLinear([filters[0], filters[1], filters[2], filters[3]], name='stage3.branch2.block1')(x)
+    y4 = CBLinear([filters[0], filters[1], filters[2], filters[3]], name="stage3.branch2.block1")(x)
 
 
     # Stage 4:
@@ -1210,7 +1210,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage4.block1.branch1'
+        name="stage4.block1.branch1"
     )(x)
 
     x = create_layer_instance(
@@ -1221,14 +1221,14 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage4.branch1.block2'
+        name="stage4.branch1.block2"
     )(x)
     
-    y5 = CBLinear([filters[0], filters[1], filters[2], filters[3], filters[4]], name='stage4.branch2.block1')(x)
+    y5 = CBLinear([filters[0], filters[1], filters[2], filters[3], filters[4]], name="stage4.branch2.block1")(x)
 
 
     # Stage 5:
-    x = CBFuse(fuse_index=[0, 0, 0, 0, 0], name='stage5.block1')([y0, y1, y2, y3, y4, y5])
+    x = CBFuse(fuse_index=[0, 0, 0, 0, 0], name="stage5.block1")([y0, y1, y2, y3, y4, y5])
 
     x = create_layer_instance(
         extractor_block1,
@@ -1236,10 +1236,10 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage6.block1',
+        name="stage6.block1",
     )(x)
     
-    x = CBFuse(fuse_index=[1, 1, 1, 1, 1], name='stage6.block2')([x, y2, y3, y4, y5])
+    x = CBFuse(fuse_index=[1, 1, 1, 1, 1], name="stage6.block2")([x, y2, y3, y4, y5])
 
     x = create_layer_instance(
         fusion_block2,
@@ -1249,7 +1249,7 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage6.block3'
+        name="stage6.block3"
     )(x)
     
     x = create_layer_instance(
@@ -1258,7 +1258,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage7.block1',
+        name="stage7.block1",
     )(x)
     
     x = CBFuse(fuse_index=[2, 2, 2], name="stage7.block2")([x, y3, y4, y5])
@@ -1271,7 +1271,7 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage7.block3'
+        name="stage7.block3"
     )(x)
     
     x = create_layer_instance(
@@ -1280,7 +1280,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage8.block1',
+        name="stage8.block1",
     )(x)
     
     x = CBFuse(fuse_index=[3, 3], name="stage8.block2")([x, y4, y5])
@@ -1293,7 +1293,7 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage8.block3'
+        name="stage8.block3"
     )(x)
     
     x = create_layer_instance(
@@ -1302,7 +1302,7 @@ def DarkNetELAN4_B(
         kernel_size=(3, 3),
         strides=(2, 2),
         **layer_constant_dict,
-        name='stage9.block1',
+        name="stage9.block1",
     )(x)
     
     x = CBFuse(fuse_index=[4], name="stage9.block2")([x, y5])
@@ -1315,7 +1315,7 @@ def DarkNetELAN4_B(
         expansion=0.5,
         shortcut=True,
         **layer_constant_dict,
-        name='stage9.block3'
+        name="stage9.block3"
     )(x)
     
     if pyramid_pooling:
@@ -1324,31 +1324,33 @@ def DarkNetELAN4_B(
                 pooling,
                 filters=int(filters * channel_scale**5 * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage9.block{i + 4}",
+                name=f"stage9.block{i + 4}"
             )(x)
     else:
         x = LinearLayer(name="stage9.block4")(x)
         
     if include_head:
-        x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
-        if pooling == 'avg':
+        if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
+        elif pooling == "max":
             x = GlobalMaxPooling2D()(x)
 
     if filters == [64, 128, 256, 512, 1024] and num_blocks == [2, 2, 2, 2, 2, 2, 2, 2]:
         if extractor_block2 == AverageConvolutionDown:
-            model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-Large')
+            model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-Large")
         elif extractor_block2 == ConvolutionBlock:
-            model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-XLarge')
+            model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-XLarge")
         else:
-            model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-B')
+            model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-B")
     else:
-        model = Model(inputs=inputs, outputs=x, name='DarkNet-ELAN4-B')
+        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN4-B")
 
     return model
 
@@ -1362,10 +1364,10 @@ def DarkNetELAN4_B_backbone(
     channel_scale=2,
     final_channel_scale=1,
     inputs=[640, 640, 3],
-    weights='imagenet',
-    activation='silu',
-    normalizer='batch-norm',
-    custom_layers=[],
+    weights="imagenet",
+    activation="silu",
+    normalizer="batch-norm",
+    custom_layers=[]
 ) -> Model:
 
     model = DarkNetELAN4_B(
@@ -1398,17 +1400,16 @@ def DarkNetELAN4_B_backbone(
 def DarkNetELAN4_small(
     inputs=[640, 640, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
-    activation='silu',
-    normalizer='batch-norm',
-    final_activation="softmax",
+    activation="silu",
+    normalizer="batch-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetELAN4_A(
@@ -1425,23 +1426,22 @@ def DarkNetELAN4_small(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
 
 def DarkNetELAN4_small_backbone(
     inputs=[640, 640, 3],
-    weights='imagenet',
-    activation='silu',
-    normalizer='batch-norm',
-    custom_layers=[],
+    weights="imagenet",
+    activation="silu",
+    normalizer="batch-norm",
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -1474,17 +1474,16 @@ def DarkNetELAN4_small_backbone(
 def DarkNetELAN4_base(
     inputs=[640, 640, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
-    activation='silu',
-    normalizer='batch-norm',
-    final_activation="softmax",
+    activation="silu",
+    normalizer="batch-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetELAN4_A(
@@ -1501,23 +1500,22 @@ def DarkNetELAN4_base(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
 
 def DarkNetELAN4_base_backbone(
     inputs=[640, 640, 3],
-    weights='imagenet',
-    activation='silu',
-    normalizer='batch-norm',
-    custom_layers=[],
+    weights="imagenet",
+    activation="silu",
+    normalizer="batch-norm",
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -1550,17 +1548,16 @@ def DarkNetELAN4_base_backbone(
 def DarkNetELAN4_large(
     inputs=[640, 640, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
-    activation='silu',
-    normalizer='batch-norm',
-    final_activation="softmax",
+    activation="silu",
+    normalizer="batch-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetELAN4_B(
@@ -1577,23 +1574,22 @@ def DarkNetELAN4_large(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
 
 def DarkNetELAN4_large_backbone(
     inputs=[640, 640, 3],
-    weights='imagenet',
-    activation='silu',
-    normalizer='batch-norm',
-    custom_layers=[],
+    weights="imagenet",
+    activation="silu",
+    normalizer="batch-norm",
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -1626,17 +1622,16 @@ def DarkNetELAN4_large_backbone(
 def DarkNetELAN4_xlarge(
     inputs=[640, 640, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
-    activation='silu',
-    normalizer='batch-norm',
-    final_activation="softmax",
+    activation="silu",
+    normalizer="batch-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetELAN4_B(
@@ -1653,23 +1648,22 @@ def DarkNetELAN4_xlarge(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
 
 def DarkNetELAN4_xlarge_backbone(
     inputs=[640, 640, 3],
-    weights='imagenet',
-    activation='silu',
-    normalizer='batch-norm',
-    custom_layers=[],
+    weights="imagenet",
+    activation="silu",
+    normalizer="batch-norm",
+    custom_layers=[]
 ) -> Model:
 
     model = DarkNetELAN4_xlarge(

@@ -8,7 +8,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def clahe(image, clip_limit=2.0, tile_grid_size=(8, 8)):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     assert (image.dtype == np.uint8)
     img = image.copy()

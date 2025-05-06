@@ -124,8 +124,11 @@ def DeiT(attention_block=None,
         x_head = Dense(1 if classes == 2 else classes, name='head')(x_head)
         x_head = get_activation_from_name(final_activation)(x_head)
         
-        x_dist = Dense(1 if classes == 2 else classes, name='dist')(x_dist)
-        x_dist = get_activation_from_name(final_activation)(x_dist)
+        x_dist = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            activation=final_activation,
+            name="dist"
+        )(x_dist)
     else:
         if pooling == 'avg':
             x_head = GlobalAveragePooling2D(name='head_global_avgpool')(x_head)

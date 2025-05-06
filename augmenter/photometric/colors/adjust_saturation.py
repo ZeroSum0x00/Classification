@@ -10,7 +10,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def adjust_saturation(image, saturation_factor):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     img = image.astype(np.float32)
     degenerate = cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), cv2.COLOR_GRAY2RGB)
@@ -51,3 +51,4 @@ class RandomAdjustSaturation(BaseRandomTransform):
     def image_transform(self, image):
         saturation_factor = self.get_params(self.saturation_range)
         return adjust_saturation(image, saturation_factor)
+    

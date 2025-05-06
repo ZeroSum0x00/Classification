@@ -25,7 +25,7 @@
 
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv1D, Conv2D, DepthwiseConv2D, Reshape, Permute, Dropout,
     Dense, GlobalMaxPooling2D, GlobalAveragePooling2D,
@@ -43,8 +43,8 @@ from utils.model_processing import process_model_input
 
 class ConvPositionalEncoding(tf.keras.layers.Layer):
     def __init__(
-        self, 
-        kernel_size=(3, 3), 
+        self,
+        kernel_size=(3, 3),
         input_height=-1,
         kernel_initializer="glorot_uniform",
         bias_initializer="zeros",
@@ -92,9 +92,9 @@ class ConvPositionalEncoding(tf.keras.layers.Layer):
 
 class ConvRelativePositionalEncoding(tf.keras.layers.Layer):
     def __init__(
-        self, 
-        head_splits=[2, 3, 3], 
-        head_kernel_size=[3, 5, 7], 
+        self,
+        head_splits=[2, 3, 3],
+        head_kernel_size=[3, 5, 7],
         input_height=-1,
         kernel_initializer="glorot_uniform",
         bias_initializer="zeros",
@@ -147,9 +147,9 @@ class ConvRelativePositionalEncoding(tf.keras.layers.Layer):
         conv_v_img = tf.transpose(conv_v_img, [0, 2, 1, 3])
 
         EV_hat_img = img_token_q * conv_v_img
-        padding = [[0, 0], 
-                   [0, 0], 
-                   [1, 0], 
+        padding = [[0, 0],
+                   [0, 0],
+                   [1, 0],
                    [0, 0]]
         return tf.pad(EV_hat_img, padding)
 
@@ -278,7 +278,11 @@ def res_mlp_block(
         name = f"res_mlp_block{K.get_uid('res_mlp_block')}"
         
     if drop_rate > 0:
-        crpe_out = Dropout(drop_rate, noise_shape=(None, 1, 1), name=f"{name}.drop1")(crpe_out)
+        crpe_out = Dropout(
+            rate=drop_rate,
+            noise_shape=(None, 1, 1),
+            name=f"{name}.drop1"
+        )(crpe_out)
         
     cpe_crpe = add([cpe_out, crpe_out])
 
@@ -304,7 +308,12 @@ def res_mlp_block(
     )(nn)
 
     if drop_rate > 0:
-        nn = Dropout(drop_rate, noise_shape=(None, 1, 1), name=f"{name}.drop2")(nn)
+        nn = Dropout(
+            rate=drop_rate,
+            noise_shape=(None, 1, 1),
+            name=f"{name}.drop2"
+        )(nn)
+        
     return add([cpe_crpe, nn])
 
 
@@ -503,7 +512,6 @@ def CoaT(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -644,15 +652,16 @@ def CoaT(
         x = x[:, :, 0]
 
     if include_head:
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes, 
-            kernel_initializer=kernel_initializer, 
-            bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
-            name="predictions"
-        )(x)
-        
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(rate=drop_rate),
+            Dense(
+                units=1 if num_classes == 2 else num_classes,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D(name="global_avgpool")(x)
@@ -682,7 +691,6 @@ def CoaT_ltiny(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -710,7 +718,6 @@ def CoaT_ltiny(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -728,7 +735,6 @@ def CoaT_lmini(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -756,7 +762,6 @@ def CoaT_lmini(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -774,7 +779,6 @@ def CoaT_lsmall(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -802,7 +806,6 @@ def CoaT_lsmall(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -820,7 +823,6 @@ def CoaT_tiny(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -848,7 +850,6 @@ def CoaT_tiny(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -866,7 +867,6 @@ def CoaT_mini(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -894,7 +894,6 @@ def CoaT_mini(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,

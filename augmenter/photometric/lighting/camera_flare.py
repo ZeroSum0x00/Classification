@@ -8,7 +8,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def camera_flare(image, radius=0.5, alpha=0.8):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     assert 0 < radius <= 1
 
@@ -45,3 +45,4 @@ class RandomCameraFlare(BaseRandomTransform):
 
     def image_transform(self, image):
         return camera_flare(image, self.radius, self.alpha)
+    

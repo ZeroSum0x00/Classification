@@ -15,13 +15,13 @@ class TFDataPipeline:
         dataset,
         target_size,
         batch_size,
-        color_space='RGB',
+        color_space="RGB",
         augmentor=None,
-        normalizer='divide',
+        normalizer="divide",
         mean_norm=None,
         std_norm=None,
         interpolation="BILINEAR",
-        phase='train',
+        phase="train",
         num_workers=1,
         debug_mode=False,
     ):
@@ -34,8 +34,8 @@ class TFDataPipeline:
         self.num_workers = num_workers
         self.N = len(self.dataset)
 
-        if phase == "train":
-            shuffle(self.dataset)
+        if phase == "train":            
+            self.dataset = shuffle(self.dataset)
 
         self.augmentor = augmentor.get(phase) if isinstance(augmentor, dict) else augmentor
         if augmentor and isinstance(self.augmentor, (tuple, list)):
@@ -50,19 +50,19 @@ class TFDataPipeline:
         )
 
     def load_data(self, sample):
-        sample_image = sample.get('image')
-        sample_label = sample['label']
+        sample_image = sample.get("image")
+        sample_label = sample["label"]
         deep_channel = 1 if (len(self.target_size) > 2 and self.target_size[-1] > 1) else 0
 
         if sample_image is not None:
             image = sample_image
         else:
-            img_path = os.path.join(sample['path'], sample['filename'])
+            img_path = os.path.join(sample["path"], sample["filename"])
             cv_imread_flag = cv2.IMREAD_COLOR if deep_channel else cv2.IMREAD_GRAYSCALE
             image = cv2.imread(img_path, cv_imread_flag)
             
-        if self.color_space.lower() != 'bgr':
-            image = change_color_space(image, 'bgr' if deep_channel else 'gray', self.color_space)
+        if self.color_space.lower() != "bgr":
+            image = change_color_space(image, "bgr" if deep_channel else "gray", self.color_space)
 
         if self.augmentor:
             image = self.augmentor(image)
@@ -99,7 +99,7 @@ class TFDataPipeline:
         )
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
         
-        if self.phase == 'train':
+        if self.phase == "train":
             dataset = dataset.repeat()
         
         return dataset
@@ -107,3 +107,4 @@ class TFDataPipeline:
 
     def __len__(self):
         return int(np.ceil(self.N / self.batch_size))
+    

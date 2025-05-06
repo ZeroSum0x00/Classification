@@ -10,7 +10,7 @@ class SAMModel(tf.keras.models.Model):
     Usage is same with `keras.modeols.Model`: `model = SAMModel(inputs, outputs, rho=sam_rho, name=name)`
     """
 
-    def __init__(self, *args, rho=0.05, **kwargs):
+    def __init__(self, rho=0.05, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.rho = tf.constant(rho, dtype=tf.float32)
 
@@ -57,3 +57,4 @@ class SAMModel(tf.keras.models.Model):
             else:
                 return_metrics[metric.name] = result
         return return_metrics
+    

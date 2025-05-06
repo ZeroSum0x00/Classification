@@ -8,7 +8,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 
 def radial_gradient(
-    image, 
+    image,
     inner_color=150,
     outer_color=30,
     center=None,
@@ -74,7 +74,7 @@ def radial_gradient(
         return np.clip(image.astype(np.uint16) + tmp.astype(np.uint16), 0, 255).astype(np.uint8)
 
     if not is_numpy_image(image):
-        raise TypeError('image should be image. Got {}'.format(type(image)))
+        raise TypeError("image should be image. Got {}".format(type(image)))
     
     im_height, im_width, im_depth = image.shape
     inner_color = im_depth * [inner_color]
@@ -126,24 +126,26 @@ class RadialGradient(BaseTransform):
     def image_transform(self, image):
         return radial_gradient(
             image=image,
-            inner_color=self.inner_color, 
+            inner_color=self.inner_color,
             outer_color=self.outer_color,
-            center=self.center, 
+            center=self.center,
             max_distance=self.max_distance,
-            rect=self.rect, 
+            rect=self.rect,
             random_distance=self.random_distance,
         )
 
 
 class RandomRadialGradient(BaseRandomTransform):
-    def __init__(self,
-                 inner_color=150,
-                 outer_color=30,
-                 center=None,
-                 max_distance=None,
-                 rect=False,
-                 random_distance=False,
-                 prob=0.5):
+    def __init__(
+        self,
+        inner_color=150,
+        outer_color=30,
+        center=None,
+        max_distance=None,
+        rect=False,
+        random_distance=False,
+        prob=0.5
+    ):
         self.inner_color = inner_color
         self.outer_color = outer_color
         self.center = center
@@ -155,10 +157,11 @@ class RandomRadialGradient(BaseRandomTransform):
     def image_transform(self, image):
         return radial_gradient(
             image=image,
-            inner_color=self.inner_color, 
+            inner_color=self.inner_color,
             outer_color=self.outer_color,
-            center=self.center, 
+            center=self.center,
             max_distance=self.max_distance,
-            rect=self.rect, 
+            rect=self.rect,
             random_distance=self.random_distance,
         )
+    

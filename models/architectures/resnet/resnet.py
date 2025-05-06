@@ -172,8 +172,11 @@ def ResNetA(num_blocks,
     # Final Block
     if include_top:
         outputs = Flatten(name='flatten')(outputs)
-        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
-        outputs = get_activation_from_name(final_activation)(outputs)
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            activation=final_activation,
+            name="predictions"
+        )(x)
     else:
         if pooling == 'avg':
             outputs = GlobalAveragePooling2D(name='global_avgpool')(outputs)

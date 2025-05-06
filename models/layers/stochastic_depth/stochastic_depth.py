@@ -37,8 +37,8 @@ class StochasticDepth(tf.keras.layers.Layer):
     Output shape:
         Equal to the shape of inputs `shortcut`, and `residual`
     """
-    def __init__(self, survival_probability: float=0.5, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, survival_probability: float=0.5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.survival_probability = survival_probability
 
     def call(self, x, training=None):
@@ -72,8 +72,8 @@ class StochasticDepth(tf.keras.layers.Layer):
 
 class StochasticDepth2(tf.keras.layers.Layer):
   
-    def __init__(self, survival_probability: float=0.5, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, survival_probability: float=0.5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.survival_probability = survival_probability
     
     def __drop_block(self, inputs, drop_rate=0):
@@ -102,3 +102,4 @@ class StochasticDepth2(tf.keras.layers.Layer):
         config = {"survival_probability": self.survival_probability}
 
         return {**base_config, **config}
+    

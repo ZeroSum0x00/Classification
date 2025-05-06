@@ -9,7 +9,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def shear_x(image, factor):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     M = np.array([[1, factor, 0], [0, 1, 0]], dtype=np.float32) 
     return cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))
@@ -17,7 +17,7 @@ def shear_x(image, factor):
 
 def shear_y(image, factor):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     M = np.array([[1, 0, 0], [factor, 1, 0]], dtype=np.float32) 
     return cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))
@@ -25,7 +25,7 @@ def shear_y(image, factor):
 
 def shear(image, factor_x, factor_y):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
     
     M = np.array([[1, factor_x, 0], [factor_y, 1, 0]], dtype=np.float32) 
     return cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))
@@ -118,3 +118,4 @@ class RandomShear(BaseRandomTransform):
     def image_transform(self, image):
         shear_factor = self.get_params(self.factor)
         return shear_x(image, shear_factor)
+    

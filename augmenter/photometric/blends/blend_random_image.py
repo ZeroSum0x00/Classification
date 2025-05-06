@@ -6,13 +6,14 @@ import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
+from utils.logger import logger
 
 
 def blend_random_image(image, ratio=0.8):
-    URL = 'https://picsum.photos/{}/{}/?random'
+    URL = "https://picsum.photos/{}/{}/?random"
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
     
     h, w = image.shape[:2]
     try:
@@ -22,9 +23,9 @@ def blend_random_image(image, ratio=0.8):
         random_img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         return cv2.addWeighted(image, ratio, random_img, 1 - ratio, 0)
     except requests.exceptions.ConnectionError as e:
-        print('Unable to download image. Error: {}'.format(e))
+        logger.error("Unable to download image. Error: {}".format(e))
     except Exception as e:
-        print('Unknown error occurred "{}"'.format(e))
+        logger.error("Unknown error occurred '{}'".format(e))
 
 
 class BlendRandomImage(BaseTransform):
@@ -42,3 +43,4 @@ class RandomBlendRandomImage(BaseRandomTransform):
 
     def image_transform(self, image):
         return blend_random_image(image, self.ratio)
+    

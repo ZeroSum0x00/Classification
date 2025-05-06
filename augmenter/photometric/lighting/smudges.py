@@ -35,7 +35,7 @@ def smudges(image, number_smudges=None):
         return np.transpose(img, (1, 0, 2)) if len(img.shape) > 2 else np.transpose(img, (1, 0))
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     number_smudges = number_smudges if number_smudges else random.randint(1, 6)
 

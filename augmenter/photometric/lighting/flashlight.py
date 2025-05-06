@@ -20,7 +20,7 @@ def flashlight(image, radius=0.5, alpha=0.8, bg_darkness=100):
         return img
         
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     im_height, im_width = image.shape[:2]
     pos_x = random.randint(int(1 / 4 * im_width), int(3 / 4 * im_width))
@@ -61,3 +61,4 @@ class RandomFlashlight(BaseRandomTransform):
 
     def image_transform(self, image):
         return flashlight(image, self.radius, self.alpha, self.bg_darkness)
+    

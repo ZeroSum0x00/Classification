@@ -18,66 +18,73 @@ class QARepVGGBlockV1(RepVGGBlock):
     This code is based on https://arxiv.org/abs/2212.01593
     """
     
-    def __init__(self,
-                 filters,
-                 kernel_size,
-                 strides=1,
-                 padding=1,
-                 dilation=1,
-                 groups=1,
-                 activation='relu', 
-                 normalizer='batch-norm',
-                 training=False,
-                 *args, 
-                 **kwargs):
-        super().__init__(filters, 
-                         kernel_size,
-                         strides,
-                         padding,
-                         dilation,
-                         groups,
-                         activation,
-                         normalizer,
-                         training,
-                         *args,
-                         **kwargs)
+    def __init__(
+        self,
+        filters,
+        kernel_size,
+        strides=1,
+        padding=1,
+        dilation=1,
+        groups=1,
+        activation="relu",
+        normalizer="batch-norm",
+        training=False,
+        *args, **kwargs
+    ):
+        super().__init__(
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            activation=activation,
+            normalizer=normalizer,
+            training=training,
+            *args, **kwargs
+        )
     
     def build(self, input_shape):
         self.in_channels = input_shape[-1]
-        self.nonlinearity = get_activation_from_name(self.activation, name=self.name + '_nonlinearity')
+        self.nonlinearity = get_activation_from_name(self.activation, name=self.name + "_nonlinearity")
 
         if not self.training:
             self.rbr_reparam = Sequential([
                     ZeroPadding2D(padding=self.padding),
-                    Conv2D(filters=self.filters,
-                           kernel_size=self.kernel_size,
-                           strides=self.strides,
-                           padding="valid",
-                           dilation_rate=self.dilation,
-                           groups=self.groups,
-                           use_bias=True,
-                           name=self.name + '_rbr_reparam')
+                    Conv2D(
+                        filters=self.filters,
+                        kernel_size=self.kernel_size,
+                        strides=self.strides,
+                        padding="valid",
+                        dilation_rate=self.dilation,
+                        groups=self.groups,
+                        use_bias=True,
+                        name= f"{self.name}_rbr_reparam"
+                    )
             ])
         else:
             self.bn = get_normalizer_from_name(self.normalizer)
             self.rbr_identity = LinearLayer() if (self.filters == self.in_channels and stride == 1) else None
-            self.rbr_1x1 = self.convolution_block(filters=self.filters,
-                                                  kernel_size=1,
-                                                  strides=self.strides,
-                                                  padding=self.padding_11,
-                                                  groups=self.groups,
-                                                  name=self.name + '_rbr_1x1'
+            
+            self.rbr_1x1 = self.convolution_block(
+                filters=self.filters,
+                kernel_size=1,
+                strides=self.strides,
+                padding=self.padding_11,
+                groups=self.groups,
+                name=f"{self.name}_rbr_1x1"
             )
-            self.rbr_dense = self.convolution_block(filters=self.filters,
-                                                    kernel_size=self.kernel_size,
-                                                    strides=self.strides,
-                                                    padding=self.padding,
-                                                    groups=self.groups,
-                                                    name=self.name + '_rbr_dense'
+            self.rbr_dense = self.convolution_block(
+                filters=self.filters,
+                kernel_size=self.kernel_size,
+                strides=self.strides,
+                padding=self.padding,
+                groups=self.groups,
+                name=f"{self.name}_rbr_dense"
             )
 
     def call(self, inputs):
-        if hasattr(self, 'rbr_reparam'):
+        if hasattr(self, "rbr_reparam"):
             return self.nonlinearity(self.rbr_reparam(inputs))
 
         if self.rbr_identity is None:
@@ -124,69 +131,80 @@ class QARepVGGBlockV2(RepVGGBlock):
     RepVGGBlock is a basic rep-style block, including training and deploy status
     This code is based on https://arxiv.org/abs/2212.01593
     """
-    def __init__(self,
-                 filters,
-                 kernel_size,
-                 strides=1,
-                 padding=1,
-                 dilation=1,
-                 groups=1,
-                 activation='relu', 
-                 normalizer='batch-norm',
-                 training=False,
-                 *args, 
-                 **kwargs):
-        super().__init__(filters, 
-                         kernel_size,
-                         strides,
-                         padding,
-                         dilation,
-                         groups,
-                         activation,
-                         normalizer,
-                         training,
-                         *args,
-                         **kwargs)
+    def __init__(
+        self,
+        filters,
+        kernel_size,
+        strides=1,
+        padding=1,
+        dilation=1,
+        groups=1,
+        activation="relu",
+        normalizer="batch-norm",
+        training=False,
+        *args, **kwargs
+    ):
+        super().__init__(
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            activation=activation,
+            normalizer=normalizer,
+            training=training,
+            *args, **kwargs
+        )
     
     def build(self, input_shape):
         self.in_channels = input_shape[-1]
-        self.nonlinearity = get_activation_from_name(self.activation, name=self.name + '_nonlinearity')
+        self.nonlinearity = get_activation_from_name(self.activation, name=self.name + "_nonlinearity")
 
         if not self.training:
             self.rbr_reparam = Sequential([
                     ZeroPadding2D(padding=self.padding),
-                    Conv2D(filters=self.filters,
-                           kernel_size=self.kernel_size,
-                           strides=self.strides,
-                           padding="valid",
-                           dilation_rate=self.dilation,
-                           groups=self.groups,
-                           use_bias=True,
-                           name=self.name + '_rbr_reparam')
+                    Conv2D(
+                        filters=self.filters,
+                        kernel_size=self.kernel_size,
+                        strides=self.strides,
+                        padding="valid",
+                        dilation_rate=self.dilation,
+                        groups=self.groups,
+                        use_bias=True,
+                        name=f"{self.name}_rbr_reparam"
+                    )
             ])
         else:
             self.bn = get_normalizer_from_name(self.normalizer)
             self.rbr_identity = LinearLayer() if (self.filters == self.in_channels and stride == 1) else None
-            self.rbr_1x1 = self.convolution_block(filters=self.filters,
-                                                  kernel_size=1,
-                                                  strides=self.strides,
-                                                  padding=self.padding_11,
-                                                  groups=self.groups,
-                                                  name=self.name + '_rbr_1x1'
+            
+            self.rbr_1x1 = self.convolution_block(
+                filters=self.filters,
+                kernel_size=1,
+                strides=self.strides,
+                padding=self.padding_11,
+                groups=self.groups,
+                name=f"{self.name}_rbr_1x1"
             )
-            self.rbr_dense = self.convolution_block(filters=self.filters,
-                                                    kernel_size=self.kernel_size,
-                                                    strides=self.strides,
-                                                    padding=self.padding,
-                                                    groups=self.groups,
-                                                    name=self.name + '_rbr_dense'
+            
+            self.rbr_dense = self.convolution_block(
+                filters=self.filters,
+                kernel_size=self.kernel_size,
+                strides=self.strides,
+                padding=self.padding,
+                groups=self.groups,
+                name=f"{self.name}_rbr_dense"
             )
-            self.rbr_avg = AveragePooling2D(pool_size=self.kernel_size, 
-                                            strides=self.strides,
-                                            padding="same") if (self.filters == self.in_channels and stride == 1) else None
+            
+            self.rbr_avg = AveragePooling2D(
+                pool_size=self.kernel_size,
+                strides=self.strides,
+                padding="same",
+            ) if (self.filters == self.in_channels and stride == 1) else None
             
     def call(self, inputs):
-        if hasattr(self, 'rbr_reparam'):
+        if hasattr(self, "rbr_reparam"):
             return self.nonlinearity(self.rbr_reparam(inputs))
 
         if self.rbr_identity is None:
@@ -242,3 +260,4 @@ class QARepVGGBlockV2(RepVGGBlock):
         std = tf.sqrt(running_var + eps)
         t = gamma / std
         return kernel * t, beta - running_mean * gamma / std
+    

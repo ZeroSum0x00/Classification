@@ -92,12 +92,11 @@ def fire_module(
 
 def SqueezeNet(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="relu",
     normalizer=None,
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -215,13 +214,13 @@ def SqueezeNet(
     x = AveragePooling2D((13, 13), strides=(1, 1), name="stage3.pool")(x)
 
     if include_head:
-        x = Dropout(rate=drop_rate)(x)
-        x = Flatten(name="flatten")(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            name="predictions"
-        )(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(rate=drop_rate),
+            Flatten(name="flatten"),
+            Dropout(drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)

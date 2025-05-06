@@ -3,39 +3,39 @@
     - The following table comparing the params of the EfficientRep architectures (YOLOv6 backbone) in Tensorflow on 
     image size 640 x 640 x 3:
 
-       ---------------------------------------------------
-      |         Model Name             |     Params       |
-      |---------------------------------------------------|
-      |    Efficient-Rep lite nano     |       345,070    |
-      |---------------------------------------------------|
-      |    Efficient-Rep lite medium   |       676,605    |
-      |---------------------------------------------------|
-      |    Efficient-Rep lite large    |     1,066,285    |
-      |---------------------------------------------------|
-      |    Efficient-Rep nano          |     3,393,480    |
-      |---------------------------------------------------|
-      |    Efficient-Rep6 nano         |     4,426,248    |
-      |---------------------------------------------------|
-      |    Efficient-Rep small         |    13,045,672    |
-      |---------------------------------------------------|
-      |    Efficient-Rep6 small        |    17,175,592    |
-      |---------------------------------------------------|
-      |    Efficient-Rep medium        |    24,251,732    |
-      |---------------------------------------------------|
-      |    Efficient-Rep6 medium       |    33,770,134    |
-      |---------------------------------------------------|
-      |    Efficient-Rep large         |    39,531,453    |
-      |---------------------------------------------------|
-      |    Efficient-Rep6 large        |    54,590,400    |
-      |---------------------------------------------------|
-      |    Efficient-MBLA small        |     7,252,048    |
-      |---------------------------------------------------|
-      |    Efficient-MBLA medium       |    15,911,808    |
-      |---------------------------------------------------|
-      |    Efficient-MBLA large        |    27,927,728    |
-      |---------------------------------------------------|
-      |    Efficient-MBLA xlarge       |    51,591,610    |
-       ----------------------------------------------------
+       -------------------------------------------------------------------------------
+      |         Model Name             |    Un-deploy params    |    Deploy params    |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep lite nano     |           345,070      |        345,070      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep lite medium   |           676,605      |        676,605      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep lite large    |         1,066,285      |      1,066,285      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep nano          |         3,705,928      |      3,393,480      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep6 nano         |         4,858,952      |      4,426,248      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep small         |        14,253,224      |     13,045,672      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep6 small        |        18,853,032      |     17,175,592      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep medium        |        26,534,536      |     24,251,732      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep6 medium       |        37,032,328      |     33,770,134      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep large         |        42,581,928      |     39,531,453      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-Rep6 large        |        58,544,040      |     54,590,400      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-MBLA small        |         7,656,776      |      7,252,048      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-MBLA medium       |        16,806,904      |     15,911,808      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-MBLA large        |        29,505,192      |     27,927,728      |
+      |-------------------------------------------------------------------------------|
+      |    Efficient-MBLA xlarge       |        55,559,080      |     51,591,610      |
+       -------------------------------------------------------------------------------
 
   # Reference:
     - Source: https://github.com/meituan/YOLOv6/tree/main
@@ -43,7 +43,6 @@
 """
 
 import tensorflow as tf
-from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv2D, Conv2DTranspose, Dense, Dropout, MaxPooling2D,
@@ -71,8 +70,8 @@ class CustomLayer(tf.keras.layers.Layer):
         sub_block=None,
         scale_weight=False,
         iters=1,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -106,8 +105,8 @@ class CSPSPPF(CustomLayer):
         filters,
         pool_size=(5, 5),
         expansion=0.5,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -214,7 +213,7 @@ class CSPSPPF(CustomLayer):
             norm_eps=self.norm_eps,
         )
         
-        self.pool = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding='same')
+        self.pool = MaxPooling2D(pool_size=self.pool_size, strides=(1, 1), padding="same")
 
     def call(self, inputs, training=False):
         x = self.conv1(inputs, training=training)
@@ -248,9 +247,9 @@ class CSPSPPF(CustomLayer):
 
 class LinearAddBlock(CustomLayer):
     
-    '''
+    """
         A CSLA block is a LinearAddBlock with is_csla=True
-    '''
+    """
     
     def __init__(
         self,
@@ -262,8 +261,8 @@ class LinearAddBlock(CustomLayer):
         groups=1,
         is_csla=False,
         conv_scale_init=1.0,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -306,7 +305,7 @@ class LinearAddBlock(CustomLayer):
             filters=self.filters,
             kernel_size=(1, 1),
             strides=self.strides,
-            padding='valid',
+            padding="valid",
             use_bias=False,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
@@ -328,7 +327,7 @@ class LinearAddBlock(CustomLayer):
         y = self.conv_1x1(inputs, training=training)
         y = self.scale_1x1(y, training=False if self.is_csla else training)
         out = x + y
-        if hasattr(self, 'scale_identity'):
+        if hasattr(self, "scale_identity"):
             out += self.scale_identity(inputs, training=training)
         out = self.norm(out, training=training)
         out = self.activ(out, training=training)
@@ -639,7 +638,7 @@ class RepBlock(CustomLayer):
             *args, **kwargs
         )
         self.filters = filters
-        self.sub_block = kwargs.get('sub_block', RepVGGBlock)
+        self.sub_block = kwargs.get("sub_block", RepVGGBlock)
 
     def build(self, input_shape):
         if self.rep_block != BottleRep:
@@ -856,8 +855,8 @@ class MBLABlock(CustomLayer):
         sub_block=None,
         expansion=0.5,
         iters=1,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -892,8 +891,10 @@ class MBLABlock(CustomLayer):
             n_list = [0, 1]
         else:
             extra_branch_steps = 1
+            
             while extra_branch_steps * 2 < self.iters:
                 extra_branch_steps *= 2
+                
             n_list = [0, extra_branch_steps, self.iters]
         self.branch_num = len(n_list)
 
@@ -970,8 +971,8 @@ class BiFusion(CustomLayer):
     def __init__(
         self,
         filters,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -1030,7 +1031,7 @@ class BiFusion(CustomLayer):
             filters=self.filters,
             kernel_size=(1, 1),
             strides=(1, 1),
-            padding='valid',
+            padding="valid",
             use_bias=True,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
@@ -1077,8 +1078,8 @@ class Lite_EffiBlockS1(CustomLayer):
         filters,
         strides=(1, 1),
         expansion=1,
-        activation='hard-swish',
-        normalizer='batch-norm',
+        activation="hard-swish",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -1150,7 +1151,7 @@ class Lite_EffiBlockS1(CustomLayer):
                 Conv2D(filters=filters,
                        kernel_size=kernel_size,
                        strides=strides,
-                       padding='same',
+                       padding="same",
                        groups=filters,
                        use_bias=False,
                        kernel_initializer=self.kernel_initializer,
@@ -1188,8 +1189,8 @@ class Lite_EffiBlockS2(Lite_EffiBlockS1):
         filters,
         strides=(1, 1),
         expansion=1,
-        activation='hard-swish',
-        normalizer='batch-norm',
+        activation="hard-swish",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -1331,8 +1332,8 @@ class DPBlock(CustomLayer):
         strides=(1, 1),
         padding="same",
         fuse=False,
-        activation='hard-swish',
-        normalizer='batch-norm',
+        activation="hard-swish",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -1422,8 +1423,8 @@ class DarknetBlock(CustomLayer):
         kernel_size=(3, 3),
         expansion=0.5,
         fuse=False,
-        activation='hard-swish',
-        normalizer='batch-norm',
+        activation="hard-swish",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -1501,8 +1502,8 @@ class CSPBlock(CustomLayer):
         kernel_size=(3, 3),
         expansion=0.5,
         fuse=False,
-        activation='hard-swish',
-        normalizer='batch-norm',
+        activation="hard-swish",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -1614,14 +1615,13 @@ def EfficientLite(
     pooling=None,
     activation="hard-swish",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ):
 
     if weights not in {"imagenet", None}:
@@ -1657,7 +1657,7 @@ def EfficientLite(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
     
     if isinstance(feature_extractor, (tuple, list)):
@@ -1683,7 +1683,7 @@ def EfficientLite(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stem.block{i + 1}",
+            name=f"stem.block{i + 1}"
         )(x)
 
     for i, j in enumerate(num_blocks[1:]):
@@ -1694,7 +1694,7 @@ def EfficientLite(
             strides=(2, 2),
             expansion=csp_scale,
             **layer_constant_dict,
-            name=f"stage{i + 1}.block1",
+            name=f"stage{i + 1}.block1"
         )(x)
         
         for k in range(j - 1):
@@ -1705,7 +1705,7 @@ def EfficientLite(
                 strides=(1, 1),
                 expansion=csp_scale,
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{k + 2}",
+                name=f"stage{i + 1}.block{k + 2}"
             )(x)
             
     if pyramid_pooling:
@@ -1714,16 +1714,18 @@ def EfficientLite(
                 pooling,
                 filters=int(filters[-1] * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{k + l + 3}",
+                name=f"stage{i + 1}.block{k + l + 3}"
             )(x)
     else:
         x = LinearLayer(name=f"stage{i + 1}.block{k + 3}")(x)
 
     if include_head:
-        x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
@@ -1731,13 +1733,13 @@ def EfficientLite(
             x = GlobalMaxPooling2D()(x)
 
     if filters == [24, 32, 48, 96, 176]:
-        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite-Small')
+        model = Model(inputs=inputs, outputs=x, name=f"Efficient-Lite-Small")
     elif filters == [24, 32, 64, 144, 288]:
-        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite-Medium')
+        model = Model(inputs=inputs, outputs=x, name=f"Efficient-Lite-Medium")
     elif filters == [24, 48, 96, 192, 384]:
-        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite-Large')
+        model = Model(inputs=inputs, outputs=x, name=f"Efficient-Lite-Large")
     else:
-        model = Model(inputs=inputs, outputs=x, name=f'Efficient-Lite')
+        model = Model(inputs=inputs, outputs=x, name=f"Efficient-Lite")
 
     return model
 
@@ -1756,7 +1758,7 @@ def EfficientLite_backbone(
     activation="hard-swish",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     model = EfficientLite(
@@ -1801,21 +1803,20 @@ def EfficientRep(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ):
 
-    '''
+    """
         EfficientRep Backbone
         EfficientRep is handcrafted by hardware-aware neural network design.
         With rep-style struct, EfficientRep is friendly to high-computation hardware(e.g. GPU).
-    '''
+    """
     
     if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
@@ -1850,7 +1851,7 @@ def EfficientRep(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
     
     if isinstance(feature_extractor, (tuple, list)):
@@ -1877,7 +1878,7 @@ def EfficientRep(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stem.block{i + 1}",
+            name=f"stem.block{i + 1}"
         )(x)
 
     for i in range(len(num_blocks) - 1):
@@ -1887,7 +1888,7 @@ def EfficientRep(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stage{i + 1}.block1",
+            name=f"stage{i + 1}.block1"
         )(x)
         
         x = create_layer_instance(
@@ -1896,7 +1897,7 @@ def EfficientRep(
             iters=num_blocks[i + 1],
             expansion=csp_scale,
             **layer_constant_dict,
-            name=f"stage{i + 1}.block2",
+            name=f"stage{i + 1}.block2"
         )(x)
 
     if pyramid_pooling:
@@ -1905,16 +1906,18 @@ def EfficientRep(
                 pooling,
                 filters=int(filters[-1] * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{k + 3}",
+                name=f"stage{i + 1}.block{k + 3}"
             )(x)
     else:
         x = LinearLayer(name=f"stage{i + 1}.block3")(x)
         
     if include_head:
-        x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
@@ -1940,9 +1943,9 @@ def EfficientRep(
         suffit = ""
 
     if len(filters) > 5:
-        model = Model(inputs=inputs, outputs=x, name=f'Efficient-{name}{len(filters)}-{suffit}')
+        model = Model(inputs=inputs, outputs=x, name=f"Efficient-{name}{len(filters)}-{suffit}")
     else:
-        model = Model(inputs=inputs, outputs=x, name=f'Efficient-{name}-{suffit}')
+        model = Model(inputs=inputs, outputs=x, name=f"Efficient-{name}-{suffit}")
 
     return model
 
@@ -1961,7 +1964,7 @@ def EfficientRep_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     model = EfficientRep(
@@ -1998,14 +2001,13 @@ def EfficientLite_small(
     pooling=None,
     activation="hard-swish",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientLite(
@@ -2023,14 +2025,13 @@ def EfficientLite_small(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2041,7 +2042,7 @@ def EfficientLite_small_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -2080,14 +2081,13 @@ def EfficientLite_medium(
     pooling=None,
     activation="hard-swish",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientLite(
@@ -2105,14 +2105,13 @@ def EfficientLite_medium(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2123,7 +2122,7 @@ def EfficientLite_medium_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -2162,14 +2161,13 @@ def EfficientLite_large(
     pooling=None,
     activation="hard-swish",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientLite(
@@ -2187,14 +2185,13 @@ def EfficientLite_large(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2205,7 +2202,7 @@ def EfficientLite_large_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -2244,14 +2241,13 @@ def EfficientRep_nano(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2269,14 +2265,13 @@ def EfficientRep_nano(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2287,7 +2282,7 @@ def EfficientRep_nano_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2326,14 +2321,13 @@ def EfficientRep6_nano(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2351,14 +2345,13 @@ def EfficientRep6_nano(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2369,7 +2362,7 @@ def EfficientRep6_nano_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2409,14 +2402,13 @@ def EfficientRep_small(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2434,14 +2426,13 @@ def EfficientRep_small(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2452,7 +2443,7 @@ def EfficientRep_small_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2491,14 +2482,13 @@ def EfficientRep6_small(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2516,14 +2506,13 @@ def EfficientRep6_small(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2534,7 +2523,7 @@ def EfficientRep6_small_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2574,14 +2563,13 @@ def EfficientRep_medium(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2599,14 +2587,13 @@ def EfficientRep_medium(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2617,7 +2604,7 @@ def EfficientRep_medium_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2656,14 +2643,13 @@ def EfficientRep6_medium(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2681,14 +2667,13 @@ def EfficientRep6_medium(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2699,7 +2684,7 @@ def EfficientRep6_medium_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2739,14 +2724,13 @@ def EfficientRep_large(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2764,14 +2748,13 @@ def EfficientRep_large(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2782,7 +2765,7 @@ def EfficientRep_large_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -2821,14 +2804,13 @@ def EfficientRep6_large(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2846,14 +2828,13 @@ def EfficientRep6_large(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2864,7 +2845,7 @@ def EfficientRep6_large_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2904,14 +2885,13 @@ def EfficientMBLA_small(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -2929,14 +2909,13 @@ def EfficientMBLA_small(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -2947,7 +2926,7 @@ def EfficientMBLA_small_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -2986,14 +2965,13 @@ def EfficientMBLA_medium(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -3011,14 +2989,13 @@ def EfficientMBLA_medium(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -3029,7 +3006,7 @@ def EfficientMBLA_medium_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -3068,14 +3045,13 @@ def EfficientMBLA_large(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -3093,14 +3069,13 @@ def EfficientMBLA_large(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -3111,7 +3086,7 @@ def EfficientMBLA_large_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -3150,14 +3125,13 @@ def EfficientMBLA_xlarge(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     model = EfficientRep(
@@ -3175,14 +3149,13 @@ def EfficientMBLA_xlarge(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -3193,7 +3166,7 @@ def EfficientMBLA_xlarge_backbone(
     activation="leaky-relu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """

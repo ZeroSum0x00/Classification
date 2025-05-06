@@ -19,20 +19,21 @@ class SSM(tf.keras.layers.Layer):
 
     """
 
-    def __init__(self,
-                 dt_rank,
-                 dim_inner,
-                 d_state,
-                 activation='relu',
-                 normalizer='batch-norm',
-                 *args,
-                 **kwargs):
+    def __init__(
+        self,
+        dt_rank,
+        dim_inner,
+        d_state,
+        activation="relu",
+        normalizer="batch-norm",
+        *args, **kwargs
+    ):
         super(SSM, self).__init__(*args, **kwargs)
-        self.dt_rank    = dt_rank
+        self.dt_rank = dt_rank
         self.dim_inner = dim_inner
         self.d_state = d_state
-        self.activation    = activation
-        self.normalizer    = normalizer
+        self.activation = activation
+        self.normalizer = normalizer
 
     def build(self, input_shape):
         self.deltaBC_layer = Dense(self.dt_rank + 2 * self.d_state, use_bias=False)
@@ -43,16 +44,18 @@ class SSM(tf.keras.layers.Layer):
             A_value = tf.expand_dims(A_value, axis=0)
             A_value = tf.repeat(A_value, repeats=256, axis=0)
             A_value = tf.math.log(A_value)
+            
         self.A_log = tf.Variable(
-            initial_value = A_value,
-            trainable     = True,
-            name          = 'ssm.A_log'
+            initial_value=A_value,
+            trainable=True,
+            name="ssm.A_log"
         )
+        
         self.D = self.add_weight(
-            name        = 'ssm.D',
-            shape       = (self.dim_inner,),
-            initializer = tf.initializers.ones(),
-            trainable   = True
+            name="ssm.D",
+            shape=(self.dim_inner,),
+            initializer=tf.initializers.ones(),
+            trainable=True
         )
 
     def selective_scan(self,input, delta, A, B, C, D):
@@ -73,8 +76,8 @@ class SSM(tf.keras.layers.Layer):
 
         """
         # first step of discretization of A
-        deltaA = tf.einsum('bld,dn->bldn', delta, A) # quasi delta mal A
-        deltaBinput = tf.einsum('bld,bld,bln->bldn', delta, input, B) # input mal B mal delta
+        deltaA = tf.einsum("bld,dn->bldn", delta, A) # quasi delta mal A
+        deltaBinput = tf.einsum("bld,bld,bln->bldn", delta, input, B) # input mal B mal delta
 
         deltaA_cumsum = tf.pad(
             deltaA[:, 1:], [[0, 0], [1, 1], [0, 0], [0, 0]])[:, 1:, :, :]
@@ -89,13 +92,13 @@ class SSM(tf.keras.layers.Layer):
         deltaA_cumsum = tf.exp(deltaA_cumsum)
         deltaA_cumsum = tf.reverse(deltaA_cumsum, axis=[1])  # Flip back along axis 1
 
-        # calculate intermediate output as in graphs shown for ssm's
+        # calculate intermediate output as in graphs shown for ssm"s
         x = deltaBinput * deltaA_cumsum
         # 1e-12 to avoid division by 0
         x = tf.math.cumsum(x, axis=1)/(deltaA_cumsum + 1e-12)
 
         # intermediate output multiplied with parameter C
-        output = tf.einsum('bldn,bln->bld', x, C)
+        output = tf.einsum("bldn,bln->bld", x, C)
 
         return output + input * D
 
@@ -103,12 +106,16 @@ class SSM(tf.keras.layers.Layer):
         A = -tf.math.exp(self.A_log)
         D = self.D
         deltaBC = self.deltaBC_layer(inputs, training=training)
-        delta, B, C = tf.split(deltaBC, 
-                               num_or_size_splits=[self.dt_rank, self.d_state, self.d_state], 
-                               axis=-1)
+        
+        delta, B, C = tf.split(
+            deltaBC,
+            num_or_size_splits=[self.dt_rank, self.d_state, self.d_state],
+            axis=-1,
+        )
 
         delta = self.dt_proj_layer(delta, training=training)
         delta = tf.nn.softplus(delta)
 
         x = self.selective_scan(inputs, delta, A, B, C, D)
         return x
+    

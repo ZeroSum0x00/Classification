@@ -4,8 +4,8 @@ import tensorflow.keras.backend as K
 
 
 class ChannelAffine(tf.keras.layers.Layer):
-    def __init__(self, use_bias=True, weight_init_value=1, axis=-1, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, use_bias=True, weight_init_value=1, axis=-1, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.use_bias, self.weight_init_value, self.axis = use_bias, weight_init_value, axis
         self.ww_init = tf.initializers.Constant(weight_init_value) if weight_init_value != 1 else "ones"
         self.bb_init = "zeros"
@@ -21,9 +21,21 @@ class ChannelAffine(tf.keras.layers.Layer):
                 ww_shape[ii] = input_shape[ii]
             ww_shape = ww_shape[1:]  # Exclude batch dimension
 
-        self.ww = self.add_weight(name="weight", shape=ww_shape, initializer=self.ww_init, trainable=True)
+        self.ww = self.add_weight(
+            name="weight",
+            shape=ww_shape,
+            initializer=self.ww_init,
+            trainable=True,
+        )
+        
         if self.use_bias:
-            self.bb = self.add_weight(name="bias", shape=ww_shape, initializer=self.bb_init, trainable=True)
+            self.bb = self.add_weight(
+                name="bias",
+                shape=ww_shape,
+                initializer=self.bb_init,
+                trainable=True,
+            )
+            
         super().build(input_shape)
 
     def call(self, inputs, training=False):

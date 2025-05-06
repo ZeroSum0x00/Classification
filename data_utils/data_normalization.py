@@ -77,3 +77,4 @@ class Normalizer:
             return self._func_calc(image, self.norm_type)
         else:
             return self._basic(image)
+        

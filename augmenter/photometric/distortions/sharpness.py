@@ -47,7 +47,7 @@ class RandomSharpness(BaseRandomTransform):
     def __init__(self, factor, prob=0.5):
 
         if isinstance(factor, numbers.Number) and factor < 0:
-            raise ValueError('Sharpness factor should be a non-negative real number')
+            raise ValueError("Sharpness factor should be a non-negative real number")
 
         self.factor = factor
         self.prob = prob
@@ -70,3 +70,4 @@ class RandomSharpness(BaseRandomTransform):
     def image_transform(self, image):
         sharpness_factor = self.get_params(self.factor)
         return sharpness(image, sharpness_factor)
+    

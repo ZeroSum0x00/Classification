@@ -18,7 +18,7 @@ def halo_effect(image, radius=0.5, alpha=0.8):
         return cv2.GaussianBlur(halo_ring.copy(), (k, k), 0)
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     h, w = image.shape[:2]
     avg_dim = (h + w) // 2
@@ -93,3 +93,4 @@ class RandomHaloEffect(BaseRandomTransform):
 
     def image_transform(self, image):
         return halo_effect(image, self.radius, self.alpha)
+    

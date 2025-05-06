@@ -10,7 +10,7 @@ from ..blends import blend
 
 def color(image, color_factor):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     degenerate = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     degenerate = cv2.cvtColor(degenerate, cv2.COLOR_GRAY2RGB)
@@ -48,3 +48,4 @@ class RandomColor(BaseRandomTransform):
     def image_transform(self, image):
         color_factor = self.get_params(self.color_range)
         return color(image, color_factor)
+    

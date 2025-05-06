@@ -10,7 +10,7 @@ from utils.auxiliary_processing import is_numpy_image
 def median_blur(image, ksize_norm=0.05):
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     try:
         k_size = int(min(image.shape[:2]) * ksize_norm)
@@ -55,3 +55,4 @@ class RandomMedianBlur(BaseRandomTransform):
     def image_transform(self, image):
         ksize_norm = self.get_params(self.ksize_norm)
         return median_blur(image, ksize_norm)
+    

@@ -7,3 +7,4 @@ class Augmentor:
             for transform in self.sequence_transform:
                 images = transform(images)
         return images
+    

@@ -485,7 +485,6 @@ class CrossConv2D(tf.keras.layers.Layer):
         norm_eps=1e-6,
         *args, **kwargs
     ):
-        
         super().__init__(*args, **kwargs)
         self.filters = filters
         self.kernel_size = kernel_size if isinstance(kernel_size, (tuple, list)) else (kernel_size, kernel_size)
@@ -681,7 +680,8 @@ class C3SPP(C3):
             bias_initializer=bias_initializer,
             regularizer_decay=regularizer_decay,
             norm_eps=norm_eps,
-            *args, **kwargs)
+            *args, **kwargs
+        )
         self.pool_pyramid = pool_pyramid
                      
     def build(self, input_shape):
@@ -803,7 +803,8 @@ class C3SPPF(C3):
             bias_initializer=bias_initializer,
             regularizer_decay=regularizer_decay,
             norm_eps=norm_eps,
-            *args, **kwargs)
+            *args, **kwargs
+        )
         self.pool_size = pool_size
                      
     def build(self, input_shape):
@@ -1170,7 +1171,6 @@ def DarkNetC3(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1213,7 +1213,7 @@ def DarkNetC3(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
     
     if isinstance(feature_extractor, (tuple, list)):
@@ -1238,7 +1238,7 @@ def DarkNetC3(
             kernel_size=(6, 6),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stem.block{i + 1}",
+            name=f"stem.block{i + 1}"
         )(x)
 
     for i in range(len(num_blocks) - 1):
@@ -1250,7 +1250,7 @@ def DarkNetC3(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stage{i + 1}.block1",
+            name=f"stage{i + 1}.block1"
         )(x)
     
         x = create_layer_instance(
@@ -1258,7 +1258,7 @@ def DarkNetC3(
             filters=int(f * final_channel_scale) if i == len(num_blocks) - 2 else f,
             iters=num_blocks[i + 1],
             **layer_constant_dict,
-            name=f"stage{i + 1}.block2",
+            name=f"stage{i + 1}.block2"
         )(x)
         
     if pyramid_pooling:
@@ -1267,16 +1267,18 @@ def DarkNetC3(
                 pooling,
                 filters=int(filters[-1] * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}",
+                name=f"stage{i + 1}.block{j + 3}"
             )(x)
     else:
         x = LinearLayer(name=f"stage{i + 1}.block3")(x)
         
     if include_head:
-        x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
@@ -1311,7 +1313,7 @@ def DarkNetC3_backbone(
     weights="imagenet",
     activation="silu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     model = DarkNetC3(
@@ -1326,7 +1328,7 @@ def DarkNetC3_backbone(
         include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer
+        normalizer=normalizer,
     )
 
     custom_layers = custom_layers or [
@@ -1346,13 +1348,12 @@ def DarkNetC3_nano(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetC3(
@@ -1369,13 +1370,12 @@ def DarkNetC3_nano(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -1385,7 +1385,7 @@ def DarkNetC3_nano_backbone(
     weights="imagenet",
     activation="silu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -1422,13 +1422,12 @@ def DarkNetC3_small(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetC3(
@@ -1445,13 +1444,12 @@ def DarkNetC3_small(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -1461,7 +1459,7 @@ def DarkNetC3_small_backbone(
     weights="imagenet",
     activation="silu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     """
@@ -1498,13 +1496,12 @@ def DarkNetC3_medium(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetC3(
@@ -1521,13 +1518,12 @@ def DarkNetC3_medium(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -1537,7 +1533,7 @@ def DarkNetC3_medium_backbone(
     weights="imagenet",
     activation="silu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -1574,13 +1570,12 @@ def DarkNetC3_large(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetC3(
@@ -1597,13 +1592,12 @@ def DarkNetC3_large(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -1613,7 +1607,7 @@ def DarkNetC3_large_backbone(
     weights="imagenet",
     activation="silu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -1650,13 +1644,12 @@ def DarkNetC3_xlarge(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = DarkNetC3(
@@ -1673,13 +1666,12 @@ def DarkNetC3_xlarge(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -1689,7 +1681,7 @@ def DarkNetC3_xlarge_backbone(
     weights="imagenet",
     activation="silu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     """

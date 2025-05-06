@@ -1,5 +1,5 @@
 from .densenet import (
-    DenseNet,
+    DenseNet, DenseNet_backbone,
     DenseNet121, DenseNet121_backbone,
     DenseNet169, DenseNet169_backbone,
     DenseNet201, DenseNet201_backbone,

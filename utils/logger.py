@@ -1,21 +1,48 @@
 import logging
 
-
-def get_logger(name='YOLO'):
+def get_logger(name="CLS"):
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
-    # create formatter and add it to the handlers
-    _formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    # Tạo formatter với mã màu ANSI cho mỗi mức độ log
+    _formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s"
+    )
+    
+    # Tạo handler cho console
     console_handler = logging.StreamHandler()
 
-    # output of subprocess call will not be printed into the console if using logging.INFO
-    # this prohibits printing of subprocess call output twice
+    # Mức độ log cho console
     console_handler.setLevel(logging.DEBUG)
-    console_handler.setFormatter(_formatter)
+    
+    # Cập nhật formatter với màu cho các mức độ log
+    class ColoredFormatter(logging.Formatter):
+        COLORS = {
+            "DEBUG": "\033[94m",  # Màu xanh cho DEBUG
+            "INFO": "\033[92m",   # Màu xanh lá cho INFO
+            "WARNING": "\033[93m", # Màu vàng cho WARNING
+            "ERROR": "\033[91m",  # Màu đỏ cho ERROR
+            "CRITICAL": "\033[95m" # Màu tím cho CRITICAL
+        }
+
+        RESET = "\033[0m"
+
+        def format(self, record):
+            levelname = record.levelname
+            log_message = super().format(record)
+            # Thêm màu cho mức độ log
+            return f"{self.COLORS.get(levelname, "")}{log_message}{self.RESET}"
+
+    # Áp dụng ColoredFormatter cho handler
+    colored_formatter = ColoredFormatter("%(asctime)s - %(levelname)s - %(message)s")
+    console_handler.setFormatter(colored_formatter)
+
+    # Nếu chưa có handler, thêm handler mới vào logger
     if len(logger.handlers) == 0:
         logger.addHandler(console_handler)
+
     return logger
 
+# Tạo logger
 logger = get_logger()

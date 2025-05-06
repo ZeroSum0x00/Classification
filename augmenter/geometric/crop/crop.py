@@ -8,8 +8,8 @@ from utils.auxiliary_processing import is_numpy_image
 
 
 def crop(image, top, left, height, width):
-    assert is_numpy_image(image), 'img should be CV Image. Got {}'.format(type(image))
-    assert height > 0 and width > 0, 'height={} and width={} should greater than 0'.format(height, width)
+    assert is_numpy_image(image), "img should be CV Image. Got {}".format(type(image))
+    assert height > 0 and width > 0, "height={} and width={} should greater than 0".format(height, width)
 
     xmin, ymin, xmax, ymax = round(top), round(left), round(top + height), round(left + width)
 
@@ -17,13 +17,16 @@ def crop(image, top, left, height, width):
         check_point1 = image[xmin, ymin, ...]
         check_point2 = image[xmax - 1, ymax - 1, ...]
     except IndexError:
-        image = cv2.copyMakeBorder(image, 
-                                   top=-min(0, xmin), 
-                                   bottom=max(xmax - image.shape[0], 0),
-                                   left=-min(0, ymin), 
-                                   right=max(ymax - image.shape[1], 0), 
-                                   borderType=cv2.BORDER_CONSTANT, 
-                                   value=[0, 0, 0])
+        image = cv2.copyMakeBorder(
+            image,
+            top=-min(0, xmin),
+            bottom=max(xmax - image.shape[0], 0),
+            left=-min(0, ymin),
+            right=max(ymax - image.shape[1], 0),
+            borderType=cv2.BORDER_CONSTANT,
+            value=[0, 0, 0],
+        )
+        
         ymax += -min(0, ymin)
         ymin += -min(0, ymin)
         xmax += -min(0, xmin)
@@ -69,9 +72,9 @@ class RandomCrop(BaseRandomTransform):
         pad_if_needed (boolean): It will pad the image if smaller than the
             desired size to avoid raising an exception.
         fill_color (number or tuple or dict, optional): Pixel fill_color value used when 
-            the padding_mode is constant. Default is 0. If a tuple of length 3, 
+            the padding_mode is constant. Default is 0. If a tuple of length 3,
             it is used to fill_color R, G, B channels respectively.
-        padding_mode (str, optional): Type of padding. Should be: constant, 
+        padding_mode (str, optional): Type of padding. Should be: constant,
         edge, reflect or symmetric. Default is constant.
     """
 
@@ -81,18 +84,19 @@ class RandomCrop(BaseRandomTransform):
         padding=0,
         pad_if_needed=False,
         fill_color=0,
-        padding_mode='constant',
+        padding_mode="constant",
         prob=0.5,
     ):
         if isinstance(size, numbers.Number):
-            self.size      = (int(size), int(size))
+            self.size = (int(size), int(size))
         else:
-            self.size      = size
-        self.padding       = padding
+            self.size = size
+            
+        self.padding = padding
         self.pad_if_needed = pad_if_needed
-        self.fill_color    = fill_color
-        self.padding_mode  = padding_mode
-        self.prob          = prob
+        self.fill_color = fill_color
+        self.padding_mode = padding_mode
+        self.prob = prob
 
     @staticmethod
     def get_params(image, size):
@@ -140,3 +144,4 @@ class RandomCrop(BaseRandomTransform):
 
         top, left, height, width = self.get_params(image, self.size)
         return crop(image, top, left, height, width)
+    

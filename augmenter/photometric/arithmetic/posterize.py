@@ -4,7 +4,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def posterize(image, bits):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(img)))
+        raise TypeError("img should be image. Got {}".format(type(img)))
 
     img = image.copy()
 
@@ -31,3 +31,4 @@ class RandomPosterize(BaseRandomTransform):
 
     def image_transform(self, image):
         return posterize(image, self.bits)
+    

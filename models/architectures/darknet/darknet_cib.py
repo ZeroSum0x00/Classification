@@ -25,7 +25,6 @@
 """
 
 import tensorflow as tf
-from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Dense, Dropout, GlobalMaxPooling2D, GlobalAveragePooling2D,
@@ -511,14 +510,13 @@ def DarkNetCIB_A(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ):
 
     if weights not in {"imagenet", None}:
@@ -556,7 +554,7 @@ def DarkNetCIB_A(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
 
     if isinstance(feature_extractor, (tuple, list)):
@@ -583,7 +581,7 @@ def DarkNetCIB_A(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stem.block{i + 1}",
+            name=f"stem.block{i + 1}"
         )(x)
 
     for i in range(len(num_blocks) - 1):
@@ -595,7 +593,7 @@ def DarkNetCIB_A(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stage{i + 1}.block1",
+            name=f"stage{i + 1}.block1"
         )(x)
     
         x = create_layer_instance(
@@ -603,7 +601,7 @@ def DarkNetCIB_A(
             filters=int(f * final_channel_scale) if i == len(num_blocks) - 2 else f,
             iters=num_blocks[i + 1],
             **layer_constant_dict,
-            name=f"stage{i + 1}.block2",
+            name=f"stage{i + 1}.block2"
         )(x)
 
     if pyramid_pooling:
@@ -612,16 +610,18 @@ def DarkNetCIB_A(
                 pooling,
                 filters=int(filters[-1] * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}",
+                name=f"stage{i + 1}.block{j + 3}"
             )(x)
     else:
         x = LinearLayer(name=f"stage{i + 1}.block3")(x)
 
     if include_head:
-        x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
@@ -657,7 +657,7 @@ def DarkNetCIB_A_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     model = DarkNetCIB_A(
@@ -700,14 +700,13 @@ def DarkNetCIB_B(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ):
 
     if weights not in {"imagenet", None}:
@@ -745,7 +744,7 @@ def DarkNetCIB_B(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
 
     if isinstance(feature_extractor, (tuple, list)):
@@ -771,7 +770,7 @@ def DarkNetCIB_B(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stem.block{i + 1}",
+            name=f"stem.block{i + 1}"
         )(x)
 
     for i in range(len(num_blocks) - 1):
@@ -783,7 +782,7 @@ def DarkNetCIB_B(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stage{i + 1}.block1",
+            name=f"stage{i + 1}.block1"
         )(x)
     
         x = create_layer_instance(
@@ -791,7 +790,7 @@ def DarkNetCIB_B(
             filters=int(f * final_channel_scale) if i == len(num_blocks) - 2 else f,
             iters=num_blocks[i + 1],
             **layer_constant_dict,
-            name=f"stage{i + 1}.block2",
+            name=f"stage{i + 1}.block2"
         )(x)
 
     if pyramid_pooling:
@@ -800,16 +799,18 @@ def DarkNetCIB_B(
                 pooling,
                 filters=int(filters[-1] * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}",
+                name=f"stage{i + 1}.block{j + 3}"
             )(x)
     else:
         x = LinearLayer(name=f"stage{i + 1}.block3")(x)
 
     if include_head:
-        x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
@@ -837,7 +838,7 @@ def DarkNetCIB_B_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     model = DarkNetCIB_B(
@@ -873,14 +874,13 @@ def DarkNetCIB_nano(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
 
     model = DarkNetCIB_A(
@@ -897,14 +897,13 @@ def DarkNetCIB_nano(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -914,7 +913,7 @@ def DarkNetCIB_nano_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -952,14 +951,13 @@ def DarkNetCIB_small(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
 
     model = DarkNetCIB_A(
@@ -976,14 +974,13 @@ def DarkNetCIB_small(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -994,7 +991,7 @@ def DarkNetCIB_small_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -1032,14 +1029,13 @@ def DarkNetCIB_medium(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
 
     model = DarkNetCIB_A(
@@ -1056,14 +1052,13 @@ def DarkNetCIB_medium(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -1074,7 +1069,7 @@ def DarkNetCIB_medium_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -1112,14 +1107,13 @@ def DarkNetCIB_base(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
 
     model = DarkNetCIB_A(
@@ -1136,14 +1130,13 @@ def DarkNetCIB_base(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -1154,7 +1147,7 @@ def DarkNetCIB_base_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -1192,14 +1185,13 @@ def DarkNetCIB_large(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
 
     model = DarkNetCIB_A(
@@ -1216,14 +1208,13 @@ def DarkNetCIB_large(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -1234,7 +1225,7 @@ def DarkNetCIB_large_backbone(
     activation="silu",
     normalizer="batch-norm",
     deploy=False,
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
     
     """
@@ -1272,14 +1263,13 @@ def DarkNetCIB_xlarge(
     pooling=None,
     activation="silu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
     drop_rate=0.1,
-    deploy=False,
+    deploy=False
 ) -> Model:
 
     model = DarkNetCIB_B(
@@ -1296,14 +1286,13 @@ def DarkNetCIB_xlarge(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
         drop_rate=drop_rate,
-        deploy=deploy,
+        deploy=deploy
     )
     return model
 
@@ -1314,7 +1303,7 @@ def DarkNetCIB_xlarge_backbone(
     activation="silu",
     normalizer="batch-norm",
     custom_layers=[],
-    deploy=False,
+    deploy=False
 ) -> Model:
     
     """

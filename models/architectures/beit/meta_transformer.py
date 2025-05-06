@@ -37,7 +37,7 @@
 """
 
 import tensorflow as tf
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
 )
@@ -55,12 +55,11 @@ def MetaTransformer(
     num_heads,
     hidden_dim,
     inputs=[224, 224, 3],
-    include_head=True, 
-    weights='imagenet',
+    include_head=True,
+    weights="imagenet",
     pooling=None,
-    activation='gelu',
-    normalizer='layer-norm',
-    final_activation="softmax",
+    activation="gelu",
+    normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -70,7 +69,7 @@ def MetaTransformer(
     drop_rate=0.1
 ):
                  
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
@@ -129,20 +128,21 @@ def MetaTransformer(
     x = backbone.output
 
     if include_head:
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes, 
-            kernel_initializer=kernel_initializer, 
-            bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
-            name='predictions'
-        )(x)
-        
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(drop_rate),
+            Dense(
+                units=1 if num_classes == 2 else num_classes,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_maxpool')(x)
+        if pooling == "avg":
+            x = GlobalAveragePooling2D(name="global_avgpool")(x)
+        elif pooling == "max":
+            x = GlobalMaxPooling2D(name="global_maxpool")(x)
 
     def __build_model(inputs, outputs, sam_rho, name):
         if sam_rho != 0:
@@ -152,19 +152,19 @@ def MetaTransformer(
             
     if num_layers == 12:
         if num_heads < 5:
-            model = __build_model(inputs, x, sam_rho, name=f'Meta-Transformer-Tiny-{patch_size}')
+            model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Tiny-{patch_size}")
         elif num_heads < 8:
-            model = __build_model(inputs, x, sam_rho, name=f'Meta-Transformer-Small-{patch_size}')
+            model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Small-{patch_size}")
         else:
-            model = __build_model(inputs, x, sam_rho, name=f'Meta-Transformer-Base-{patch_size}')
+            model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Base-{patch_size}")
     elif num_layers == 24:
-        model = __build_model(inputs, x, sam_rho, name=f'Meta-Transformer-Large-{patch_size}')
+        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Large-{patch_size}")
     elif num_layers == 32:
-        model = __build_model(inputs, x, sam_rho, name=f'Meta-Transformer-Huge-{patch_size}')
+        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Huge-{patch_size}")
     elif num_layers == 40:
-        model = __build_model(inputs, x, sam_rho, name=f'Meta-Transformer-Gaint-{patch_size}')
+        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Gaint-{patch_size}")
     else:
-        model = __build_model(inputs, x, sam_rho, name=f'Meta-Transformer-{patch_size}')
+        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-{patch_size}")
     
     return model
 
@@ -172,11 +172,10 @@ def MetaTransformer(
 def MetaTransformer_T14(
     inputs=[224, 224, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -193,11 +192,10 @@ def MetaTransformer_T14(
         hidden_dim=192,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -212,11 +210,10 @@ def MetaTransformer_T14(
 def MetaTransformer_T16(
     inputs=[224, 224, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -233,11 +230,10 @@ def MetaTransformer_T16(
         hidden_dim=192,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -252,11 +248,10 @@ def MetaTransformer_T16(
 def MetaTransformer_S14(
     inputs=[224, 224, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -273,11 +268,10 @@ def MetaTransformer_S14(
         hidden_dim=384,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -292,11 +286,10 @@ def MetaTransformer_S14(
 def MetaTransformer_S16(
     inputs=[224, 224, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -313,11 +306,10 @@ def MetaTransformer_S16(
         hidden_dim=384,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -332,11 +324,10 @@ def MetaTransformer_S16(
 def MetaTransformer_B14(
     inputs=[224, 224, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -353,11 +344,10 @@ def MetaTransformer_B14(
         hidden_dim=768,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -372,11 +362,10 @@ def MetaTransformer_B14(
 def MetaTransformer_B16(
     inputs=[224, 224, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -393,11 +382,10 @@ def MetaTransformer_B16(
         hidden_dim=768,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -412,11 +400,10 @@ def MetaTransformer_B16(
 def MetaTransformer_L14(
     inputs=[336, 336, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -433,11 +420,10 @@ def MetaTransformer_L14(
         hidden_dim=1024,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -452,11 +438,10 @@ def MetaTransformer_L14(
 def MetaTransformer_L16(
     inputs=[336, 336, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -473,11 +458,10 @@ def MetaTransformer_L16(
         hidden_dim=1248,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -492,11 +476,10 @@ def MetaTransformer_L16(
 def MetaTransformer_H14(
     inputs=[336, 336, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -513,11 +496,10 @@ def MetaTransformer_H14(
         hidden_dim=1248,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -532,11 +514,10 @@ def MetaTransformer_H14(
 def MetaTransformer_H16(
     inputs=[336, 336, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -553,11 +534,10 @@ def MetaTransformer_H16(
         hidden_dim=1536,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -572,11 +552,10 @@ def MetaTransformer_H16(
 def MetaTransformer_G14(
     inputs=[336, 336, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -593,11 +572,10 @@ def MetaTransformer_G14(
         hidden_dim=1536,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -612,11 +590,10 @@ def MetaTransformer_G14(
 def MetaTransformer_G16(
     inputs=[336, 336, 3],
     include_head=True,
-    weights='imagenet',
+    weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -633,11 +610,10 @@ def MetaTransformer_G16(
         hidden_dim=2048,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,

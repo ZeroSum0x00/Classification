@@ -10,10 +10,10 @@ from utils.auxiliary_processing import is_numpy_image
 
 def adjust_hue(image, hue_factor):
     if not(-0.5 <= hue_factor <= 0.5):
-        raise ValueError('Hue factor is not in [-0.5, 0.5].'.format(hue_factor))
+        raise ValueError("Hue factor is not in [-0.5, 0.5].".format(hue_factor))
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     img = image.astype(np.uint8)
     hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV_FULL)
@@ -54,3 +54,4 @@ class RandomAdjustHue(BaseRandomTransform):
     def image_transform(self, image):
         hue_factor = self.get_params(self.hue_range)
         return adjust_hue(image, hue_factor)
+    

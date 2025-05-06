@@ -10,7 +10,7 @@ def get_data(
     data_dirs,
     classes,
     data_type=None,
-    phase='train',
+    phase="train",
     check_data=False,
     load_memory=False,
     *args, **kwargs
@@ -23,7 +23,7 @@ def get_data(
             parser = ParseDirName(data_dir, classes, load_memory, check_data=check_data, *args, **kwargs)
             return parser(image_files)
 
-    assert data_type.lower() in ('dirname')
+    assert data_type.lower() in ("dirname")
     data_extraction = []
 
     if isinstance(data_dirs, (list, tuple)):
@@ -40,20 +40,20 @@ def get_data(
 
 
 def get_train_test_data(
-    data_dirs, 
-    classes=None, 
-    target_size=[224, 224, 3], 
-    batch_size=16, 
-    color_space='RGB',
+    data_dirs,
+    classes=None,
+    target_size=[224, 224, 3],
+    batch_size=16,
+    color_space="RGB",
     augmentor=None,
     normalizer=None,
     mean_norm=None,
     std_norm=None,
     interpolation="BILINEAR",
-    data_type='dirname',
-    check_data=False, 
+    data_type="dirname",
+    check_data=False,
     load_memory=False,
-    dataloader_mode='tf',
+    dataloader_mode="tf",
     get_data_mode=0,
     num_workers=1,
     *args, **kwargs
@@ -86,26 +86,26 @@ def get_train_test_data(
         data_dirs,
         classes=classes,
         data_type=data_type,
-        phase='train', 
+        phase="train",
         check_data=check_data,
         load_memory=load_memory,
     )
     
     train_args = {"dataset": data_train, "phase": "train", **data_args}
-    train_generator = TFDataPipeline(**train_args) if dataloader_mode.lower() == 'tf' else DataSequencePipeline(**train_args)
+    train_generator = TFDataPipeline(**train_args) if dataloader_mode.lower() == "tf" else DataSequencePipeline(**train_args)
 
     if get_data_mode != 2:
         data_valid = get_data(
             data_dirs,
             classes=classes,
             data_type=data_type,
-            phase='validation', 
+            phase="validation",
             check_data=check_data,
             load_memory=load_memory,
         )
         
         valid_args = {"dataset": data_valid, "phase": "valid", **data_args}
-        valid_generator = TFDataPipeline(**valid_args) if dataloader_mode.lower() == 'tf' else DataSequencePipeline(**valid_args)
+        valid_generator = TFDataPipeline(**valid_args) if dataloader_mode.lower() == "tf" else DataSequencePipeline(**valid_args)
     else:
         valid_generator = None
         
@@ -114,15 +114,15 @@ def get_train_test_data(
             data_dirs,
             classes=classes,
             data_type=data_type,
-            phase='test', 
+            phase="test",
             check_data=check_data,
             load_memory=load_memory,
         )
         
         test_args = {"dataset": data_test, "phase": "test", **data_args}
-        test_generator = TFDataPipeline(**test_args) if dataloader_mode.lower() == 'tf' else DataSequencePipeline(**test_args)
+        test_generator = TFDataPipeline(**test_args) if dataloader_mode.lower() == "tf" else DataSequencePipeline(**test_args)
     else:
         test_generator = None
         
-    logger.info('Load data successfully')
+    logger.info("Load data successfully")
     return train_generator, valid_generator, test_generator

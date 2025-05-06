@@ -7,7 +7,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def erosion_or_dilation(image, kernel_size=5, reversed=False):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     img = image.copy()
     kernel_size = kernel_size if kernel_size % 2 != 0 else kernel_size + 1
@@ -59,3 +59,4 @@ class RandomDilation(BaseRandomTransform):
 
     def image_transform(self, image):
         return erosion_or_dilation(image, self.kernel_size, reversed=True)
+    

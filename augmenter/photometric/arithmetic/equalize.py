@@ -6,7 +6,7 @@ from utils.auxiliary_processing import is_numpy_image
 def equalize(image):
     """Implements Equalize function from PIL using TF ops."""
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     def scale_channel(im, c):
         """Scale the data in the channel to implement equalize."""
@@ -54,3 +54,4 @@ class RandomEqualize(BaseRandomTransform):
   
     def image_transform(self, image):
         return equalize(image)
+    

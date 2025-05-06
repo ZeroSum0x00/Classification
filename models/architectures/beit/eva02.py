@@ -25,7 +25,7 @@
 """
 
 import tensorflow as tf
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
 )
@@ -44,12 +44,11 @@ def EVA02(
     hidden_dim,
     use_mlp_norm=False,
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="swish",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -118,15 +117,16 @@ def EVA02(
     x = backbone.output
 
     if include_head:
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes, 
-            kernel_initializer=kernel_initializer, 
-            bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
-            name="predictions"
-        )(x)
-        
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(drop_rate),
+            Dense(
+                units=1 if num_classes == 2 else num_classes,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D(name="global_avgpool")(x)
@@ -160,12 +160,11 @@ def EVA02(
 
 def EVA02_T14(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="swish",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -187,7 +186,6 @@ def EVA02_T14(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -201,12 +199,11 @@ def EVA02_T14(
 
 def EVA02_S14(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="swish",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -228,7 +225,6 @@ def EVA02_S14(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -242,12 +238,11 @@ def EVA02_S14(
 
 def EVA02_B14(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="swish",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -269,7 +264,6 @@ def EVA02_B14(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -283,12 +277,11 @@ def EVA02_B14(
                      
 def EVA02_L14(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="swish",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -310,7 +303,6 @@ def EVA02_L14(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -324,12 +316,11 @@ def EVA02_L14(
 
 def EVA02_H14(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="swish",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -351,7 +342,6 @@ def EVA02_H14(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -365,12 +355,11 @@ def EVA02_H14(
 
 def EVA02_G14(
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="swish",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -392,7 +381,6 @@ def EVA02_G14(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,

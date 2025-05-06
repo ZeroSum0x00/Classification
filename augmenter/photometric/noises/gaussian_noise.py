@@ -7,8 +7,8 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 
 
 def gaussian_noise(image, mean, std):
-    assert isinstance(mean, numbers.Number) and mean >= 0, 'mean should be a positive value'
-    assert isinstance(std, numbers.Number) and std >= 0, 'std should be a positive value'
+    assert isinstance(mean, numbers.Number) and mean >= 0, "mean should be a positive value"
+    assert isinstance(std, numbers.Number) and std >= 0, "std should be a positive value"
     imgtype = image.dtype
     gauss = np.random.normal(mean, std, image.shape).astype(np.float32)
     noisy = np.clip((1 + gauss) * image.astype(np.float32), 0, 255)
@@ -48,3 +48,4 @@ class RandomGaussianNoise(BaseRandomTransform):
     def image_transform(self, image):
         ret = self.get_params(self.mean_range, self.std_range)
         return gaussian_noise(image, *ret)
+    

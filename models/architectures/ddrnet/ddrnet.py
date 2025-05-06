@@ -256,7 +256,6 @@ def DDRNet23(
     pooling=None,
     activation="relu",
     normalizer=None,
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -288,7 +287,7 @@ def DDRNet23(
         include_head=include_head,
         default_size=224,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
 
 
@@ -508,8 +507,8 @@ def DDRNet23(
         get_normalizer_from_name(normalizer, epsilon=norm_eps),
     ], name=f"stage5.high_branch.block{i + 2}")(high_branch)
 
-    outputs = add([low_branch, high_branch], name="stage5.fusion")
-    outputs = Sequential([
+    x = add([low_branch, high_branch], name="stage5.fusion")
+    x = Sequential([
         get_activation_from_name(activation),
         Conv2D(
             filters=filters * channel_scale**5 * final_channel_scale,
@@ -522,24 +521,23 @@ def DDRNet23(
         ),
         get_normalizer_from_name(normalizer, epsilon=norm_eps),
         get_activation_from_name(activation),
-    ], name=f"stage5.merger")(outputs)
+    ], name=f"stage5.merger")(x)
 
     if include_head:
-        outputs = GlobalAveragePooling2D()(outputs)
-        outputs = Flatten()(outputs)
-        outputs = Dropout(rate=drop_rate)(outputs)
-        outputs = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            name="predictions"
-        )(outputs)
-        outputs = get_activation_from_name(final_activation)(outputs)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Flatten(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
-            outputs = GlobalAveragePooling2D(name="avg_pool")(outputs)
+            x = GlobalAveragePooling2D(name="avg_pool")(x)
         elif pooling == "max":
-            outputs = GlobalMaxPooling2D(name="max_pool")(outputs)
+            x = GlobalMaxPooling2D(name="max_pool")(x)
 
-    model = Model(inputs=inputs, outputs=outputs, name="DDRNet-23-slim")
+    model = Model(inputs=inputs, outputs=x, name="DDRNet-23-slim")
     
     return model
 
@@ -553,7 +551,7 @@ def DDRNet23_backbone(
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     model = DDRNet23(
@@ -561,136 +559,6 @@ def DDRNet23_backbone(
         num_blocks=num_blocks,
         channel_scale=channel_scale,
         final_channel_scale=final_channel_scale,
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer
-    )
-
-    custom_layers = custom_layers or [
-        "stem",
-        "stage1.final_activ",
-        "stage2.final_activ",
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
-
-
-def DDRNet23_slim(
-    inputs=[224, 224, 3],
-    include_head=True,
-    weights="imagenet",
-    pooling=None,
-    activation="relu",
-    normalizer="batch-norm",
-    final_activation="softmax",
-    num_classes=1000,
-    kernel_initializer="he_normal",
-    bias_initializer="zeros",
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
-    drop_rate=0.1
-) -> Model:
-    
-    model = DDRNet23(
-        filters=32,
-        num_blocks=[2, 2, 2, 2, 1],
-        channel_scale=2,
-        final_channel_scale=1,
-        inputs=inputs,
-        include_head=include_head,
-        weights=weights,
-        pooling=pooling,
-        activation=activation,
-        normalizer=normalizer,
-        final_activation=final_activation,
-        num_classes=num_classes,
-        kernel_initializer=kernel_initializer,
-        bias_initializer=bias_initializer,
-        regularizer_decay=regularizer_decay,
-        norm_eps=norm_eps,
-        drop_rate=drop_rate,
-    )
-    return model
-
-
-def DDRNet23_slim_backbone(
-    inputs=[224, 224, 3],
-    weights="imagenet",
-    activation="relu",
-    normalizer="batch-norm",
-    custom_layers=[],
-) -> Model:
-
-    model = DDRNet23_slim(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer
-    )
-
-    custom_layers = custom_layers or [
-        "stem",
-        "stage1.final_activ",
-        "stage2.final_activ",
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
-
-
-def DDRNet23_base(
-    inputs=[224, 224, 3],
-    include_head=True,
-    weights="imagenet",
-    pooling=None,
-    activation="relu",
-    normalizer="batch-norm",
-    final_activation="softmax",
-    num_classes=1000,
-    kernel_initializer="he_normal",
-    bias_initializer="zeros",
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
-    drop_rate=0.1
-) -> Model:
-    
-    model = DDRNet23(
-        filters=64,
-        num_blocks=[2, 2, 2, 2, 1],
-        channel_scale=2,
-        final_channel_scale=1,
-        inputs=inputs,
-        include_head=include_head,
-        weights=weights,
-        pooling=pooling,
-        activation=activation,
-        normalizer=normalizer,
-        final_activation=final_activation,
-        num_classes=num_classes,
-        kernel_initializer=kernel_initializer,
-        bias_initializer=bias_initializer,
-        regularizer_decay=regularizer_decay,
-        norm_eps=norm_eps,
-        drop_rate=drop_rate,
-    )
-    return model
-
-
-def DDRNet23_base_backbone(
-    inputs=[224, 224, 3],
-    weights="imagenet",
-    activation="relu",
-    normalizer="batch-norm",
-    custom_layers=[],
-) -> Model:
-
-    model = DDRNet23_base(
         inputs=inputs,
         include_head=False,
         weights=weights,
@@ -720,7 +588,6 @@ def DDRNet39(
     pooling=None,
     activation="relu",
     normalizer=None,
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -752,7 +619,7 @@ def DDRNet39(
         include_head=include_head,
         default_size=224,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
 
     
@@ -1015,8 +882,8 @@ def DDRNet39(
         get_normalizer_from_name(normalizer, epsilon=norm_eps),
     ], name=f"stage6.high_branch.block{i + 2}")(high_branch)
 
-    outputs = add([low_branch, high_branch], name="stage6.fusion")
-    outputs = Sequential([
+    x = add([low_branch, high_branch], name="stage6.fusion")
+    x = Sequential([
         get_activation_from_name(activation),
         Conv2D(
             filters=filters * channel_scale**5 * final_channel_scale,
@@ -1029,24 +896,23 @@ def DDRNet39(
         ),
         get_normalizer_from_name(normalizer, epsilon=norm_eps),
         get_activation_from_name(activation),
-    ], name=f"stage6.merger")(outputs)
+    ], name=f"stage6.merger")(x)
 
     if include_head:
-        outputs = GlobalAveragePooling2D()(outputs)
-        outputs = Flatten()(outputs)
-        outputs = Dropout(rate=drop_rate)(outputs)
-        outputs = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            name="predictions"
-        )(outputs)
-        outputs = get_activation_from_name(final_activation)(outputs)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Flatten(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
-            outputs = GlobalAveragePooling2D(name="avg_pool")(outputs)
+            x = GlobalAveragePooling2D(name="avg_pool")(x)
         elif pooling == "max":
-            outputs = GlobalMaxPooling2D(name="max_pool")(outputs)
+            x = GlobalMaxPooling2D(name="max_pool")(x)
 
-    model = Model(inputs=inputs, outputs=outputs, name="DDRNet-39")
+    model = Model(inputs=inputs, outputs=x, name="DDRNet-39")
 
     return model
 
@@ -1060,7 +926,7 @@ def DDRNet39_backbone(
     weights="imagenet",
     activation="relu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     model = DDRNet39(
@@ -1086,6 +952,132 @@ def DDRNet39_backbone(
     return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
+def DDRNet23_slim(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = DDRNet23(
+        filters=32,
+        num_blocks=[2, 2, 2, 2, 1],
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def DDRNet23_slim_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    model = DDRNet23_slim(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.final_activ",
+        "stage2.final_activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
+def DDRNet23_base(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    pooling=None,
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = DDRNet23(
+        filters=64,
+        num_blocks=[2, 2, 2, 2, 1],
+        channel_scale=2,
+        final_channel_scale=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        pooling=pooling,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def DDRNet23_base_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    model = DDRNet23_base(
+        inputs=inputs,
+        include_head=False,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.final_activ",
+        "stage2.final_activ",
+    ]
+
+    outputs = [model.get_layer(layer).output for layer in custom_layers]
+    final_output = model.get_layer(model.layers[-1].name).output
+    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+
+
 def DDRNet39_base(
     inputs=[224, 224, 3],
     include_head=True,
@@ -1093,7 +1085,6 @@ def DDRNet39_base(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1113,13 +1104,12 @@ def DDRNet39_base(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -1149,8 +1139,3 @@ def DDRNet39_base_backbone(
     outputs = [model.get_layer(layer).output for layer in custom_layers]
     final_output = model.get_layer(model.layers[-1].name).output
     return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
-
-
-if __name__ == '__main__':
-    model = DDRNet23_slim(include_head=False, weights=None)
-    model.summary()

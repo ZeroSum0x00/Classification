@@ -231,8 +231,11 @@ def WaveMLP(filters,
     if include_top:
         x = GlobalAveragePooling2D()(x)
         x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if classes == 2 else classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Dense(
+            units=1 if num_classes == 2 else num_classes,
+            activation=final_activation,
+            name="predictions"
+        )(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling1D()(x)

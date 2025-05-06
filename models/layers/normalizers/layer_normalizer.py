@@ -2,17 +2,19 @@ import tensorflow as tf
 
 
 class LayerNormalization(tf.keras.layers.Layer):
-    def __init__(self,
-                 center=True,
-                 scale=True,
-                 epsilon=None,
-                 gamma_initializer='ones',
-                 beta_initializer='zeros',
-                 gamma_regularizer=None,
-                 beta_regularizer=None,
-                 gamma_constraint=None,
-                 beta_constraint=None,
-                 **kwargs):
+    def __init__(
+        self,
+        center=True,
+        scale=True,
+        epsilon=None,
+        gamma_initializer="ones",
+        beta_initializer="zeros",
+        gamma_regularizer=None,
+        beta_regularizer=None,
+        gamma_constraint=None,
+        beta_constraint=None,
+        *args, **kwargs
+    ):
         """Layer normalization layer
 
         See: [Layer Normalization](https://arxiv.org/pdf/1607.06450.pdf)
@@ -28,7 +30,7 @@ class LayerNormalization(tf.keras.layers.Layer):
         :param beta_constraint: Optional constraint for the beta weight.
         :param kwargs:
         """
-        super(LayerNormalization, self).__init__(**kwargs)
+        super(LayerNormalization, self).__init__(*args, **kwargs)
         self.supports_masking = True
         self.center = center
         self.scale = scale
@@ -45,15 +47,15 @@ class LayerNormalization(tf.keras.layers.Layer):
 
     def get_config(self):
         config = {
-            'center': self.center,
-            'scale': self.scale,
-            'epsilon': self.epsilon,
-            'gamma_initializer': tf.keras.initializers.serialize(self.gamma_initializer),
-            'beta_initializer': tf.keras.initializers.serialize(self.beta_initializer),
-            'gamma_regularizer': tf.keras.regularizers.serialize(self.gamma_regularizer),
-            'beta_regularizer': tf.keras.regularizers.serialize(self.beta_regularizer),
-            'gamma_constraint': tf.keras.constraints.serialize(self.gamma_constraint),
-            'beta_constraint': tf.keras.constraints.serialize(self.beta_constraint),
+            "center": self.center,
+            "scale": self.scale,
+            "epsilon": self.epsilon,
+            "gamma_initializer": tf.keras.initializers.serialize(self.gamma_initializer),
+            "beta_initializer": tf.keras.initializers.serialize(self.beta_initializer),
+            "gamma_regularizer": tf.keras.regularizers.serialize(self.gamma_regularizer),
+            "beta_regularizer": tf.keras.regularizers.serialize(self.beta_regularizer),
+            "gamma_constraint": tf.keras.constraints.serialize(self.gamma_constraint),
+            "beta_constraint": tf.keras.constraints.serialize(self.beta_constraint),
         }
         base_config = super(LayerNormalization, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
@@ -72,7 +74,7 @@ class LayerNormalization(tf.keras.layers.Layer):
                 initializer=self.gamma_initializer,
                 regularizer=self.gamma_regularizer,
                 constraint=self.gamma_constraint,
-                name='gamma',
+                name="gamma",
             )
         if self.center:
             self.beta = self.add_weight(
@@ -80,7 +82,7 @@ class LayerNormalization(tf.keras.layers.Layer):
                 initializer=self.beta_initializer,
                 regularizer=self.beta_regularizer,
                 constraint=self.beta_constraint,
-                name='beta',
+                name="beta",
             )
         super(LayerNormalization, self).build(input_shape)
 

@@ -39,11 +39,12 @@
 
 """
 
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv2D, Dense, Dropout, Flatten, ZeroPadding2D,
-    GlobalAveragePooling2D, GlobalMaxPooling2D
+    BatchNormalization, GlobalAveragePooling2D, GlobalMaxPooling2D
 )
 from tensorflow.keras.regularizers import l2
 
@@ -52,7 +53,7 @@ from models.layers import (
     get_activation_from_name, get_normalizer_from_name
 )
 from utils.model_processing import process_model_input, compute_padding
-
+from utils.logger import logger
 
 
 optional_groupwise_layers = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
@@ -111,7 +112,7 @@ class SEBlock(tf.keras.layers.Layer):
                 kernel_regularizer=l2(self.regularizer_decay),
             ),
             get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps),
-            get_activation_from_name('hard-sigmoid'),
+            get_activation_from_name("hard-sigmoid"),
         ])
         
         self.avg_pool = GlobalAveragePooling2D(keepdims=True)
@@ -136,10 +137,10 @@ class SEBlock(tf.keras.layers.Layer):
 
 class RepVGGBlock(tf.keras.layers.Layer):
 
-    '''
+    """
     RepVGGBlock is a basic rep-style block, including training and deploy status
     This code is based on https://github.com/DingXiaoH/RepVGG/blob/main/repvgg.py
-    '''
+    """
 
     def __init__(
         self,
@@ -150,8 +151,8 @@ class RepVGGBlock(tf.keras.layers.Layer):
         dilation_rate=(1, 1),
         groups=1,
         use_se=False,
-        activation='relu',
-        normalizer='batch-norm',
+        activation="relu",
+        normalizer="batch-norm",
         kernel_initializer="he_normal",
         bias_initializer="zeros",
         regularizer_decay=5e-4,
@@ -161,10 +162,10 @@ class RepVGGBlock(tf.keras.layers.Layer):
     ):
         super(RepVGGBlock, self).__init__(*args, **kwargs)
         self.filters = filters
-        self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
-        self.strides = strides if isinstance(strides, tuple) else (strides, strides)
+        self.kernel_size = kernel_size if isinstance(kernel_size, (tuple, list)) else (kernel_size, kernel_size)
+        self.strides = strides if isinstance(strides, (tuple, list)) else (strides, strides)
         self.padding = padding
-        self.dilation_rate = dilation_rate if isinstance(dilation_rate, tuple) else (dilation_rate, dilation_rate)
+        self.dilation_rate = dilation_rate if isinstance(dilation_rate, (tuple, list)) else (dilation_rate, dilation_rate)
         self.groups = groups
         self.use_se = use_se
         self.activation = activation
@@ -179,9 +180,9 @@ class RepVGGBlock(tf.keras.layers.Layer):
             raise ValueError(f"Invalid padding type: {padding}. Expected 'same' or 'valid'.")
         self.padding_mode = padding.lower()
 
-        if self.padding_mode == 'valid' and not self.deploy:
-            print(f"[Warning] Using padding='valid' in training mode requires manual shape matching!")
-
+        if self.padding_mode == "valid" and not self.deploy:
+            logger.warning("Using padding='valid' in training mode requires manual shape matching!")
+            
     def build(self, input_shape):
         self.in_channels = input_shape[-1]
 
@@ -192,7 +193,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
             pad_h, pad_w = 0, 0
             pad_1x1_h, pad_1x1_w = 0, 0
 
-        self.nonlinearity = get_activation_from_name(self.activation, name=self.name + '_nonlinearity')
+        self.nonlinearity = get_activation_from_name(self.activation, name=f"{self.name}_nonlinearity")
 
         if self.use_se:
             self.se_block = SEBlock(1/16)
@@ -214,12 +215,12 @@ class RepVGGBlock(tf.keras.layers.Layer):
                         bias_initializer=self.bias_initializer,
                         kernel_regularizer=l2(self.regularizer_decay),
                     )
-            ], name=self.name + '_rbr_reparam')
+            ], name=f"{self.name}_rbr_reparam")
         else:
             self.rbr_identity = get_normalizer_from_name(
                 self.normalizer,
                 epsilon=self.norm_eps,
-                name=self.name + '_rbr_identity'
+                name=f"{self.name}_rbr_identity"
             ) if self.filters == self.in_channels and self.strides == (1, 1) else None
 
             self.rbr_dense = self.convolution_block(filters=self.filters,
@@ -228,7 +229,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
                                                     padding=(pad_h, pad_w),
                                                     dilation_rate=self.dilation_rate,
                                                     groups=self.groups,
-                                                    name=self.name + '_rbr_dense'
+                                                    name=f"{self.name}_rbr_dense"
             )
             self.rbr_1x1 = self.convolution_block(filters=self.filters,
                                                   kernel_size=(1, 1),
@@ -236,7 +237,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
                                                   padding=(pad_1x1_h, pad_1x1_w),
                                                   dilation_rate=self.dilation_rate,
                                                   groups=self.groups,
-                                                  name=self.name + '_rbr_1x1'
+                                                  name=f"{self.name}_rbr_1x1"
             )
 
     def convolution_block(self, filters, kernel_size, strides, padding, dilation_rate=(1, 1), groups=1, name=None):
@@ -279,7 +280,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
         x_dense = self.rbr_dense(inputs, training=training)
         x_1x1 = self.rbr_1x1(inputs, training=training)
 
-        if self.padding_mode == 'valid':
+        if self.padding_mode == "valid":
             target_shape = tf.shape(x_dense)[1:3]
 
             x_1x1 = self._match_shape(x_1x1, target_shape)
@@ -367,7 +368,6 @@ def RepVGG(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -417,7 +417,7 @@ def RepVGG(
         use_se=use_se,
         deploy=deploy,
         **layer_constant_dict,
-        name=f"stem"
+        name="stem"
     )(inputs)
     current_layer_idx += 1
 
@@ -481,18 +481,19 @@ def RepVGG(
         )(x)
 
     if include_head:
-        x = AdaptiveAvgPooling2D(output_size=1)(x)
-        x = Flatten(name='flatten')(x)
-        x = Dropout(drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name='predictions')(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            AdaptiveAvgPooling2D(output_size=1),
+            Flatten(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
-        if pooling == 'avg':
+        if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
+        elif pooling == "max":
             x = GlobalMaxPooling2D()(x)
 
-    # Create model.
     if num_blocks == [2, 4, 14, 1]:
         if width_multiplier == [0.75, 0.75, 0.75, 2.5]:
             i = 0
@@ -501,8 +502,8 @@ def RepVGG(
         elif width_multiplier == [1.5, 1.5, 1.5, 2.75]:
             i = 2
         else:
-            i = ''
-        model = Model(inputs=inputs, outputs=x, name=f'RepVGG-A{i}')
+            i = ""
+        model = Model(inputs=inputs, outputs=x, name=f"RepVGG-A{i}")
         
     elif num_blocks == [4, 6, 16, 1]:
         if width_multiplier == [1, 1, 1, 2.5]:
@@ -514,21 +515,21 @@ def RepVGG(
         elif width_multiplier == [3, 3, 3, 5]:
             i = 3
         else:
-            i = ''
+            i = ""
 
         if override_groups_map == g2_map:
             g = 2
         elif override_groups_map == g4_map:
             g = 4
         else:
-            g = ''
+            g = ""
 
-        if g != '':
-            model = Model(inputs=inputs, outputs=x, name=f'RepVGG-B{i}g{g}')
+        if g != "":
+            model = Model(inputs=inputs, outputs=x, name=f"RepVGG-B{i}g{g}")
         else:
-            model = Model(inputs=inputs, outputs=x, name=f'RepVGG-B{i}')
+            model = Model(inputs=inputs, outputs=x, name=f"RepVGG-B{i}")
     else:
-        model = Model(inputs=inputs, outputs=x, name='RepVGG')
+        model = Model(inputs=inputs, outputs=x, name="RepVGG")
 
     return model
 
@@ -565,7 +566,6 @@ def RepVGG_backbone(
         f"stage2.block{num_blocks[1]}",
         f"stage3.block{num_blocks[2]}",
     ]
-    print(custom_layers)
 
     outputs = [model.get_layer(layer).output for layer in custom_layers]
     final_output = model.get_layer(model.layers[-1].name).output
@@ -579,7 +579,6 @@ def RepVGG_A0(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -600,7 +599,6 @@ def RepVGG_A0(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -649,7 +647,6 @@ def RepVGG_A1(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -670,7 +667,6 @@ def RepVGG_A1(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -719,7 +715,6 @@ def RepVGG_A2(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -740,7 +735,6 @@ def RepVGG_A2(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -789,7 +783,6 @@ def RepVGG_B0(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -810,7 +803,6 @@ def RepVGG_B0(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -859,7 +851,6 @@ def RepVGG_B1(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -880,7 +871,6 @@ def RepVGG_B1(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -929,7 +919,6 @@ def RepVGG_B1g2(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -950,7 +939,6 @@ def RepVGG_B1g2(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -999,7 +987,6 @@ def RepVGG_B1g4(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1020,7 +1007,6 @@ def RepVGG_B1g4(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -1069,7 +1055,6 @@ def RepVGG_B2(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1090,7 +1075,6 @@ def RepVGG_B2(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -1139,7 +1123,6 @@ def RepVGG_B2g2(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1160,7 +1143,6 @@ def RepVGG_B2g2(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -1209,7 +1191,6 @@ def RepVGG_B2g4(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1230,7 +1211,6 @@ def RepVGG_B2g4(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -1279,7 +1259,6 @@ def RepVGG_B3(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1300,7 +1279,6 @@ def RepVGG_B3(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -1349,7 +1327,6 @@ def RepVGG_B3g2(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1370,7 +1347,6 @@ def RepVGG_B3g2(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -1419,7 +1395,6 @@ def RepVGG_B3g4(
     pooling=None,
     activation="relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
@@ -1440,7 +1415,6 @@ def RepVGG_B3g4(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -1485,7 +1459,7 @@ def RepVGG_B3g4_backbone(
 def repvgg_reparameter(model: tf.keras.Model, structure, input_shape=(224, 224, 3), classes=1000, save_path=None):
     for layer, deploy_layer in zip(model.layers, structure.layers):
         if hasattr(layer, "deploy") and layer.deploy == True:
-            print(f'layer {layer.name} is deployed, passing reparameter.')
+            logger.debug(f"layer {layer.name} is deployed, passing reparameter.")
             continue
 
         if hasattr(layer, "repvgg_convert"):

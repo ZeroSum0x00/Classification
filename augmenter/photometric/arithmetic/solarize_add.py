@@ -6,7 +6,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def solarize_add(image, add_value, threshold=128):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     img = image.copy()
     idx = img < threshold
@@ -30,3 +30,4 @@ class RandomSolarizeAdd(BaseRandomTransform):
 
     def image_transform(self, image):
         return solarize_add(image, self.add_value, self.threshold)
+    

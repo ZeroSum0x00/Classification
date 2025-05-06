@@ -4,7 +4,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def inversion(image):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(img)))
+        raise TypeError("img should be image. Got {}".format(type(img)))
     img = image.copy()
     img[:, :, :3] = 255 - img[:, :, :3]
     return img

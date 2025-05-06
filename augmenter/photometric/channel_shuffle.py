@@ -6,7 +6,7 @@ from utils.auxiliary_processing import is_numpy_image
 
 def channel_shuffle(image):
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
 
     assert image.shape[2] in [3, 4]
     ch_arr = [0, 1, 2]

@@ -14,7 +14,7 @@ def affine6(
     translate=(0, 0),
     scale=(1, 1),
     shear=0,
-    interpolation='BILINEAR',
+    interpolation="BILINEAR",
     fill_color=(0, 0, 0),
 ):
     assert isinstance(translate, (tuple, list)) and len(translate) == 2, \
@@ -56,12 +56,15 @@ def affine6(
     M12 = centery - M10 * centerx - M11 * centery + ty
     affine_matrix = np.array([[M00, M01, M02], [M10, M11, M12]], dtype=np.float32)
 
-    dst_img = cv2.warpAffine(image, 
-                             affine_matrix, 
-                             (cols, rows), 
-                             flags=INTER_MODE[interpolation],
-                             borderMode=cv2.BORDER_CONSTANT, 
-                             borderValue=fill_color)
+    dst_img = cv2.warpAffine(
+        image,
+        affine_matrix,
+        (cols, rows),
+        flags=INTER_MODE[interpolation],
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=fill_color,
+    )
+
     if gray_scale:
         dst_img = cv2.cvtColor(dst_img, cv2.COLOR_RGB2GRAY)
     return dst_img.astype(imgtype)
@@ -94,7 +97,7 @@ class Affine6(BaseTransform):
         translate=(0, 0),
         scale=1,
         shear=0,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         fill_color=(0, 0, 0),
     ):
         self.anglez = anglez
@@ -143,7 +146,7 @@ class RandomAffine6(BaseRandomTransform):
         translate=(0, 0),
         scale=(1, 1),
         shear=0,
-        interpolation='BILINEAR',
+        interpolation="BILINEAR",
         fill_color=(0, 0, 0),
         prob=0.5,
     ):
@@ -219,3 +222,4 @@ class RandomAffine6(BaseRandomTransform):
             interpolation=self.interpolation,
             fill_color=self.fill_color,
         )
+    

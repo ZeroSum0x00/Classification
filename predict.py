@@ -1,6 +1,5 @@
 import os
 import cv2
-import h5py
 import argparse
 import numpy as np
 import tensorflow as tf
@@ -25,10 +24,8 @@ def load_model(weight_path, model_config=None, classes=None):
         if not classes:
             raise ValueError("When using an H5 file, you must specify the number of `classes`.")
 
-        input_shape = model_config["input_shape"]
-
-        if not model_config.get('classes'):
-            model_config['classes'] = classes
+        if not model_config.get("classes"):
+            model_config["classes"] = classes
 
         model = build_models(model_config)
         model.load_weights(weight_path)
@@ -50,8 +47,8 @@ def predict(
     if not isinstance(image, np.ndarray):
         image = cv2.imread(image)
 
-        if color_space.lower() != 'bgr':
-            image = change_color_space(image, 'BGR', color_space)
+        if color_space.lower() != "bgr":
+            image = change_color_space(image, "BGR", color_space)
             
     if augmentor:
         image = augmentor(image)
@@ -77,9 +74,9 @@ def predict_folder(
     labels = [os.path.basename(os.path.dirname(img)) for img in images]
     for batch_images, batch_labels in tqdm(inference_batch_generator(images,
                                                                      labels,
-                                                                     augmentor, 
-                                                                     normalizer, 
-                                                                     color_space, 
+                                                                     augmentor,
+                                                                     normalizer,
+                                                                     color_space,
                                                                      batch_size), total=(total_count // batch_size) + 1):
         top1s, predicts = detect_images(batch_images, model, classes)
 
@@ -87,7 +84,7 @@ def predict_folder(
             if top1s[i][0] == batch_labels[i]:
                 true_count += 1
 
-    print(f'Accuracy = {true_count / total_count * 100:.2f}%')
+    print(f"Accuracy = {true_count / total_count * 100:.2f}%")
 
 
 def parse_args():
@@ -119,16 +116,15 @@ def parse_args():
     return parser.parse_args()
 
 
-
 if __name__ == "__main__":
     args = parse_args()
     model_config = None
     classes = None
     engine_config = load_config(args.engine_config)
-    data_config = engine_config['Dataset']
+    data_config = engine_config["Dataset"]
     
     if not args.weight_path.endswith(".keras"):
-        model_config  = load_config(args.model_config)['Model']
+        model_config  = load_config(args.model_config)["Model"]
 
     if not args.classes:
         saved_weight_path = os.path.dirname(os.path.dirname(args.weight_path))
@@ -136,8 +132,8 @@ if __name__ == "__main__":
         if os.path.isfile(class_file):
             classes, num_classes = get_labels(class_file)
         else:
-            if os.path.isdir(data_config['data_dir']):
-                classes, num_classes = get_labels(data_config['data_dir'])
+            if os.path.isdir(data_config["data_dir"]):
+                classes, num_classes = get_labels(data_config["data_dir"])
             else:
                 classes, num_classes = get_labels(10)
     else:
@@ -148,16 +144,18 @@ if __name__ == "__main__":
 
     model = load_model(args.weight_path, model_config, classes)
 
-    augmentor = data_config["data_augmentation"].get('inference')
+    augmentor = data_config["data_augmentation"].get("inference")
     if augmentor and isinstance(augmentor, (tuple, list)):
         augmentor = Augmentor(augment_objects=build_augmenter(augmentor))
 
-    normalizer = Normalizer(data_config['data_normalizer'].get('norm_type', 'divide'),
-                            target_size=model_config['input_shape'],
-                            mean=data_config['data_normalizer'].get('norm_mean'),
-                            std=data_config['data_normalizer'].get('norm_std'),
-                            interpolation=data_config['data_normalizer'].get('interpolation', 'BILINEAR'))
-    color_space = data_config['data_info'].get('color_space', 'RGB')
+    normalizer = Normalizer(
+        data_config["data_normalizer"].get("norm_type", "divide"),
+        target_size=model_config["inputs"],
+        mean=data_config["data_normalizer"].get("norm_mean"),
+        std=data_config["data_normalizer"].get("norm_std"),
+        interpolation=data_config["data_normalizer"].get("interpolation", "BILINEAR"),
+    )
+    color_space = data_config["data_info"].get("color_space", "BGR")
 
     # files = get_files(args.data_path, ALLOW_IMAGE_EXTENSIONS)
     # for fi in files:
@@ -183,3 +181,4 @@ if __name__ == "__main__":
         color_space=color_space,
         batch_size=args.batch_size,
     )
+    

@@ -135,13 +135,12 @@ def CSPDarkNet53(
     pooling=None,
     activation="mish",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ):
 
     if weights not in {"imagenet", None}:
@@ -176,7 +175,7 @@ def CSPDarkNet53(
         include_head=include_head,
         default_size=640,
         min_size=32,
-        weights=weights,
+        weights=weights
     )
     
     if isinstance(feature_extractor, (tuple, list)):
@@ -202,7 +201,7 @@ def CSPDarkNet53(
             kernel_size=(3, 3),
             strides=(1, 1),
             **layer_constant_dict,
-            name=f"stem.block{i + 1}",
+            name=f"stem.block{i + 1}"
         )(x)
 
     for i in range(len(num_blocks) - 1):
@@ -215,7 +214,7 @@ def CSPDarkNet53(
             kernel_size=(3, 3),
             strides=(2, 2),
             **layer_constant_dict,
-            name=f"stage{i + 1}.block1",
+            name=f"stage{i + 1}.block1"
         )(x)
         
         x = create_layer_instance(
@@ -223,7 +222,7 @@ def CSPDarkNet53(
             filters=[int(f * final_channel_scale) for f in f2] if i == len(num_blocks) - 2 else f2,
             iters=num_blocks[i + 1],
             **layer_constant_dict,
-            name=f"stage{i + 1}.block2",
+            name=f"stage{i + 1}.block2"
         )(x)
 
     if pyramid_pooling:
@@ -232,16 +231,18 @@ def CSPDarkNet53(
                 pooling,
                 filters=int(filters[-1] * final_channel_scale),
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}",
+                name=f"stage{i + 1}.block{j + 3}"
             )(x)
     else:
         x = LinearLayer(name=f"stage{i + 1}.block3")(x)
         
     if include_head:
-        x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(1 if num_classes == 2 else num_classes, name="predictions")(x)
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D()(x)
@@ -268,7 +269,7 @@ def CSPDarkNet53_backbone(
     weights="imagenet",
     activation="mish",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     model = CSPDarkNet53(
@@ -300,13 +301,12 @@ def CSPDarkNet53_base(
     pooling=None,
     activation="leaky-relu",
     normalizer="batch-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="he_normal",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ) -> Model:
     
     model = CSPDarkNet53(
@@ -323,13 +323,12 @@ def CSPDarkNet53_base(
         pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
-        drop_rate=drop_rate,
+        drop_rate=drop_rate
     )
     return model
 
@@ -339,7 +338,7 @@ def CSPDarkNet53_base_backbone(
     weights="imagenet",
     activation="leaky-relu",
     normalizer="batch-norm",
-    custom_layers=[],
+    custom_layers=[]
 ) -> Model:
 
     """

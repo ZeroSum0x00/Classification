@@ -16,7 +16,7 @@ def mixup(
     
     for idx, image in enumerate(images):
         if not is_numpy_image(image):
-            raise TypeError('img should be image. Got {}'.format(type(image)))
+            raise TypeError("img should be image. Got {}".format(type(image)))
 
         h, w, _ = image.shape
 
@@ -61,3 +61,4 @@ class RandomMixup:
             target_size=self.target_size,
             main_image_ratio=self.main_image_ratio,
         )
+    

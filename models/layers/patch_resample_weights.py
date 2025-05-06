@@ -48,3 +48,4 @@ class PatchConv2DWithResampleWeights(tf.keras.layers.Conv2D):
         if image_data_format() == "channels_last":
             target_weights = target_weights.transpose([2, 3, 1, 0])
         self.set_weights([target_weights, source_bias])
+        

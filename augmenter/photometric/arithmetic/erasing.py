@@ -8,15 +8,15 @@ from utils.auxiliary_processing import is_numpy_image
 
 
 def erasing(
-    image, 
+    image,
     min_area=0.02,
-    max_area=1/3, 
+    max_area=1/3,
     min_aspect=0.3,
-    max_aspect=None, 
+    max_aspect=None,
     min_count=1,
-    max_count=1, 
+    max_count=1,
     fill_color=0,
-    mode='constant',
+    mode="constant",
 ):
 
     def _get_pixels(img, size, mode, fill_color):
@@ -25,7 +25,7 @@ def erasing(
         return np.full(size, fill_value=fill_color)
 
     if not is_numpy_image(image):
-        raise TypeError('img should be image. Got {}'.format(type(image)))
+        raise TypeError("img should be image. Got {}".format(type(image)))
         
     max_aspect = max_aspect or 1 / min_aspect
     img = image.copy()
@@ -49,15 +49,15 @@ def erasing(
 class Erasing(BaseTransform):
 
     def __init__(
-        self, 
+        self,
         min_area=0.02,
-        max_area=1/3, 
+        max_area=1/3,
         min_aspect=0.3,
-        max_aspect=None, 
+        max_aspect=None,
         min_count=1,
-        max_count=1, 
+        max_count=1,
         fill_color=0,
-        mode='constant',
+        mode="constant",
     ):
         self.min_area = min_area
         self.max_area = max_area
@@ -70,9 +70,9 @@ class Erasing(BaseTransform):
 
     def image_transform(self, image):
         return erasing(
-            image=image, 
+            image=image,
             min_area=self.min_area,
-            max_area=self.max_area, 
+            max_area=self.max_area,
             min_aspect=self.min_aspect,
             max_aspect=self.max_aspect,
             min_count=self.min_count,
@@ -85,15 +85,15 @@ class Erasing(BaseTransform):
 class RandomErasing(BaseRandomTransform):
 
     def __init__(
-        self, 
+        self,
         min_area=0.02,
-        max_area=1/3, 
+        max_area=1/3,
         min_aspect=0.3,
-        max_aspect=None, 
+        max_aspect=None,
         min_count=1,
-        max_count=1, 
+        max_count=1,
         fill_color=0,
-        mode='constant',
+        mode="constant",
         prob=0.5,
     ):
         self.min_area = min_area
@@ -108,9 +108,9 @@ class RandomErasing(BaseRandomTransform):
 
     def image_transform(self, image):
         return erasing(
-            image=image, 
+            image=image,
             min_area=self.min_area,
-            max_area=self.max_area, 
+            max_area=self.max_area,
             min_aspect=self.min_aspect,
             max_aspect=self.max_aspect,
             min_count=self.min_count,
@@ -118,3 +118,4 @@ class RandomErasing(BaseRandomTransform):
             fill_color=self.fill_color,
             mode=self.mode,
         )
+    

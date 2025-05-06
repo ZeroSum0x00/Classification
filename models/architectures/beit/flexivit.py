@@ -25,7 +25,7 @@
 """
 
 import tensorflow as tf
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
 )
@@ -43,12 +43,11 @@ def FlexiViT(
     num_heads,
     hidden_dim,
     inputs=[224, 224, 3],
-    include_head=True, 
+    include_head=True,
     weights="imagenet",
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -117,15 +116,16 @@ def FlexiViT(
     x = backbone.output
 
     if include_head:
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes, 
-            kernel_initializer=kernel_initializer, 
-            bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
-            name="predictions"
-        )(x)
-        
-        x = get_activation_from_name(final_activation)(x)
+        x = Sequential([
+            Dropout(drop_rate),
+            Dense(
+                units=1 if num_classes == 2 else num_classes,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=l2(regularizer_decay),
+            ),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
     else:
         if pooling == "avg":
             x = GlobalAveragePooling2D(name="global_avgpool")(x)
@@ -164,7 +164,6 @@ def FlexiViT_T16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -181,11 +180,10 @@ def FlexiViT_T16(
         hidden_dim=192,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -204,7 +202,6 @@ def FlexiViT_S16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -221,11 +218,10 @@ def FlexiViT_S16(
         hidden_dim=384,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -244,7 +240,6 @@ def FlexiViT_B16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -261,11 +256,10 @@ def FlexiViT_B16(
         hidden_dim=768,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -284,7 +278,6 @@ def FlexiViT_L16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -301,11 +294,10 @@ def FlexiViT_L16(
         hidden_dim=1024,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -324,7 +316,6 @@ def FlexiViT_H16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -341,11 +332,10 @@ def FlexiViT_H16(
         hidden_dim=1248,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
@@ -364,7 +354,6 @@ def FlexiViT_G16(
     pooling=None,
     activation="gelu",
     normalizer="layer-norm",
-    final_activation="softmax",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
@@ -381,11 +370,10 @@ def FlexiViT_G16(
         hidden_dim=1408,
         inputs=inputs,
         include_head=include_head,
-        weights=weights, 
-        pooling=pooling, 
+        weights=weights,
+        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
-        final_activation=final_activation,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
