@@ -48,13 +48,13 @@ Dataset:
                 size: 256
             - CenterCrop:
                 size: 224
-    dataloader_mode: &dataloader_mode "sequence"
+    dataloader_mode: &dataloader_mode "tf"
     get_data_mode: 0
 
 Train:
     train_strategy: "scratch"        # "scratch", "fine-tuning"
     execution_mode: "graph"          # "eager", "graph"
-    vram_usage: "full"             # "full", "growth", "limit"
+    vram_usage: "limit"             # "full", "growth", "limit"
     vram_limit_mb: null
     mixed_precision_dtype: null
     num_gpus: 0
@@ -64,13 +64,16 @@ Train:
     model_save_head: &model_save_head True
     random_seed: 0
     num_workers: &num_workers 4
-    batch_size: 64
+    class_weight: "balance"
+    batch_size: 8
     epoch:
         start: 0
         end: &end_epoch 300
 
 Losses:
-    - SparseCategoricalCrossentropy:
+    - CategoricalFocalCrossentropy:
+        alpha: 0.25
+        gamma: 2.0
         coeff: 1
 
 Optimizer:
@@ -81,8 +84,8 @@ Optimizer:
     weight_decay: 1.e-5
     
 Metrics:
-    - SparseCategoricalAccuracy:
-    - SparseTopKCategoricalAccuracy:
+    - CategoricalAccuracy:
+    - TopKCategoricalAccuracy:
         k: 5
 
 Callbacks:
