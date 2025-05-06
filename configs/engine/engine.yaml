@@ -1,0 +1,126 @@
+Dataset:
+    data_dir: &data_dir "/mnt/data_disk/Datasets/Classification/full_animals"
+    annotation_dir: null
+    data_info:
+        data_type: "dirname"
+        color_space: &color_space "RGB"
+        check_data: False
+        load_memory: False
+    data_normalizer:
+        norm_type: "sub_divide"
+        norm_mean: null
+        norm_std: null
+        interpolation: "BILINEAR"
+
+    data_augmentation:
+        train:
+            - ResizeKeepRatio:
+                size: 256
+                longest: 0.
+                interpolation: "BILINEAR"
+                random_scale_prob: 0.5
+                random_scale_range: [0.08, 1.0]
+                random_scale_area: True
+                random_aspect_prob: 0.5
+                random_aspect_range: [0.75, 1.3333333333333333]
+            - RandomCrop:
+                size: 224
+            - RandomHorizontalFlip:
+            - RandomRotation:
+                degrees: 15
+            - RandomColorJitter:
+                brightness: [0.6, 1.4]
+                contrast: [0.6, 1.4]
+                saturation: [0.6, 1.4]
+            - RandomErasing:
+        valid:
+            - Resize:
+                size: 256
+            - CenterCrop:
+                size: 224
+        test:
+            - Resize:
+                size: 256
+            - CenterCrop:
+                size: 224
+        inference:
+            - Resize:
+                size: 256
+            - CenterCrop:
+                size: 224
+    dataloader_mode: &dataloader_mode "sequence"
+    get_data_mode: 0
+
+Train:
+    train_strategy: "scratch"        # "scratch", "fine-tuning"
+    execution_mode: "graph"          # "eager", "graph"
+    vram_usage: "full"             # "full", "growth", "limit"
+    vram_limit_mb: null
+    mixed_precision_dtype: null
+    num_gpus: 0
+    checkpoints: null
+    output_path: "./saved_weights/"
+    model_save_mode: &model_save_mode "model"        # "weights", "model"
+    model_save_head: &model_save_head True
+    random_seed: 0
+    num_workers: &num_workers 4
+    batch_size: 64
+    epoch:
+        start: 0
+        end: &end_epoch 300
+
+
+Losses:
+    - SparseCategoricalCrossentropy:
+        coeff: 1
+
+
+Optimizer:
+    name: SGD
+    learning_rate: &lr 0.05
+    momentum: 0.937
+    nesterov: True
+    weight_decay: 1.e-5
+    
+
+Metrics:
+    - SparseCategoricalAccuracy:
+    - SparseTopKCategoricalAccuracy:
+        k: 5
+
+
+Callbacks:
+    - Evaluate:
+        sample_weight: null
+        min_ratio: 0.2
+        save_best: True
+        save_mode: *model_save_mode
+        save_head: *model_save_head
+        show_frequency: 10
+    - AdvanceWarmUpLearningRate:
+        lr_init: *lr
+        lr_end: 1.25e-04
+        epochs: *end_epoch
+        warmup_epoch_ratio: 0.05 
+        warmup_lr_ratio: 0.1
+        no_aug_epoch_ratio: 0.05
+    - LossHistory:
+        save_best: False
+        save_mode: *model_save_mode
+        save_head: *model_save_head
+    - MetricHistory:
+        min_ratio: 0.2
+        save_best: True
+        save_mode: *model_save_mode
+        save_head: *model_save_head
+    - TensorBoard:
+        extend_path: "logs"
+        update_freq: 1
+    - CSVLogger:
+        extend_path: "summary/train_history.csv"
+        separator: ","
+        append: True
+    - TrainLogger:
+        extend_path: "logs/training_log.log"
+    - TrainSummary:
+        extend_path: "summary/train_summary.txt"
