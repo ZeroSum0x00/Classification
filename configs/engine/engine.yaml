@@ -69,11 +69,9 @@ Train:
         start: 0
         end: &end_epoch 300
 
-
 Losses:
     - SparseCategoricalCrossentropy:
         coeff: 1
-
 
 Optimizer:
     name: SGD
@@ -82,12 +80,10 @@ Optimizer:
     nesterov: True
     weight_decay: 1.e-5
     
-
 Metrics:
     - SparseCategoricalAccuracy:
     - SparseTopKCategoricalAccuracy:
         k: 5
-
 
 Callbacks:
     - Evaluate:
