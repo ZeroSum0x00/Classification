@@ -94,7 +94,7 @@ class MetricHistory(tf.keras.callbacks.Callback):
             plt.grid(True)
             plt.xlabel("Epoch")
             plt.ylabel(metric_name.replace("-", " ").title())
-            plt.title(f"A {metric_name.replace("-", " ").title()} Curve")
+            plt.title(f'A {metric_name.replace("-", " ").title()} Curve')
             
             handles, labels = plt.gca().get_legend_handles_labels()
             if labels:
@@ -109,7 +109,7 @@ class MetricHistory(tf.keras.callbacks.Callback):
             if self.save_best:
                 if metric_type == "increase":
                     if train_value > self.metric_infomation[metric_name]["train_value"] and train_value > self.min_ratio:
-                        logger.info(f"Train {metric_name} score increase {self.metric_infomation[metric_name]["train_value"]:.4f} to {train_value:.4f}")
+                        logger.info(f'Train {metric_name} score increase {self.metric_infomation[metric_name]["train_value"]:.4f} to {train_value:.4f}')
                         self.metric_infomation[metric_name]["train_value"] = train_value
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.keras")
@@ -121,7 +121,7 @@ class MetricHistory(tf.keras.callbacks.Callback):
                             self.model.save_weights(weight_path, save_head=self.save_head)
 
                     if valid_value and valid_value > self.metric_infomation[metric_name]["valid_value"] and valid_value > self.min_ratio:
-                        logger.info(f"Validation {metric_name} score increase {self.metric_infomation[metric_name]["valid_value"]:.4f} to {valid_value:.4f}")
+                        logger.info(f'Validation {metric_name} score increase {self.metric_infomation[metric_name]["valid_value"]:.4f} to {valid_value:.4f}')
                         self.metric_infomation[metric_name]["valid_value"] = valid_value
 
                         if self.save_mode == "model":
@@ -160,7 +160,7 @@ class MetricHistory(tf.keras.callbacks.Callback):
                         if epoch == 0:
                             logger.info(f"First train {metric_name} score: {train_value:.4f}")
                         else:
-                            logger.info(f"Train {metric_name} score decrease {self.metric_infomation[metric_name]["train_value"]:.4f} to {train_value:.4f}")
+                            logger.info(f'Train {metric_name} score decrease {self.metric_infomation[metric_name]["train_value"]:.4f} to {train_value:.4f}')
                         self.metric_infomation[metric_name]["train_value"] = train_value
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_train_{metric_name}.keras")
@@ -175,7 +175,7 @@ class MetricHistory(tf.keras.callbacks.Callback):
                         if epoch == 0:
                             logger.info(f"First validation {metric_name} score: {valid_value:.4f}")
                         else:
-                            logger.info(f"Validation {metric_name} score decrease {self.metric_infomation[metric_name]["valid_value"]:.4f} to {valid_value:.4f}")
+                            logger.info(f'Validation {metric_name} score decrease {self.metric_infomation[metric_name]["valid_value"]:.4f} to {valid_value:.4f}')
                         self.metric_infomation[metric_name]["valid_value"] = valid_value
                         if self.save_mode == "model":
                             weight_path = os.path.join(save_weight_path, f"best_valid_{metric_name}.keras")
