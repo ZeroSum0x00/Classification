@@ -415,7 +415,7 @@ def reduction_B(
     name=None
 ):
     if name is None:
-        name = f"reduction_b_{K.get_uid("reduction_b")}"
+        name = f"reduction_b_{K.get_uid('reduction_b')}"
 
     # branch1
     branch1 = MaxPooling2D(

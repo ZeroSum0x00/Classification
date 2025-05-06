@@ -76,7 +76,7 @@ class MetricHistory(tf.keras.callbacks.Callback):
                 max_size=[max_height, max_width],
                 linewidth=2,
                 line_color="red",
-                label=f"train {metric_name.replace("-", " ")}",
+                label=f'train {metric_name.replace("-", " ")}',
             )
             
             if np.any(valid_metric_value):
@@ -88,7 +88,7 @@ class MetricHistory(tf.keras.callbacks.Callback):
                     max_size=[max_height, max_width],
                     linewidth=2,
                     line_color="coral",
-                    label=f"valid {metric_name.replace("-", " ")}",
+                    label=f'valid {metric_name.replace("-", " ")}',
                 )
                 
             plt.grid(True)
