@@ -31,10 +31,8 @@ def get_logger(name="CLS"):
         def format(self, record):
             levelname = record.levelname
             log_message = super().format(record)
-            color = self.COLORS.get(str(levelname), "")
-            log_message = str(log_message)  # đảm bảo là string
-            reset = self.RESET if hasattr(self, "RESET") else ""
-            return f"{color}{log_message}{reset}"
+            # Thêm màu cho mức độ log
+            return f"{self.COLORS.get(levelname, "")}{log_message}{self.RESET}"
 
     # Áp dụng ColoredFormatter cho handler
     colored_formatter = ColoredFormatter("%(asctime)s - %(levelname)s - %(message)s")

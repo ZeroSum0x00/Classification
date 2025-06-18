@@ -1,40 +1,87 @@
 """
-  # Description:
-    - The following table comparing the params of the DarkNet 53 with C2f Block (YOLOv8 backbone) in Tensorflow on 
-    image size 640 x 640 x 3:
+    DarknetC2: YOLOv8 Backbone with C2f Blocks
 
-       ----------------------------------------
-      |      Model Name      |    Params       |
-      |----------------------------------------|
-      |    DarkNetC2 nano    |    1,534,680    |
-      |----------------------------------------|
-      |    DarkNetC2 small   |    5,602,760    |
-      |----------------------------------------|
-      |    DarkNetC2 medium  |   12,449,464    |
-      |----------------------------------------|
-      |    DarkNetC2 large   |   20,344,744    |
-      |----------------------------------------|
-      |    DarkNetC2 xlarge  |   31,613,080    |
-       ----------------------------------------
+    Overview:
+        The YOLOv8 backbone is a lightweight and efficient convolutional feature extractor
+        built on a modernized architecture using C2f (Concatenate-Conv-Concat-Fuse) blocks.
+        It is designed to extract multi-scale semantic features with high computational efficiency,
+        enabling better performance across tasks such as object detection and segmentation.
 
-  # Reference:
-    - Source: https://github.com/ultralytics/ultralytics
+    Key Characteristics:
+        - Uses C2f blocks: enhanced feature fusion through multiple bottleneck paths
+        - Replaces CSP modules from YOLOv5/YOLOv7 with simpler, more efficient structure
+        - Strided convolution is used for downsampling (no pooling layers)
+        - Includes SPPF (Spatial Pyramid Pooling - Fast) at the final stage
+        - Focuses on modular design: each stage has clearly defined depth and width scaling
 
+    C2f Block:
+        - A C2f block splits the input into multiple parts, applies lightweight convs
+          (often bottlenecks) to a subset, and fuses everything by concatenation followed
+          by a 1x1 conv to reduce dimensionality.
+        - Compared to CSP, C2f avoids explicit partial connections and reduces overhead.
+        
+    General Model Architecture:
+         --------------------------------------------------------------------------------
+        | Stage                  | Layer                       | Output Shape            |
+        |------------------------+-----------------------------+-------------------------|
+        | Input                  | input_layer                 | (None, 640, 640, 3)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stem                   | ConvolutionBlock (3x3, s=2) | (None, 320, 320, C)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 1                | ConvolutionBlock (3x3, s=2) | (None, 160, 160, 2C)    |
+        |                        | C2f (2x)                    | (None, 160, 160, 2C)    |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 2                | ConvolutionBlock (3x3, s=2) | (None, 80, 80, 4C)      |
+        |                        | C2f (4x)                    | (None, 80, 80, 4C)      |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 3                | ConvolutionBlock (3x3, s=2) | (None, 40, 40, 8C)      |
+        |                        | C2f (4x)                    | (None, 40, 40, 8C)      |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 4                | ConvolutionBlock (3x3, s=2) | (None, 20, 20, 16C*S)   |
+        |                        | C2f (2x)                    | (None, 20, 20, 16C*S)   |
+        |                        | SPPF                        | (None, 20, 20, 16C*S)   |
+        |------------------------+-----------------------------+-------------------------|
+        | CLS Logics             | GlobalAveragePooling        | (None, 16C*S)           |
+        |                        | fc (Logics)                 | (None, 1000)            |
+         --------------------------------------------------------------------------------
+
+    Model Parameter Comparison:
+         ----------------------------------------
+        |      Model Name      |    Params       |
+        |----------------------+-----------------|
+        |    DarkNetC2 nano    |    1,534,680    |
+        |----------------------+-----------------|
+        |    DarkNetC2 small   |    5,602,760    |
+        |----------------------+-----------------|
+        |    DarkNetC2 medium  |   12,449,464    |
+        |----------------------+-----------------|
+        |    DarkNetC2 large   |   20,344,744    |
+        |----------------------+-----------------|
+        |    DarkNetC2 xlarge  |   31,613,080    |
+         ----------------------------------------
+
+    References:
+        - Ultralytics YOLOv8 documentation:
+          https://github.com/ultralytics/ultralytics
+          
 """
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    Conv2D, Conv2DTranspose, MaxPooling2D, Dense, Dropout,
-    GlobalMaxPooling2D, GlobalAveragePooling2D, concatenate, add
+    Conv2D, Conv2DTranspose, MaxPooling2D,
+    Dense, Dropout, GlobalAveragePooling2D,
+    concatenate, add,
 )
-from tensorflow.keras.regularizers import l2
 
-from .darknet53 import ConvolutionBlock
+from .darknet19 import ConvolutionBlock
 from .darknet_c3 import Bottleneck, C3, SPP, SPPF
 from ..vgg.repvgg import RepVGGBlock
 from models.layers import get_activation_from_name, get_normalizer_from_name, LinearLayer
-from utils.model_processing import process_model_input, create_layer_instance
+from utils.model_processing import (
+    process_model_input, create_model_backbone, create_layer_instance,
+    validate_conv_arg, check_regularizer,
+)
 
 
 
@@ -63,16 +110,16 @@ class SimpleRepVGG(tf.keras.layers.Layer):
     ):
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.kernel_size = kernel_size
-        self.strides = strides
+        self.kernel_size = validate_conv_arg(kernel_size)
+        self.strides = validate_conv_arg(strides)
         self.padding = padding
-        self.dilation_rate = dilation_rate
+        self.dilation_rate = validate_conv_arg(dilation_rate)
         self.groups = groups
         self.activation = activation
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
         self.deploy = deploy
 
@@ -87,7 +134,7 @@ class SimpleRepVGG(tf.keras.layers.Layer):
             use_bias=False,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
-            kernel_regularizer=l2(self.regularizer_decay),
+            kernel_regularizer=self.regularizer_decay,
         )
         
         self.conv2 = Conv2D(
@@ -100,8 +147,9 @@ class SimpleRepVGG(tf.keras.layers.Layer):
             use_bias=False,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
-            kernel_regularizer=l2(self.regularizer_decay),
+            kernel_regularizer=self.regularizer_decay,
         )
+        
         self.norm  = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.activ = get_activation_from_name(self.activation)
         
@@ -113,7 +161,30 @@ class SimpleRepVGG(tf.keras.layers.Layer):
         out = self.activ(out)
         return out
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "strides": self.strides,
+            "padding": self.padding,
+            "dilation_rate": self.dilation_rate,
+            "groups": self.groups,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps,
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class LightConvolutionBlock(tf.keras.layers.Layer):
     
     """
@@ -134,12 +205,12 @@ class LightConvolutionBlock(tf.keras.layers.Layer):
     ):
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.kernel_size = kernel_size
+        self.kernel_size = validate_conv_arg(kernel_size)
         self.activation = activation
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
@@ -172,6 +243,24 @@ class LightConvolutionBlock(tf.keras.layers.Layer):
         x = self.conv1(inputs, training=training)
         x = self.conv2(x, training=training)
         return x
+        
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 class ChannelAttention(tf.keras.layers.Layer):
@@ -192,7 +281,7 @@ class ChannelAttention(tf.keras.layers.Layer):
         self.activation = activation
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
 
     def build(self, input_shape):
         self.pool = GlobalAveragePooling2D(keepdims=True)
@@ -213,6 +302,20 @@ class ChannelAttention(tf.keras.layers.Layer):
         x = self.conv(x, training=training)
         return inputs * x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "activation": self.activation,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+        
 
 class SpatialAttention(tf.keras.layers.Layer):
     
@@ -230,11 +333,11 @@ class SpatialAttention(tf.keras.layers.Layer):
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self.kernel_size = kernel_size
+        self.kernel_size = validate_conv_arg(kernel_size)
         self.activation = activation
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
 
     def build(self, input_shape):
         self.conv = ConvolutionBlock(
@@ -255,7 +358,22 @@ class SpatialAttention(tf.keras.layers.Layer):
         x = self.conv(merger, training=training)
         return inputs * x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "kernel_size": self.kernel_size,
+            "activation": self.activation,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class CBAM(tf.keras.layers.Layer):
     
     """
@@ -272,11 +390,11 @@ class CBAM(tf.keras.layers.Layer):
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self.kernel_size = kernel_size
+        self.kernel_size = validate_conv_arg(kernel_size)
         self.activation = activation
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
 
     def build(self, input_shape):
         self.channel_attention = ChannelAttention(
@@ -298,7 +416,22 @@ class CBAM(tf.keras.layers.Layer):
         x = self.spatial_attention(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "kernel_size": self.kernel_size,
+            "activation": self.activation,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class Conv2DCustomKernel(tf.keras.layers.Layer):
     
     def __init__(
@@ -307,26 +440,28 @@ class Conv2DCustomKernel(tf.keras.layers.Layer):
         kernel_size=(1, 1),
         strides=(1, 1),
         padding="VALID",
-        dilations=1,
+        dilations=(1, 1),
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.kernel_size = kernel_size
-        self.strides = strides
+        self.kernel_size = validate_conv_arg(kernel_size)
+        self.strides = validate_conv_arg(strides)
         self.padding = padding
-        self.dilations = dilations
+        self.dilations = validate_conv_arg(dilations)
         
     def build(self, input_shape):
         kernel_init = tf.range(0, self.filters, 1, dtype=tf.float32)
         shape = list(self.kernel_size) + [1, self.filters]
         kernel_init = tf.reshape(kernel_init, shape=shape)
+        
         self.kernel = tf.Variable(
             name="kernel_value",
             initial_value=kernel_init,
             dtype=tf.float32,
             trainable=False,
         )
+        
         super().build(input_shape)
         
     def call(self, inputs, training=False):
@@ -340,7 +475,22 @@ class Conv2DCustomKernel(tf.keras.layers.Layer):
         x = tf.stop_gradient(x)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "strides": self.strides,
+            "padding": self.padding,
+            "dilations": self.dilations
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class DFL(tf.keras.layers.Layer):
     
     """
@@ -369,31 +519,53 @@ class DFL(tf.keras.layers.Layer):
         x = tf.reshape(x, shape=(-1, 4, anchor))
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
 
 class DFL2(tf.keras.layers.Layer):
     """
     Integral module of Distribution Focal Loss (DFL) in TensorFlow.
     """
-    def __init__(self, c1=16, *args, **kwargs):
+    def __init__(self, filters, *args, **kwargs):
         """Initialize a convolutional layer with a given number of input channels."""
         super().__init__(*args, **kwargs)
-        self.c1 = c1
-        self.conv = Conv2D(1, kernel_size=1, use_bias=False, trainable=False)
+        self.filters = filters
         
     def build(self, input_shape):
         """Define the weight initialization."""
-        x = tf.range(self.c1, dtype=tf.float32)
-        self.conv.kernel.assign(tf.reshape(x, (1, 1, self.c1, 1)))
+        x = tf.range(self.filters, dtype=tf.float32)
+        self.conv = Conv2D(1, kernel_size=1, use_bias=False, trainable=False)
+        self.conv.kernel.assign(tf.reshape(x, (1, 1, self.filters, 1)))
 
     def call(self, x):
         """Apply the DFL module to input tensor and return transformed output."""
         b, a, _ = tf.shape(x)[0], tf.shape(x)[2], tf.shape(x)[1]
-        x = tf.reshape(x, (b, 4, self.c1, a))
+        x = tf.reshape(x, (b, 4, self.filters, a))
         x = tf.nn.softmax(x, axis=2)
         x = tf.transpose(x, perm=[0, 2, 1, 3])
         return tf.reshape(self.conv(x), (b, 4, a))
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class Proto(tf.keras.layers.Layer):
     
     """
@@ -419,7 +591,7 @@ class Proto(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
@@ -444,7 +616,7 @@ class Proto(tf.keras.layers.Layer):
             use_bias=True,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
-            kernel_regularizer=l2(self.regularizer_decay),
+            kernel_regularizer=self.regularizer_decay,
         )
         
         self.conv2 = ConvolutionBlock(
@@ -478,7 +650,25 @@ class Proto(tf.keras.layers.Layer):
         x = self.conv3(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "expansion": self.expansion,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class HGStem(tf.keras.layers.Layer):
     """
     StemBlock of PPHGNetV2 with 5 convolutions and one maxpool2d.
@@ -504,7 +694,7 @@ class HGStem(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
@@ -527,7 +717,7 @@ class HGStem(tf.keras.layers.Layer):
                 use_bias=False,
                 kernel_initializer=self.kernel_initializer,
                 bias_initializer=self.bias_initializer,
-                kernel_regularizer=l2(self.regularizer_decay),
+                kernel_regularizer=self.regularizer_decay,
             ),
             get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps),
             get_activation_from_name(self.activation),
@@ -571,7 +761,25 @@ class HGStem(tf.keras.layers.Layer):
         x = self.conv5(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "expansion": self.expansion,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class HGBlock(tf.keras.layers.Layer):
     
     """
@@ -597,7 +805,7 @@ class HGBlock(tf.keras.layers.Layer):
     ):
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.kernel_size = kernel_size
+        self.kernel_size = validate_conv_arg(kernel_size)
         self.iters = iters
         self.expansion = expansion
         self.shortcut = shortcut
@@ -606,12 +814,13 @@ class HGBlock(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
         self.c     = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
+        
         self.module_list = [
             self.block(
                 filters=hidden_dim,
@@ -663,7 +872,29 @@ class HGBlock(tf.keras.layers.Layer):
             x = add([inputs, x])
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "kernel_size": self.kernel_size,
+            "iters": self.iters,
+            "expansion": self.expansion,
+            "shortcut": self.shortcut,
+            "block": self.block,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class C1(tf.keras.layers.Layer):
     
     """ 
@@ -693,12 +924,13 @@ class C1(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
         self.c = input_shape[-1]
         hidden_dim = int(self.filters * self.expansion)
+        
         self.conv1 = ConvolutionBlock(
             filters=hidden_dim,
             kernel_size=(1, 1),
@@ -733,7 +965,27 @@ class C1(tf.keras.layers.Layer):
             y = add([x, y])
         return y
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "iters": self.iters,
+            "expansion": self.expansion,
+            "shortcut": self.shortcut,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class C2(tf.keras.layers.Layer):
     
     """ 
@@ -763,11 +1015,12 @@ class C2(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
+        
         self.conv1 = ConvolutionBlock(
             filters=2 * hidden_dim,
             kernel_size=(1, 1),
@@ -816,7 +1069,27 @@ class C2(tf.keras.layers.Layer):
         x = self.conv2(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "iters": self.iters,
+            "expansion": self.expansion,
+            "shortcut": self.shortcut,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class C2f(tf.keras.layers.Layer):
     
     """ 
@@ -846,11 +1119,12 @@ class C2f(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
+        
         self.conv1 = ConvolutionBlock(
             filters=2 * hidden_dim,
             kernel_size=(1, 1),
@@ -900,7 +1174,27 @@ class C2f(tf.keras.layers.Layer):
         x = self.conv2(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "iters": self.iters,
+            "expansion": self.expansion,
+            "shortcut": self.shortcut,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class C3Rep(C3):
     
     """ 
@@ -922,6 +1216,8 @@ class C3Rep(C3):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             iters=iters,
@@ -939,6 +1235,7 @@ class C3Rep(C3):
         
     def build(self, input_shape):
         hidden_dim = int(self.filters * self.expansion)
+        
         self.conv1 = ConvolutionBlock(
             filters=hidden_dim,
             kernel_size=(1, 1),
@@ -999,6 +1296,17 @@ class C3Rep(C3):
             merger = self.conv2(merger, training=training)
         return merger
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
 
 def DarkNetC2(
     feature_extractor,
@@ -1011,7 +1319,6 @@ def DarkNetC2(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -1042,6 +1349,7 @@ def DarkNetC2(
     # if pyramid_pooling and pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
     #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -1072,7 +1380,7 @@ def DarkNetC2(
     if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
         pyramid_pooling = [pyramid_pooling]
 
-    filters = filters if isinstance(filters, (tuple, list)) else [filters * channel_scale**i for i in range(len(num_blocks))]    
+    filters = filters if isinstance(filters, (tuple, list)) else [filters * channel_scale**i for i in range(len(num_blocks))]
 
     x = inputs
     for i in range(num_blocks[0]):
@@ -1080,41 +1388,57 @@ def DarkNetC2(
             extractor_block1,
             filters=filters[0],
             kernel_size=(3, 3),
-            strides=(2, 2),
+            strides=(2, 2) if i == 0 else (1, 1),
             **layer_constant_dict,
             name=f"stem.block{i + 1}"
         )(x)
 
-    for i in range(len(num_blocks) - 1):
+    last_stage_idx = len(num_blocks) - 2
+    final_filters = None
+    for i, num_block in enumerate(num_blocks[1:]):
+        is_last_stage = (i == last_stage_idx)
+        block_name_prefix = f"stage{i + 1}"
+
         f = filters[i + 1]
         
-        x = create_layer_instance(
-            extractor_block1 if i == 0 else extractor_block2,
-            filters=int(f * final_channel_scale) if i == len(num_blocks) - 2 else f,
-            kernel_size=(3, 3),
-            strides=(2, 2),
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block1"
-        )(x)
-    
-        x = create_layer_instance(
-            fusion_block1 if i == 0 else fusion_block2,
-            filters=int(f * final_channel_scale) if i == len(num_blocks) - 2 else f,
-            iters=num_blocks[i + 1],
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block2"
-        )(x)
+        if is_last_stage:
+            f = int(f * final_channel_scale)
+            final_filters = f
+            
+        if num_block > 0:
+            x = create_layer_instance(
+                extractor_block1 if i == 0 else extractor_block2,
+                filters=f,
+                kernel_size=(3, 3),
+                strides=(2, 2),
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block1"
+            )(x)
 
+        if num_block > 1:
+            x = create_layer_instance(
+                fusion_block1 if i == 0 else fusion_block2,
+                filters=f,
+                iters=num_block - 1,
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block2"
+            )(x)
+
+    block_name_prefix = f"stage{len(num_blocks) - 1}"
+
+    if final_filters is None:
+        final_filters = int(filters[-1] * final_channel_scale)
+        
     if pyramid_pooling:
-        for j, pooling in enumerate(pyramid_pooling):
+        for p, pooling in enumerate(pyramid_pooling):
             x = create_layer_instance(
                 pooling,
-                filters=int(filters[-1] * final_channel_scale),
+                filters=final_filters,
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}"
+                name=f"{block_name_prefix}.block{p + 3}"
             )(x)
     else:
-        x = LinearLayer(name=f"stage{i + 1}.block3")(x)
+        x = LinearLayer(name=f"{block_name_prefix}.block3")(x)
 
     if include_head:
         x = Sequential([
@@ -1123,25 +1447,20 @@ def DarkNetC2(
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
 
-    if filters == [16, 32, 64, 128, 256] and num_blocks == [1, 1, 2, 2, 1]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-C2-Nano")
-    elif filters == [32, 64, 128, 256, 512] and num_blocks == [1, 1, 2, 2, 1]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-C2-Small")
-    elif filters == [48, 96, 192, 384, 768] and num_blocks == [1, 2, 4, 4, 2]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-C2-Medium")
-    elif filters == [64, 128, 256, 512, 1024] and num_blocks == [1, 3, 6, 6, 3]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-C2-Large")
-    elif filters == [80, 160, 320, 640, 1280] and num_blocks == [1, 3, 6, 6, 3]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-C2-XLarge")
-    else:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-C2")
+    model_name = "DarkNet-C2"
+    if filters == [16, 32, 64, 128, 256] and num_blocks == [1, 2, 3, 3, 2]:
+        model_name += "-nano"
+    elif filters == [32, 64, 128, 256, 512] and num_blocks == [1, 2, 3, 3, 2]:
+        model_name += "-small"
+    elif filters == [48, 96, 192, 384, 768] and num_blocks == [1, 3, 5, 5, 3]:
+        model_name += "-medium"
+    elif filters == [64, 128, 256, 512, 1024] and num_blocks == [1, 4, 7, 7, 4]:
+        model_name += "-large"
+    elif filters == [80, 160, 320, 640, 1280] and num_blocks == [1, 4, 7, 7, 4]:
+        model_name += "-xlarge"
         
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -1160,7 +1479,14 @@ def DarkNetC2_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = DarkNetC2(
+    custom_layers = custom_layers or [
+        f"stem.block{j}" if i == 0 else f"stage{i}.block2"
+        for i, j in enumerate(num_blocks[:-1])
+    ]
+
+    return create_model_backbone(
+        model_fn=DarkNetC2,
+        custom_layers=custom_layers,
         feature_extractor=feature_extractor,
         fusion_layer=fusion_layer,
         pyramid_pooling=pyramid_pooling,
@@ -1169,27 +1495,16 @@ def DarkNetC2_backbone(
         channel_scale=channel_scale,
         final_channel_scale=final_channel_scale,
         inputs=inputs,
-        include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer,
+        normalizer=normalizer
     )
-
-    custom_layers = custom_layers or [
-        "stem.block1" if i == 0 else f"stage{i}.block2"
-        for i, j in enumerate(num_blocks[:-1])
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 def DarkNetC2_nano(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -1205,13 +1520,12 @@ def DarkNetC2_nano(
         fusion_layer=C2f,
         pyramid_pooling=SPPF,
         filters=16,
-        num_blocks=[1, 1, 2, 2, 1],
+        num_blocks=[1, 2, 3, 3, 2],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -1238,14 +1552,6 @@ def DarkNetC2_nano_backbone(
         - Reference:
             https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/models/v8/yolov8.yaml
     """
-    
-    model = DarkNetC2_nano(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block1",
@@ -1254,16 +1560,20 @@ def DarkNetC2_nano_backbone(
         "stage3.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetC2_nano,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetC2_small(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -1279,13 +1589,12 @@ def DarkNetC2_small(
         fusion_layer=C2f,
         pyramid_pooling=SPPF,
         filters=32,
-        num_blocks=[1, 1, 2, 2, 1],
+        num_blocks=[1, 2, 3, 3, 2],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -1312,14 +1621,6 @@ def DarkNetC2_small_backbone(
         - Reference:
             https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/models/v8/yolov8.yaml
     """
-    
-    model = DarkNetC2_small(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block1",
@@ -1328,16 +1629,20 @@ def DarkNetC2_small_backbone(
         "stage3.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetC2_small,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetC2_medium(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -1353,13 +1658,12 @@ def DarkNetC2_medium(
         fusion_layer=C2f,
         pyramid_pooling=SPPF,
         filters=48,
-        num_blocks=[1, 2, 4, 4, 2],
+        num_blocks=[1, 3, 5, 5, 3],
         channel_scale=2,
         final_channel_scale=0.75,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -1386,14 +1690,6 @@ def DarkNetC2_medium_backbone(
         - Reference:
             https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/models/v8/yolov8.yaml
     """
-    
-    model = DarkNetC2_medium(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block1",
@@ -1402,16 +1698,20 @@ def DarkNetC2_medium_backbone(
         "stage3.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetC2_medium,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetC2_large(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -1427,13 +1727,12 @@ def DarkNetC2_large(
         fusion_layer=C2f,
         pyramid_pooling=SPPF,
         filters=64,
-        num_blocks=[1, 3, 6, 6, 3],
+        num_blocks=[1, 4, 7, 7, 4],
         channel_scale=2,
         final_channel_scale=0.5,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -1460,14 +1759,6 @@ def DarkNetC2_large_backbone(
         - Reference:
             https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/models/v8/yolov8.yaml
     """
-    
-    model = DarkNetC2_large(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block1",
@@ -1476,16 +1767,20 @@ def DarkNetC2_large_backbone(
         "stage3.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetC2_large,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetC2_xlarge(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -1501,13 +1796,12 @@ def DarkNetC2_xlarge(
         fusion_layer=C2f,
         pyramid_pooling=SPPF,
         filters=80,
-        num_blocks=[1, 3, 6, 6, 3],
+        num_blocks=[1, 4, 7, 7, 4],
         channel_scale=2,
         final_channel_scale=0.5,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -1534,14 +1828,6 @@ def DarkNetC2_xlarge_backbone(
         - Reference:
             https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/models/v8/yolov8.yaml
     """
-    
-    model = DarkNetC2_xlarge(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block1",
@@ -1550,6 +1836,12 @@ def DarkNetC2_xlarge_backbone(
         "stage3.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetC2_xlarge,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+    

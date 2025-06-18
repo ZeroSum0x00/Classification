@@ -30,7 +30,9 @@ def get_normalizer_from_name(norm_name, *args, **kwargs):
         elif norm_name in ["local-response", "local response", "local-response-norm", "local response norm", "local-response-normalization", "local response normalization"]:
             from .local_response_normalization import LocalResponseNormalization
             return LocalResponseNormalization(*args, **kwargs)
-            
+        elif norm_name in ["global-response", "global response", "global-response-norm", "global response norm", "global-response-normalization", "global response normalization"]:
+            from .global_response_normalization import GlobalResponseNormalization
+            return GlobalResponseNormalization(*args, **kwargs)
     else:
         return LinearLayer(*args, **kwargs)
     

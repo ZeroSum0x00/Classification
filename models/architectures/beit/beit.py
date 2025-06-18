@@ -1,47 +1,59 @@
 """
-  # Description:
-    - The following table comparing the params of the Bidirectional Encoder representation from Image Transformer (BEiT)
-    in Tensorflow on size 224 x 224 x 3:
-
-       ---------------------------------------
-      |     Model Name      |    Params       |
-      |---------------------------------------|
-      |     BEiT-Base-16    |   86,530,984    |
-      |---------------------|-----------------|
-      |     BEiT-Base-32    |   88,219,816    |
-      |---------------------------------------|
-      |     BEiT-Large-16   |  304,430,568    |
-      |---------------------|-----------------|
-      |     BEiT-Large-32   |  306,574,824    |
-      |---------------------------------------|
-      |     BEiT-Huge-16    |  632,362,984    |
-      |---------------------|-----------------|
-      |     BEiT-Huge-32    |  635,025,384    |
-       ---------------------------------------
-
-  # Reference:
-    - [BEIT: BERT Pre-Training of Image Transformers](https://arxiv.org/pdf/2106.08254v2.pdf)
-    - Source: https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/beit/beit.py
-
+    Overview:
+        This file provides a comparison of parameter counts for various BEiT (Bidirectional Encoder
+        representation from Image Transformers) models implemented in TensorFlow,
+        using an input image size of 224 x 224 x 3.
+    
+        BEiT is a vision transformer model pre-trained with masked image modeling,
+        similar in spirit to BERT in NLP, and is designed for high-performance image understanding.
+    
+    Model Parameter Comparison:
+         ---------------------------------------
+        |     Model Name      |     Params      |
+        |---------------------+-----------------|
+        |     BEiT-Base-16    |   86,530,984    |
+        |---------------------+-----------------|
+        |     BEiT-Base-32    |   88,219,816    |
+        |---------------------+-----------------|
+        |     BEiT-Large-16   |  304,430,568    |
+        |---------------------+-----------------|
+        |     BEiT-Large-32   |  306,574,824    |
+        |---------------------+-----------------|
+        |     BEiT-Huge-16    |  632,362,984    |
+        |---------------------+-----------------|
+        |     BEiT-Huge-32    |  635,025,384    |
+         ---------------------------------------
+       
+    Notes:
+        - All parameter counts are based on TensorFlow (Keras) implementations.
+        - These models are typically used for masked image modeling and fine-tuning on image classification tasks.
+        - Patch sizes of 16 and 32 refer to the resolution of individual image patches used in the Vision Transformer backbone.
+    
+    References:
+        - Paper: "BEIT: BERT Pre-Training of Image Transformers"
+          https://arxiv.org/pdf/2106.08254v2.pdf
+          
+        - TensorFlow/Keras implementation:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/beit/beit.py
 """
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    Input, Embedding, Reshape, Dense, Dropout, Concatenate,
-    GlobalMaxPooling2D, GlobalAveragePooling2D
+    Input, Embedding, Reshape,
+    Dense, Dropout, Concatenate,
 )
-from tensorflow.keras.regularizers import l2
 from tensorflow.keras.initializers import RandomUniform
 
 from models.layers import (
     get_activation_from_name, get_normalizer_from_name,
-    ClassToken, PositionalIndex, SAMModel,
+    ClassToken, PositionalIndex,
     PatchConv2DWithResampleWeights, PositionalEmbedding,
     EnhanceSelfAttention, AttentionMLPBlock,
-    ReduceWrapper
+    ReduceWrapper,
 )
-from utils.model_processing import process_model_input, drop_connect_rates_split
+
+from utils.model_processing import process_model_input, drop_connect_rates_split, check_regularizer
 
 
 
@@ -74,15 +86,14 @@ def BEiT(
     inputs=[224, 224, 3],
     include_head=True, # [Text model] boolean value if include top output Dense layer, True for using output channles == vocab_size
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,  # For text model, equals to vocab_size if include_head is True
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,  # 1e-5 for ViT clip models, 1e-6 for others
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -94,7 +105,9 @@ def BEiT(
     if weights == "imagenet" and include_head and num_classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
-        
+
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     if vocab_size > 0:
         inputs = Input([None], dtype="int64")
 
@@ -177,14 +190,14 @@ def BEiT(
             attention_layer=attent_layer,
             mlp_ratio=mlp_ratio,
             layer_scale=attn_layer_scale,
-            use_gated_mlp=use_gated_mlp,
+            use_gated=use_gated_mlp,
             activation=activation,
             normalizer=normalizer,
             use_mlp_norm=use_mlp_norm,
             norm_eps=norm_eps,
+            drop_path_rate=drop_path_rate,
             drop_rate=block_drop_rate,
-            drop_prob=0.0,
-            name=f"block{i + 1}"
+            name=f"block_{i + 1}"
         )(x)
 
     """ Head """
@@ -208,38 +221,28 @@ def BEiT(
                 units=1 if num_classes == 2 else num_classes,
                 kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer,
-                kernel_regularizer=l2(regularizer_decay),
+                kernel_regularizer=regularizer_decay,
             ),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="global_maxpool")(x)
 
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, outputs, name=name + "_SAM")
-        else:
-            return Model(inputs=inputs, outputs=outputs, name=name)
-            
+    model_name = "BEiT"
     if num_layers == 12:
         if num_heads < 5:
-            model = __build_model(inputs, x, sam_rho, name=f"BEiT-Tiny-{patch_size}")
+            model_name += "-tiny"
         elif num_heads < 8:
-            model = __build_model(inputs, x, sam_rho, name=f"BEiT-Small-{patch_size}")
+            model_name += "-small"
         else:
-            model = __build_model(inputs, x, sam_rho, name=f"BEiT-Base-{patch_size}")
+            model_name += "-base"
     elif num_layers == 24:
-        model = __build_model(inputs, x, sam_rho, name=f"BEiT-Large-{patch_size}")
+        model_name += "-large"
     elif num_layers == 32:
-        model = __build_model(inputs, x, sam_rho, name=f"BEiT-Huge-{patch_size}")
+        model_name += "-huge"
     elif num_layers == 40:
-        model = __build_model(inputs, x, sam_rho, name=f"BEiT-Gaint-{patch_size}")
-    else:
-        model = __build_model(inputs, x, sam_rho, name=f"BEiT-{patch_size}")
-        
+        model_name += "-gaint"
+    model_name += f"-{patch_size}"
+    
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -247,15 +250,14 @@ def BEiT_B16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -267,15 +269,14 @@ def BEiT_B16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -285,15 +286,14 @@ def BEiT_B32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -305,15 +305,14 @@ def BEiT_B32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -323,15 +322,14 @@ def BEiT_L16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -344,15 +342,14 @@ def BEiT_L16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -362,15 +359,14 @@ def BEiT_L32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -383,15 +379,14 @@ def BEiT_L32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -401,15 +396,14 @@ def BEiT_H16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -422,15 +416,14 @@ def BEiT_H16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -440,15 +433,14 @@ def BEiT_H32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -461,15 +453,14 @@ def BEiT_H32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model

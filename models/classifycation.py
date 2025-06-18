@@ -1,8 +1,8 @@
 import numpy as np
 import tensorflow as tf
-from utils.train_processing import losses_prepare
 
 
+@tf.keras.utils.register_keras_serializable()
 class CLS(tf.keras.Model):
     def __init__(
         self,
@@ -32,10 +32,9 @@ class CLS(tf.keras.Model):
         return preds
 
     def calc_loss(self, y_true, y_pred, loss_object, sample_weight=None):
-        loss = losses_prepare(loss_object)
-        loss_value = 0
-        if loss:
-            loss_value += loss(y_true, y_pred, sample_weight=sample_weight)
+        loss = loss_object["loss"]
+        loss.coefficient = loss_object["coeff"]
+        loss_value = loss(y_true, y_pred, sample_weight=sample_weight)
         return loss_value
 
     def get_config(self):

@@ -1,36 +1,73 @@
 """
-  # Description:
-    - The following table comparing the params of the Vision Mamba (Vim) in Tensorflow on 
-    size 224 x 224 x 3:
+    Vision Mamba (Vim): Vision Backbone with Bidirectional State Space Models
+    
+    Overview:
+        Vision Mamba (Vim) is a pure-state-space-model (SSM) based vision backbone,
+        replacing self-attention with **bidirectional Mamba blocks** to achieve
+        global context modeling, positional awareness, and high efficiency.
+        It delivers superior accuracy to DeiT on ImageNet and downstream detection
+        and segmentation, while being **2.8× faster** and using **~87% less GPU memory**
+        on high-resolution images.
+    
+    Key Components:
+        • Patch Embedding + Positional Encoding:
+            - Split image into non-overlapping patches (e.g. 16×16), project to tokens.
+            - Add learnable position embeddings (`Epos`) and a class token token in the *middle* for best performance (achieves 76.1% Top‑1 on ImageNet).
+    
+        • Vim Block:
+            - **Bidirectional SSMs**:
+                - Implements both forward and backward Mamba SSM layers.
+                - Optionally includes a Conv1D layer before the backward SSM.
+            - **Structure**:
+                ```
+                x' = LayerNorm(x)
+                y_fwd = MambaSSM_fwd(x')
+                y_bwd = Conv1D → MambaSSM_bwd(x'), // bidirectional part
+                combined = y_fwd + y_bwd + x
+                output = MLP(LN(combined)) + combined
+                ```
+    
+        • Architecture:
+            - Stages of stacked Vim blocks with downsampling layers.
+              Example (Tiny): [Patch Embed → L blocks] where L ~ 24.
+            - Overall resolution reduced via patch embedding; no explicit 2D convolutions.
+    
+        • Efficiency:
+            - **Subquadratic runtime** and **linear memory complexity** wrt sequence length.
+            - **2.8× faster** and uses **~86.8% less GPU memory** than DeiT extracting features from 1248×1248 images.
+    
+        • Performance:
+            - Outperforms DeiT on ImageNet classification, COCO detection, and ADE20k segmentation without attention mechanisms.
 
+    Model Parameter Comparison:
        --------------------------------------
       |     Model Name     |    Params       |
       |--------------------------------------|
       |      ViM-Base      |   8,543,720     |
        ---------------------------------------
-       
-  # Reference:
-    - [Vision Mamba: Efficient Visual Representation Learning 
-       with Bidirectional State Space Model](https://arxiv.org/pdf/2401.09417)
-       
-"""
-from __future__ import print_function
-from __future__ import absolute_import
 
-import warnings
+    References:
+        - Paper: “Vision Mamba: Efficient Visual Representation Learning with Bidirectional State Space Model”  
+          https://arxiv.org/pdf/2401.09417
+    
+        - PyTorch implementation:
+          https://github.com/hustvl/Vim
+          https://github.com/state-spaces/mamba  
+          https://github.com/Dao-AILab/flash-attention/tree/main/vision_mamba
+
+"""
+
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv1D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import (ExtractPatches, SSM, SAMModel, ReduceWrapper,
-                           get_activation_from_name, get_normalizer_from_name)
-from utils.model_processing import _obtain_input_shape
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Conv1D, Dense, Dropout
+
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    ExtractPatches, SSM, ReduceWrapper,
+)
+from utils.model_processing import process_model_input, create_layer_instance, check_regularizer
+
 
 
 class MambaEncoderBlock(tf.keras.layers.Layer):
@@ -53,31 +90,86 @@ class MambaEncoderBlock(tf.keras.layers.Layer):
 
     """
 
-    def __init__(self,
-                 dim,
-                 dt_rank,
-                 dim_inner,
-                 d_state,
-                 activation='silu',
-                 norm_layer='layer-norm',
-                 *args,
-                 **kwargs):
+    def __init__(
+        self,
+        dim,
+        dt_rank,
+        dim_inner,
+        d_state,
+        activation="silu",
+        normalizer="layer-norm",
+        kernel_initializer="glorot_uniform",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        *args, **kwargs
+    ):
         super(MambaEncoderBlock, self).__init__(*args, **kwargs)
-        self.dim        = dim
-        self.dt_rank    = dt_rank
+        self.dim = dim
+        self.dt_rank = dt_rank
         self.dim_inner = dim_inner
         self.d_state = d_state
-        self.activation    = activation
-        self.norm_layer    = norm_layer
+        self.activation = activation
+        self.normalizer = normalizer
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = check_regularizer(regularizer_decay)
+        self.norm_eps = norm_eps
 
     def build(self, input_shape):
-        self.norm_layer = get_normalizer_from_name(self.norm_layer)
+        self.proj = Dense(
+            units=self.dim,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.regularizer_decay,
+        )
+        
+        self.forward_conv1d = Conv1D(
+            filters=self.dim,
+            kernel_size=1,
+            strides=1,
+            padding="valid",
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.regularizer_decay,
+        )
+        
+        self.backward_conv1d = Conv1D(
+            filters=self.dim,
+            kernel_size=1,
+            strides=1,
+            padding="valid",
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.regularizer_decay,
+        )
+        
+        self.ssm1 = SSM(
+            dt_rank=self.dt_rank,
+            dim_inner=self.dim_inner,
+            d_state=self.d_state,
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.ssm2 = SSM(
+            dt_rank=self.dt_rank,
+            dim_inner=self.dim_inner,
+            d_state=self.d_state,
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+        )
+        
+        self.norm_layer = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.activation = get_activation_from_name(self.activation)
-        self.proj = Dense(units=self.dim)
-        self.forward_conv1d = Conv1D(filters=self.dim, kernel_size=1, strides=1, padding='valid')
-        self.backward_conv1d = Conv1D(filters=self.dim, kernel_size=1, strides=1, padding='valid')
-        self.ssm1 = SSM(self.dt_rank, self.dim_inner, self.d_state)
-        self.ssm2 = SSM(self.dt_rank, self.dim_inner, self.d_state)
 
     def process_direction(self, x, bottleneck, ssm):
         x = bottleneck(x)
@@ -101,130 +193,136 @@ class MambaEncoderBlock(tf.keras.layers.Layer):
         return x1 + x2 + skip
 
 
-def ViM(dim=256,
-        dt_rank=32,
-        dim_inner=256,
-        d_state=256,
-        hidden_dim=768,
-        patch_size=16,
-        num_layers=12,
-        include_top=True,
-        weights='imagenet',
-        input_tensor=None,
-        input_shape=None,
-        pooling=None,
-        activation='silu',
-        norm_layer='layer-norm',
-        final_activation="softmax",
-        classes=1000,
-        sam_rho=0.0,
-        drop_rate=0.1):
+def ViM(
+    dim=256,
+    dt_rank=32,
+    dim_inner=256,
+    d_state=256,
+    patch_size=16,
+    lasted_dim=768,
+    num_layers=12,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
          
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
 
-    x = ExtractPatches(patch_size, hidden_dim, name="Extract_Patches")(img_input)
-    x = Dense(dim)(x)
-    x = Dropout(drop_rate)(x)
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
+    
+    x = ExtractPatches(
+        patch_size=patch_size,
+        lasted_dim=lasted_dim,
+        name="extract_patches"
+    )(inputs)
+    
+    x = Sequential([
+        Dense(
+            units=dim,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+            
+        ),
+        Dropout(rate=drop_rate)
+    ], name="project_patches")(x)
 
-    for n in range(num_layers):
-        x = MambaEncoderBlock(dim=dim,
-                              dt_rank=dt_rank,
-                              dim_inner=dim_inner,
-                              d_state=d_state,
-                              activation=activation,
-                              norm_layer=norm_layer,
-                              name=f'VisionMamba.encoderblock_{n}')(x)
+    for i in range(num_layers):
+        x = MambaEncoderBlock(
+            dim=dim,
+            dt_rank=dt_rank,
+            dim_inner=dim_inner,
+            d_state=d_state,
+            **layer_constant_dict,
+            name=f"block_{i + 1}"
+        )(x)
 
     x = ReduceWrapper(reduce_mode="mean", axis=1)(x)
-    x = get_normalizer_from_name(norm_layer)(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="encoder_norm")(x)
 
-    if include_top:
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_maxpool')(x)
+    if include_head:
+        x = Sequential([
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, x, name=name + '_SAM')
-        else:
-            return Model(inputs, x, name=name)
-            
-    # Create model.
-    model = __build_model(inputs, x, sam_rho, name='Vision-Mamba')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model_name = "ViM"
+    if num_layers == 12:
+        model_name += "-base"
+    elif num_layers == 24:
+        model_name += "-large"
+    elif num_layers == 32:
+        model_name += "-huge"
+    model_name += f"-{patch_size}"
+    
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def ViM_Base(include_top=True, 
-            weights='imagenet',
-            input_tensor=None, 
-            input_shape=None,
-            pooling=None,
-            final_activation="softmax",
-            classes=1000,
-            sam_rho=0.0,
-            drop_rate=0.1):
+def ViM_B16(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    model = ViM(dim=256,
-                dt_rank=32,
-                dim_inner=256,
-                d_state=256,
-                hidden_dim=768,
-                patch_size=16,
-                num_layers=12,
-                include_top=include_top,
-                weights=weights, 
-                input_tensor=input_tensor,
-                input_shape=input_shape,
-                pooling=pooling, 
-                final_activation=final_activation,
-                classes=classes,
-                sam_rho=sam_rho,
-                drop_rate=drop_rate)
+    model = ViM(
+        dim=256,
+        dt_rank=32,
+        dim_inner=256,
+        d_state=256,
+        patch_size=16,
+        lasted_dim=768,
+        num_layers=12,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model

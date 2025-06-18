@@ -1,381 +1,1285 @@
 """
-  # Description:
-    - The following table comparing the params of the Res2Net in Tensorflow on 
-    size 384 x 384 x 3:
+    Res2Net: Multi-Scale Backbone with Scaled Residual Feature Splitting
+    
+    Overview:
+        Res2Net is a CNN backbone that introduces **multi-scale feature extraction
+        within a single residual block**, significantly enhancing the network’s ability
+        to represent features at different granularities. It modifies the traditional
+        residual block to perform hierarchical feature fusion across multiple channel groups.
+    
+        Key innovations include:
+            - Scaled Residual Blocks: Replace single 3×3 conv with multi-branch 3×3 convs
+            - Hierarchical Feature Fusion: Inter-group residual flow enhances scale representation
+            - Compatible with ResNet, SE, and other CNN backbones
+    
+    Key Components:
+        • Res2Net Block (Split → Transform → Fuse):
+            - Input feature `X` is split into `s` channel groups: `[x₁, x₂, ..., xₛ]`
+            - Grouped transformation:
+                - x₁ → identity
+                - x₂ → Conv3×3(x₂)
+                - x₃ → Conv3×3(x₃ + output of x₂)
+                - ...
+                - xₛ → Conv3×3(xₛ + output of xₛ₋₁)
+            - All transformed outputs are **concatenated** and passed to a 1×1 conv for fusion
 
-       -------------------------------------------------------
-      |     Model Name      |    Setting     |    Params      |
-      |---------------------|----------------|----------------|
-      |     Res2Net-50      |    26w x 4s    |   25,777,972   |
-      |---------------------|----------------|----------------|
-      |     Res2Net-101     |    26w x 4s    |   45,345,108   |
-      |---------------------|----------------|----------------|
-      |     Res2Net-152     |    26w x 4s    |   25,777,972   |
-       -------------------------------------------------------
+        • Scale Parameter (s):
+            - Defines the number of splits and thus the multi-scale granularity
+            - Larger `s` gives stronger multi-scale features (e.g., s = 4, 6)
+    
+        • Full Res2Net Bottleneck Block:
+            - Similar to ResNet Bottleneck but with:
+                - Conv1x1 (Reduce channels) →
+                - **Res2Net 3x3 module (Split + Fuse)** →
+                - Conv1x1 (Restore channels) →
+                - Add residual
+    
+        • Hierarchical Residual-Like Structure:
+            - Promotes richer representation across varying receptive fields
+            - Enhances both local and global context extraction within a block
+    
+        • Compatible with Downsampling:
+            - Stride can be applied at the **first 3×3 conv** of each group
+            - Keeps spatial resolution reduction clean and efficient
 
-  # Reference:
-    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/pdf/1904.01169.pdf)
-    - Source: https://github.com/Res2Net/Res2Net-PretrainedModels
+    General Model Architecture:
+         -------------------------------------------------------------------------
+        | Stage         | Layer                         | Output Shape            |
+        |---------------+-------------------------------+-------------------------|
+        | Input         | input_layer                   | (None, 224, 224, 3)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stem          | ConvolutionBlock (7x7, s=2)   | (None, 112, 112, 64)    |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 1       | MaxPooling2D (3x3, s=2)       | (None, 55, 55, 64)      |
+        |               | bottle_2_neck (x3)            | (None, 55, 55, 256)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 2       | bottle_2_neck (s=2)           | (None, 28, 28, 512)     |
+        |               | bottle_2_neck (x3)            | (None, 28, 28, 512)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 3       | bottle_2_neck (s=2)           | (None, 14, 14, 1024)    |
+        |               | bottle_2_neck (x5)            | (None, 14, 14, 1024)    |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 4       | bottle_2_neck (s=2)           | (None, 7, 7, 2048)      |
+        |               | bottle_2_neck (x2)            | (None, 7, 7, 2048)      |
+        |---------------+-------------------------------+-------------------------|
+        | CLS Logics    | AveragePooling2D              | (None, 1, 1, 2048)      |
+        |               | Flatten                       | (None, 2048)            |
+        |               | fc (Logics)                   | (None, 1000)            |
+         -------------------------------------------------------------------------
+
+    Model Parameter Comparison:
+         -------------------------------------------
+        |        Model Name       |     Params      |
+        |-------------------------------------------|
+        |     Res2Net50           |    25,758,612   |
+        |-------------------------------------------|
+        |     Res2Net50-26w4s     |    25,758,612   |
+        |-------------------------------------------|
+        |     Res2Net50-26w6s     |    37,123,212   |
+        |-------------------------------------------|
+        |     Res2Net50-26w8s     |    48,487,812   |
+        |-------------------------------------------|
+        |     Res2Net50-48w2s     |    25,342,312   |
+        |-------------------------------------------|
+        |     Res2Net50-14w8s     |    25,122,612   |
+        |-------------------------------------------|
+        |     Res2Net101          |    45,325,748   |
+        |-------------------------------------------|
+        |     Res2Net101-26w4s    |    45,325,748   |
+        |-------------------------------------------|
+        |     Res2Net101-26w6s    |    67,270,060   |
+        |-------------------------------------------|
+        |     Res2Net101-26w8s    |    89,214,372   |
+        |-------------------------------------------|
+        |     Res2Net101-48w2s    |    44,460,648   |
+        |-------------------------------------------|
+        |     Res2Net101-14w8s    |    44,205,588   |
+        |-------------------------------------------|
+        |     Res2Net152          |    61,446,868   |
+        |-------------------------------------------|
+        |     Res2Net152-26w4s    |    61,446,868   |
+        |-------------------------------------------|
+        |     Res2Net152-26w6s    |    92,105,548   |
+        |-------------------------------------------|
+        |     Res2Net152-26w8s    |   122,764,228   |
+        |-------------------------------------------|
+        |     Res2Net152-48w2s    |    60,211,560   |
+        |-------------------------------------------|
+        |     Res2Net152-14w8s    |    59,928,436   |
+         -------------------------------------------
+    
+    References:
+        - Paper: “Res2Net: A New Multi-scale Backbone Architecture”  
+          https://arxiv.org/abs/1904.01169
+    
+        - Pytorch implementation:
+          https://github.com/Res2Net/Res2Net-PretrainedModels
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import SplitWrapper, get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Dense, Dropout, Flatten,
+    AveragePooling2D, MaxPooling2D, GlobalAveragePooling2D,
+    add, concatenate,
+)
+
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    AdaptiveAvgPooling2D, SplitWrapper,
+)
+from utils.model_processing import (
+    process_model_input, validate_conv_arg,
+    check_regularizer, create_model_backbone,
+)
 
 
 
-def Bottle2Neck(input_tensor, filters, stride=1, downsample=False, baseWidth=26, scale=4, activation="relu", normalizer='batch-norm', name=''):
+def bottle_2_neck(
+    inputs,
+    filters,
+    kernel_size=(3, 3),
+    strides=(1, 1),
+    use_bias=True,
+    residual=False,
+    width_ratio=26,
+    scale_ratio=4,
+    activation="relu",
+    normalizer="group-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
     expansion = 4
-    width = int(np.floor(filters * (baseWidth / 64.0)))
-    nums = 1 if scale == 1 else scale - 1
+    width = int(np.floor(filters * (width_ratio / 64.0)))
+    nums = 1 if scale_ratio == 1 else scale_ratio - 1
+    kernel_size = validate_conv_arg(kernel_size)
+    strides = validate_conv_arg(strides)
+    regularizer_decay = check_regularizer(regularizer_decay)
 
-    if downsample:
-        residual = AveragePooling2D(pool_size=stride, strides=stride, padding='same', name=f'{name}.down.pool')(input_tensor)
-        residual = Conv2D(filters=filters*expansion, kernel_size=1, strides=1, use_bias=False, name=f'{name}.down.conv')(residual)
-        residual = get_normalizer_from_name(normalizer, name=f'{name}.down.norm')(residual)
-        
-    else:
-        residual = input_tensor
-
-    x = Conv2D(filters=width*scale, kernel_size=1, strides=1, use_bias=False, name=f'{name}.pre_conv')(input_tensor)
-    x = get_normalizer_from_name(normalizer, name=f'{name}.pre_norm')(x)
-    x = get_activation_from_name(activation, name=f'{name}.pre_activ')(x)
+    shortcut = inputs
     
-    spx = SplitWrapper(num_or_size_splits=scale, axis=-1)(x)
+    if residual:
+        shortcut = Sequential([
+            AveragePooling2D(pool_size=strides, strides=strides, padding="same"),
+            Conv2D(
+                filters=filters * expansion,
+                kernel_size=(1, 1),
+                strides=(1, 1),
+                use_bias=use_bias,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=regularizer_decay,
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        ], name=f"{name}.shortcut")(shortcut)
+
+    x = Sequential([
+        Conv2D(
+            filters=width * scale_ratio,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"{name}.conv_block")(inputs)
+    
+    spx = SplitWrapper(num_or_size_splits=scale_ratio, axis=-1, name=f"{name}.split")(x)
+    
     for i in range(nums):
-        
-        if i == 0 or downsample:
+        if i == 0 or residual:
             sp = spx[i]
         else:
             sp = sp + spx[i]
-            
-        sp = Conv2D(filters=width, kernel_size=3, strides=stride, padding="same", use_bias=False, name=f'{name}.layer{i}.conv')(sp)
-        sp = get_normalizer_from_name(normalizer, name=f'{name}.layer{i}.norm')(sp)
-        sp = get_activation_from_name(activation, name=f'{name}.layer{i}.activ')(sp)
+
+        sp = Sequential([
+            Conv2D(
+                filters=width,
+                kernel_size=kernel_size,
+                strides=strides,
+                padding="same",
+                use_bias=use_bias,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=regularizer_decay,
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+        ], name=f"{name}.sp_block_{i + 1}")(sp)
         
         if i == 0:
             x = sp
         else:
-            x = concatenate([x, sp], axis=-1)
+            x = concatenate([x, sp], axis=-1, name=f"{name}.sp_concat_{i + 1}")
 
-    if scale != 1:
-        if downsample:
-            pool = AveragePooling2D(pool_size=(3, 3), strides=stride, padding='same', name=f'{name}.scale.pool')(spx[nums])
-            x = concatenate([x, pool], axis=-1)
+    if scale_ratio != 1:
+        if residual:
+            pool = AveragePooling2D(
+                pool_size=(3, 3),
+                strides=strides,
+                padding='same',
+                name=f'{name}.scale.pool'
+            )(spx[nums])
+            
+            x = concatenate([x, pool], axis=-1, name=f"{name}.scale_concat_{i + 1}")
         else:
-            x = concatenate([x, spx[nums]], axis=-1)
+            x = concatenate([x, spx[nums]], axis=-1, name=f"{name}.scale_concat_{i + 1}")
 
-    x = Conv2D(filters=filters*expansion, kernel_size=1, strides=1, use_bias=False, name=f'{name}.post_conv')(x)
-    x = get_normalizer_from_name(normalizer, name=f'{name}.post_norm')(x)
-    x = add([x, residual])
+    x = Sequential([
+        Conv2D(
+            filters=filters * expansion,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name=f"{name}.post_conv_block")(x)
+        
+    x = add([x, shortcut], name=f"{name}.add")
     x = get_activation_from_name(activation, name=f'{name}.post_activ')(x)
     return x
 
 
-def Res2Net(num_blocks,
-            baseWidth=26,
-            scale=4,
-            include_top=True, 
-            weights='imagenet',
-            input_tensor=None, 
-            input_shape=None,
-            pooling=None,
-            final_activation="softmax",
-            classes=1000):
+def Res2Net(
+    filters,
+    num_blocks,
+    width_ratio,
+    scale_ratio,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer=None,
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
   
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
         
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=384,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "use_bias": False,
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-    # Block conv1
-    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', use_bias=False, name='stem.block1.conv')(img_input)
-    x = get_normalizer_from_name('batch-norm', name='stem.block1.norm')(x)
-    x = get_activation_from_name('relu', name='stem.block1.activ')(x)
-    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False, name='stem.block2.conv')(x)
-    x = get_normalizer_from_name('batch-norm', name='stem.block2.norm')(x)
-    x = get_activation_from_name('relu', name='stem.block2.activ')(x)
-    x = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False, name='stem.block3.conv')(x)
-    x = get_normalizer_from_name('batch-norm', name='stem.block3.norm')(x)
-    x = get_activation_from_name('relu', name='stem.block3.activ')(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='stem.block3.pool')(x)
+    x = Sequential([
+        Conv2D(
+            filters=filters,
+            kernel_size=(7, 7),
+            strides=(2, 2),
+            padding="same",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name="stem")(inputs)
 
-    # Block conv2_x
-    for i in range(num_blocks[0]):
-        downsaple = True if i == 0 else False
-        x = Bottle2Neck(x, 64, 1, downsaple, baseWidth, scale, name=f'stage1.block{i+1}')
-    
-    # Block conv3_x
-    for i in range(num_blocks[1]):
-        downsaple = True if i == 0 else False
-        stride = 2 if i == 0 else 1
-        x = Bottle2Neck(x, 128, stride, downsaple, baseWidth, scale, name=f'stage2.block{i+1}')
+    for i, num_block in enumerate(num_blocks):
+        f = filters * 2**i
+        residual = True
+        for j in range(num_block):
+            if i == 0 and j == 0:
+                x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name=f"stage{i + 1}.block{j + 1}")(x)
+            else:
+                x = bottle_2_neck(
+                    inputs=x,
+                    filters=f,
+                    kernel_size=(3, 3),
+                    strides=(2, 2) if (i != 0 and j == 0) else (1, 1),
+                    residual=residual,
+                    width_ratio=width_ratio,
+                    scale_ratio=scale_ratio,
+                    **layer_constant_dict,
+                    name=f"stage{i + 1}.block{j + 1}"
+                )
+                residual = False
 
-    # Block conv4_x
-    for i in range(num_blocks[2]):
-        downsaple = True if i == 0 else False
-        stride = 2 if i == 0 else 1
-        x = Bottle2Neck(x, 256, stride, downsaple, baseWidth, scale, name=f'stage3.block{i+1}')
+    if include_head:
+        x = Sequential([
+            AdaptiveAvgPooling2D(output_size=1),
+            Dropout(rate=drop_rate),
+            Flatten(),
+            Dropout(drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
 
-    # Block conv5_x
-    for i in range(num_blocks[3]):
-        downsaple = True if i == 0 else False
-        x = Bottle2Neck(x, 512, stride, downsaple, baseWidth, scale, name=f'stage4.block{i+1}')
-    
-    x = AveragePooling2D(pool_size=(24, 24), name='avg_pool')(x)
+    model_name = "Res2Net"
+    if filters == 64 and num_blocks == [4, 4, 6, 3]:
+        model_name += "-50"
+    elif filters == 64 and num_blocks == [4, 4, 23, 3]:
+        model_name += "-101"
+    elif filters == 64 and num_blocks == [4, 8, 36, 3]:
+        model_name += "-152"
+    model_name += f"-{width_ratio}w"
+    model_name += f"-{scale_ratio}s"
 
-    # Final Block
-    if include_top:
-        x = Flatten(name='flatten')(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_maxpool')(x)
-            
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    # Create model.
-    if num_blocks == [3, 4, 6, 3]:
-        model = Model(inputs, x, name='Res2Net-50')
-    elif num_blocks == [3, 4, 23, 3]:
-        model = Model(inputs, x, name='Res2Net-101')
-    elif num_blocks == [3, 8, 36, 3]:
-        model = Model(inputs, x, name='Res2Net-152')
-    else:
-        model = Model(inputs, x, name='Res2Net')
-
-    # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            weights_path = None
-        else:
-            weights_path = None
-            
-        if weights_path is not None:
-            model.load_weights(weights_path)
-            
-    elif weights is not None:
-        model.load_weights(weights)
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def Res2Net50(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000) -> Model:
+def Res2Net_backbone(
+    filters,
+    num_blocks,
+    width_ratio,
+    scale_ratio,
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        f"stage1.block{num_blocks[0]}.post_activ",
+        f"stage2.block{num_blocks[1]}.post_activ",
+        f"stage3.block{num_blocks[2]}.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net,
+        custom_layers=custom_layers,
+        filters=filters,
+        num_blocks=num_blocks,
+        width_ratio=width_ratio,
+        scale_ratio=scale_ratio,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net50(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = Res2Net(num_blocks=[3, 4, 6, 3],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 6, 3],
+        width_ratio=26,
+        scale_ratio=4,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def Res2Net50_backbone(input_shape=(384, 384, 3),
-                       include_top=False, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       custom_layers=None) -> Model:
+def Res2Net50_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    model = Res2Net50(include_top=include_top,
-                     weights=weights,
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape,
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block6.post_activ",
+    ]
 
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='Res2Net50_backbone')
-
-    else:
-        y_2 = model.get_layer("stem.block3.activ").output
-        y_4 = model.get_layer("stage2.block1.pre_activ").output
-        y_8 = model.get_layer("stage3.block1.pre_activ").output
-        y_16 = model.get_layer("stage4.block3.post_activ").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_final], name='Res2Net50_backbone')
+    return create_model_backbone(
+        model_fn=Res2Net50,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
-def Res2Net101(include_top=True,
-               weights='imagenet',
-               input_tensor=None,
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000) -> Model:
+Res2Net50_26w4s = Res2Net50
+Res2Net50_26w4s_backbone = Res2Net50_backbone
+
+
+def Res2Net50_26w6s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = Res2Net(num_blocks=[3, 4, 23, 3],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 6, 3],
+        width_ratio=26,
+        scale_ratio=6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def Res2Net101_backbone(input_shape=(384, 384, 3),
-                        include_top=False, 
-                        weights='imagenet', 
-                        input_tensor=None, 
-                        pooling=None, 
-                        final_activation="softmax",
-                        classes=1000,
-                        custom_layers=None) -> Model:
+def Res2Net50_26w6s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    model = Res2Net101(include_top=include_top,
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block6.post_activ",
+    ]
 
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='Res2Net101_backbone')
-
-    else:
-        y_2 = model.get_layer("stem.block3.activ").output
-        y_4 = model.get_layer("stage2.block1.pre_activ").output
-        y_8 = model.get_layer("stage3.block1.pre_activ").output
-        y_16 = model.get_layer("stage4.block3.post_activ").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_final], name='Res2Net101_backbone')
+    return create_model_backbone(
+        model_fn=Res2Net50_26w6s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
-def Res2Net152(include_top=True,
-               weights='imagenet',
-               input_tensor=None,
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000) -> Model:
+def Res2Net50_26w8s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = Res2Net(num_blocks=[3, 8, 36, 3],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 6, 3],
+        width_ratio=26,
+        scale_ratio=8,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def Res2Net152_backbone(input_shape=(384, 384, 3),
-                        include_top=False, 
-                        weights='imagenet', 
-                        input_tensor=None, 
-                        pooling=None, 
-                        final_activation="softmax",
-                        classes=1000,
-                        custom_layers=None) -> Model:
+def Res2Net50_26w8s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    model = Res2Net152(include_top=include_top,
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block6.post_activ",
+    ]
 
-    for l in model.layers:
-        l.trainable = True
+    return create_model_backbone(
+        model_fn=Res2Net50_26w8s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='Res2Net152_backbone')
 
-    else:
-        y_2 = model.get_layer("stem.block3.activ").output
-        y_4 = model.get_layer("stage2.block1.pre_activ").output
-        y_8 = model.get_layer("stage3.block1.pre_activ").output
-        y_16 = model.get_layer("stage4.block3.post_activ").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_final], name='Res2Net152_backbone')
+def Res2Net50_48w2s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 6, 3],
+        width_ratio=48,
+        scale_ratio=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net50_48w2s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block6.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net50_48w2s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net50_14w8s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 6, 3],
+        width_ratio=14,
+        scale_ratio=8,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net50_14w8s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block6.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net50_14w8s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    
+def Res2Net101(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 23, 3],
+        width_ratio=26,
+        scale_ratio=4,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net101_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block23.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net101,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+Res2Net101_26w4s = Res2Net101
+Res2Net101_26w4s_backbone = Res2Net101_backbone
+
+
+def Res2Net101_26w6s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 23, 3],
+        width_ratio=26,
+        scale_ratio=6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net101_26w6s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block23.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net101_26w6s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net101_26w8s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 23, 3],
+        width_ratio=26,
+        scale_ratio=8,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net101_26w8s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block23.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net101_26w8s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net101_48w2s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 23, 3],
+        width_ratio=48,
+        scale_ratio=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net101_48w2s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block23.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net101_48w2s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net101_14w8s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 4, 23, 3],
+        width_ratio=14,
+        scale_ratio=8,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net101_14w8s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block4.post_activ",
+        "stage3.block23.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net101_14w8s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net152(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 8, 36, 3],
+        width_ratio=26,
+        scale_ratio=4,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net152_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block8.post_activ",
+        "stage3.block26.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net152,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+Res2Net152_26w4s = Res2Net152
+Res2Net152_26w4s_backbone = Res2Net152_backbone
+
+def Res2Net152_26w6s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 8, 36, 3],
+        width_ratio=26,
+        scale_ratio=6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net152_26w6s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block8.post_activ",
+        "stage3.block36.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net152_26w6s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net152_26w8s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 8, 36, 3],
+        width_ratio=26,
+        scale_ratio=8,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net152_26w8s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block8.post_activ",
+        "stage3.block36.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net152_26w8s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net152_48w2s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 8, 36, 3],
+        width_ratio=48,
+        scale_ratio=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net152_48w2s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block8.post_activ",
+        "stage3.block36.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net152_48w2s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def Res2Net152_14w8s(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = Res2Net(
+        filters=64,
+        num_blocks=[4, 8, 36, 3],
+        width_ratio=14,
+        scale_ratio=8,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def Res2Net152_14w8s_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.post_activ",
+        "stage2.block8.post_activ",
+        "stage3.block36.post_activ",
+    ]
+
+    return create_model_backbone(
+        model_fn=Res2Net152_14w8s,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )

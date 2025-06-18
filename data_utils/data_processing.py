@@ -49,11 +49,11 @@ def get_train_test_data(
     normalizer=None,
     mean_norm=None,
     std_norm=None,
+    sampler=None,
     interpolation="BILINEAR",
     data_type="dirname",
     check_data=False,
     load_memory=False,
-    class_weight=None,
     dataloader_mode="tf",
     get_data_mode=0,
     num_workers=1,
@@ -66,14 +66,14 @@ def get_train_test_data(
     """
     data_args = {
         "target_size": target_size,
-         "batch_size": batch_size,
-         "color_space": color_space,
-         "augmentor": augmentor,
-         "normalizer": normalizer,
-         "mean_norm": mean_norm,
-         "std_norm": std_norm,
-         "interpolation": interpolation,
-         "num_workers": num_workers,
+        "batch_size": batch_size,
+        "color_space": color_space,
+        "augmentor": augmentor,
+        "normalizer": normalizer,
+        "mean_norm": mean_norm,
+        "std_norm": std_norm,
+        "interpolation": interpolation,
+        "num_workers": num_workers,
         **kwargs
     }
     
@@ -92,7 +92,7 @@ def get_train_test_data(
         load_memory=load_memory,
     )
     
-    train_args = {"dataset": data_train, "phase": "train", **data_args}
+    train_args = {"dataset": data_train, "sampler": sampler, "phase": "train", **data_args}
     train_generator = TFDataPipeline(**train_args) if dataloader_mode.lower() == "tf" else DataSequencePipeline(**train_args)
 
     if get_data_mode != 2:
@@ -131,5 +131,5 @@ def get_train_test_data(
         "train_generator": train_generator,
         "valid_generator": valid_generator,
         "test_generator": test_generator,
-        "class_weights": train_generator.class_weights if (class_weight and class_weight.lower() == "balance") else None,
+        # "class_weights": train_generator.class_weights if (class_weight and class_weight.lower() == "balance") else None,
     }

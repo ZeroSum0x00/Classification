@@ -1,39 +1,55 @@
 """
-  # Description:
-    - The following table comparing the params of the Explore the limits of Flexible Vision Transformer (FlexiViT) base BEiT block
-    in Tensorflow on in Tensorflow on size 240 x 240 x 3:
+    Overview:
+        This script summarizes the parameter counts for the FlexiViT model family, 
+        a scalable Vision Transformer architecture designed for **resolution-agnostic inference**.
+        FlexiViT models are trained once and can be deployed across multiple input sizes
+        (e.g., 224x224, 384x384, 512x512, etc.) without needing finetuning.
+    
+        The table below shows parameter statistics based on TensorFlow-converted models 
+        using patch size 16.
+    
+    Model Parameter Comparison:
+         -------------------------------------------
+        |        Model Name       |      Params     |
+        |-------------------------+-----------------|
+        |     FlexiViT-Tiny-16    |     5,679,592   |
+        |-------------------------+-----------------|
+        |     FlexiViT-Small-16   |    21,975,016   |
+        |-------------------------+-----------------|
+        |     FlexiViT-Base-16    |    86,416,360   |
+        |-------------------------+-----------------|
+        |     FlexiViT-Large-16   |   304,124,904   |
+        |-------------------------+-----------------|
+        |     FlexiViT-Huge-16    |   600,813,160   |
+        |-------------------------+-----------------|
+        |     FlexiViT-Gaint-16   |   954,810,856   |
+         -------------------------------------------
 
-       -------------------------------------------
-      |        Model Name       |      Params     |
-      |-------------------------------------------|
-      |     FlexiViT-Tiny-16    |     5,679,592   |
-      |-------------------------------------------|
-      |     FlexiViT-Small-16   |    21,975,016   |
-      |-------------------------|-----------------|
-      |     FlexiViT-Base-16    |    86,416,360   |
-      |-------------------------|-----------------|
-      |     FlexiViT-Large-16   |   304,124,904   |
-      |-------------------------------------------|
-      |     FlexiViT-Huge-16    |   600,813,160   |
-      |-------------------------------------------|
-      |     FlexiViT-Gaint-16   |   954,810,856   |
-       -------------------------------------------
-
-  # Reference:
-    - [FlexiViT: One Model for All Patch Sizes](https://arxiv.org/pdf/2212.08013.pdf)
-
-"""
+    Notes:
+        - All models support **multi-resolution inference** without retraining.
+        - FlexiViT models extend standard ViTs using position interpolation and relative attention.
+        - Parameter counts are approximate; actual values may vary slightly by implementation.
+        - Patch size is 16x16 for all variants.
+        - Trained using ImageNet-21k and other large-scale datasets.
+    
+    References:
+        - Paper: "FlexiViT: One Model for All Patch Sizes"
+          https://arxiv.org/abs/2212.08013
+          
+        - Official PyTorch repository:
+          https://github.com/google-research/big_vision/blob/main/big_vision/models/proj/flexi/vit.py
+          
+        - TensorFlow/Keras port by leondgarse:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/beit/flexivit.py
+    """
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.layers import (
-    Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
-)
-from tensorflow.keras.regularizers import l2
+from tensorflow.keras.layers import Dense, Dropout
 
 from .beit import BEiT
-from models.layers import get_activation_from_name, SAMModel
-from utils.model_processing import process_model_input
+from models.layers import get_activation_from_name
+from utils.model_processing import process_model_input, check_regularizer
 
 
 
@@ -45,15 +61,14 @@ def FlexiViT(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
                  
@@ -66,6 +81,8 @@ def FlexiViT(
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
         
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     inputs = process_model_input(
         inputs,
         include_head=include_head,
@@ -101,59 +118,36 @@ def FlexiViT(
         text_positional_dropout=0,
         text_use_positional_embedding=True,
         inputs=inputs,
-        include_head=False,
-        weights=None,
-        pooling=pooling,
+        include_head=include_head,
+        num_classes=num_classes,
+        weights=weights,
         activation=activation,
         normalizer=normalizer,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
-    
-    x = backbone.output
 
-    if include_head:
-        x = Sequential([
-            Dropout(drop_rate),
-            Dense(
-                units=1 if num_classes == 2 else num_classes,
-                kernel_initializer=kernel_initializer,
-                bias_initializer=bias_initializer,
-                kernel_regularizer=l2(regularizer_decay),
-            ),
-            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
-        ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="global_maxpool")(x)
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, outputs, name=name + "_SAM")
-        else:
-            return Model(inputs=inputs, outputs=outputs, name=name)
-            
+    model_name = "FlexiViT"
     if num_layers == 12:
         if num_heads < 5:
-            model = __build_model(inputs, x, sam_rho, name=f"FlexiViT-Tiny-{patch_size}")
+            model_name += "-tiny"
         elif num_heads < 8:
-            model = __build_model(inputs, x, sam_rho, name=f"FlexiViT-Small-{patch_size}")
+            model_name += "-small"
         else:
-            model = __build_model(inputs, x, sam_rho, name=f"FlexiViT-Base-{patch_size}")
+            model_name += "-base"
     elif num_layers == 24:
-        model = __build_model(inputs, x, sam_rho, name=f"FlexiViT-Large-{patch_size}")
+        model_name += "-large"
     elif num_layers == 32:
-        model = __build_model(inputs, x, sam_rho, name=f"FlexiViT-Huge-{patch_size}")
+        model_name += "-huge"
     elif num_layers == 40:
-        model = __build_model(inputs, x, sam_rho, name=f"FlexiViT-Gaint-{patch_size}")
-    else:
-        model = __build_model(inputs, x, sam_rho, name=f"FlexiViT-{patch_size}")
-        
+        model_name += "-gaint"
+    model_name += f"-{patch_size}"
+    
+    model = Model(inputs=inputs, outputs=backbone.outputs, name=model_name)
     return model
 
 
@@ -161,15 +155,14 @@ def FlexiViT_T16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -181,15 +174,14 @@ def FlexiViT_T16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -199,15 +191,14 @@ def FlexiViT_S16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -219,15 +210,14 @@ def FlexiViT_S16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -237,15 +227,14 @@ def FlexiViT_B16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -257,15 +246,14 @@ def FlexiViT_B16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -275,15 +263,14 @@ def FlexiViT_L16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -295,15 +282,14 @@ def FlexiViT_L16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -313,15 +299,14 @@ def FlexiViT_H16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -333,15 +318,14 @@ def FlexiViT_H16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -351,15 +335,14 @@ def FlexiViT_G16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -371,15 +354,14 @@ def FlexiViT_G16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model

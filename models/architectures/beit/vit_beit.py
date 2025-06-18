@@ -1,65 +1,77 @@
 """
-  # Description:
-    - The following table comparing the params of the Vision Transformer (ViT) base BEiT block
-    in Tensorflow on in Tensorflow on size 224 x 224 x 3:
+    Overview:
+        This script summarizes parameter configurations for ViT models
+        that are pretrained using the BEiT framework (BERT-style pretraining for vision).
+    
+        BEiT uses a Vision Transformer (ViT) as the backbone and trains it using 
+        masked image modeling, similar to how BERT pretrains masked tokens in NLP.
+        After pretraining, the model can be finetuned for image classification, 
+        segmentation, or detection tasks.
+    
+    Model Parameter Comparison:
+         -------------------------------------------
+        |       Model Name       |     Params       |
+        |------------------------+------------------|
+        |    ViT-BEiT-Tiny-14    |     5,645,032    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Tiny-16    |     5,679,592    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Tiny-32    |     6,121,960    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Small-14   |    21,905,896    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Small-16   |    21,975,016    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Small-32   |    22,859,752    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Base-14    |    86,278,120    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Base-16    |    86,416,360    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Base-32    |    88,185,832    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Large-14   |   303,940,584    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Large-16   |   304,124,904    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Large-32   |   306,484,200    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Huge-14    |   631,716,840    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Huge-16    |   631,947,240    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Huge-32    |   634,896,360    |
+        |------------------------+------------------|
+        |    ViT-BEiT-Gaint-14   |  1,135,707,112   |
+        |------------------------+------------------|
+        |    ViT-BEiT-Gaint-16   |        -         |
+        |------------------------+------------------|
+        |    ViT-BEiT-Gaint-16   |        -         |
+         -------------------------------------------
 
-       -------------------------------------------
-      |       Model Name       |     Params       |
-      |-------------------------------------------|
-      |    ViT-BEiT-Tiny-14    |     5,645,032    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Tiny-16    |     5,679,592    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Tiny-32    |     6,121,960    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Small-14   |    21,905,896    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Small-16   |    21,975,016    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Small-32   |    22,859,752    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Base-14    |    86,278,120    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Base-16    |    86,416,360    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Base-32    |    88,185,832    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Large-14   |   303,940,584    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Large-16   |   304,124,904    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Large-32   |   306,484,200    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Huge-14    |   631,716,840    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Huge-16    |   631,947,240    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Huge-32    |   634,896,360    |
-      |-------------------------------------------|
-      |    ViT-BEiT-Gaint-14   |  1,135,707,112   |
-      |-------------------------------------------|
-      |    ViT-BEiT-Gaint-16   |        -         |
-      |-------------------------------------------|
-      |    ViT-BEiT-Gaint-16   |        -         |
-       -------------------------------------------
-
-  # Reference:
-    - [An image is worth 16x16 words: transformers for image recognition 
-       at scale](https://arxiv.org/pdf/2010.11929.pdf)
-    - [BEIT: BERT Pre-Training of Image Transformers](https://arxiv.org/pdf/2106.08254v2.pdf)
-
+    Notes:
+        - All models use input resolution 224x224.
+        - Pretrained using Masked Image Modeling (MIM) on ImageNet-22k and other large corpora.
+        - Can be finetuned on downstream tasks with strong performance.
+    
+    References:
+        - BEiT Paper: "BEiT: BERT Pre-Training of Image Transformers"
+          https://arxiv.org/abs/2106.08254
+          
+        - Official PyTorch repository:
+          https://github.com/microsoft/unilm/tree/master/beit
+          
+        - TensorFlow/Keras port by leondgarse:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/beit/vit.py
 """
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.layers import (
-    Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
-)
-from tensorflow.keras.regularizers import l2
+from tensorflow.keras.layers import Dense, Dropout
 
 from .beit import BEiT
-from models.layers import get_activation_from_name, SAMModel
-from utils.model_processing import process_model_input
+from models.layers import get_activation_from_name
+from utils.model_processing import process_model_input, check_regularizer
 
 
 
@@ -71,7 +83,6 @@ def ViT_BEiT(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -80,6 +91,7 @@ def ViT_BEiT(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
                  
@@ -91,7 +103,9 @@ def ViT_BEiT(
     if weights == "imagenet" and include_head and num_classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
-        
+
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     inputs = process_model_input(
         inputs,
         include_head=include_head,
@@ -127,55 +141,32 @@ def ViT_BEiT(
         text_positional_dropout=0,
         text_use_positional_embedding=True,
         inputs=inputs,
-        include_head=False,
-        weights=None,
-        pooling=pooling,
+        include_head=include_head,
+        num_classes=num_classes,
+        weights=weights,
         activation=activation,
         normalizer=normalizer,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
-    
-    x = backbone.output
 
-    if include_head:
-        x = Sequential([
-            Dropout(drop_rate),
-            Dense(
-                units=1 if num_classes == 2 else num_classes,
-                kernel_initializer=kernel_initializer,
-                bias_initializer=bias_initializer,
-                kernel_regularizer=l2(regularizer_decay),
-            ),
-            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
-        ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="global_maxpool")(x)
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, outputs, name=name + "_SAM")
-        else:
-            return Model(inputs=inputs, outputs=outputs, name=name)
-            
+    model_name = "ViT-BEiT"
     if num_layers == 12:
         if num_heads < 5:
-            model = __build_model(inputs, x, sam_rho, name=f"ViT-BEiT-Tiny-{patch_size}")
+            model_name += "-tiny"
         else:
-            model = __build_model(inputs, x, sam_rho, name=f"ViT-BEiT-Base-{patch_size}")
+            model_name += "-base"
     elif num_layers == 24:
-        model = __build_model(inputs, x, sam_rho, name=f"ViT-BEiT-Large-{patch_size}")
+        model_name += "-large"
     elif num_layers == 32:
-        model = __build_model(inputs, x, sam_rho, name=f"ViT-BEiT-Huge-{patch_size}")
-    else:
-        model = __build_model(inputs, x, sam_rho, name=f"ViT-BEiT-{patch_size}")
-        
+        model_name += "-huge"
+    model_name += f"-{patch_size}"
+    
+    model = Model(inputs=inputs, outputs=backbone.outputs, name=model_name)
     return model
 
 
@@ -183,7 +174,6 @@ def ViT_BEiT_T14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -192,6 +182,7 @@ def ViT_BEiT_T14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -203,7 +194,6 @@ def ViT_BEiT_T14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -212,6 +202,7 @@ def ViT_BEiT_T14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -221,7 +212,6 @@ def ViT_BEiT_T16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -230,6 +220,7 @@ def ViT_BEiT_T16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -241,7 +232,6 @@ def ViT_BEiT_T16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -250,6 +240,7 @@ def ViT_BEiT_T16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -259,7 +250,6 @@ def ViT_BEiT_T32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -268,6 +258,7 @@ def ViT_BEiT_T32(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -279,7 +270,6 @@ def ViT_BEiT_T32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -288,6 +278,7 @@ def ViT_BEiT_T32(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -297,7 +288,6 @@ def ViT_BEiT_S14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -306,6 +296,7 @@ def ViT_BEiT_S14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -317,7 +308,6 @@ def ViT_BEiT_S14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -326,6 +316,7 @@ def ViT_BEiT_S14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -335,7 +326,6 @@ def ViT_BEiT_S16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -344,6 +334,7 @@ def ViT_BEiT_S16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -355,7 +346,6 @@ def ViT_BEiT_S16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -364,6 +354,7 @@ def ViT_BEiT_S16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -373,7 +364,6 @@ def ViT_BEiT_S32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -382,6 +372,7 @@ def ViT_BEiT_S32(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -393,7 +384,6 @@ def ViT_BEiT_S32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -402,6 +392,7 @@ def ViT_BEiT_S32(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -411,7 +402,6 @@ def ViT_BEiT_B14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -420,6 +410,7 @@ def ViT_BEiT_B14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -431,7 +422,6 @@ def ViT_BEiT_B14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -440,6 +430,7 @@ def ViT_BEiT_B14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -449,7 +440,6 @@ def ViT_BEiT_B16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -458,6 +448,7 @@ def ViT_BEiT_B16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -469,7 +460,6 @@ def ViT_BEiT_B16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -478,6 +468,7 @@ def ViT_BEiT_B16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -487,7 +478,6 @@ def ViT_BEiT_B32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -496,6 +486,7 @@ def ViT_BEiT_B32(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -507,7 +498,6 @@ def ViT_BEiT_B32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -516,6 +506,7 @@ def ViT_BEiT_B32(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -525,7 +516,6 @@ def ViT_BEiT_L14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -534,6 +524,7 @@ def ViT_BEiT_L14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -545,7 +536,6 @@ def ViT_BEiT_L14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -554,6 +544,7 @@ def ViT_BEiT_L14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -563,7 +554,6 @@ def ViT_BEiT_L16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -572,6 +562,7 @@ def ViT_BEiT_L16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -583,7 +574,6 @@ def ViT_BEiT_L16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -592,6 +582,7 @@ def ViT_BEiT_L16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -601,7 +592,6 @@ def ViT_BEiT_L32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -610,6 +600,7 @@ def ViT_BEiT_L32(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -621,7 +612,6 @@ def ViT_BEiT_L32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -630,6 +620,7 @@ def ViT_BEiT_L32(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -639,7 +630,6 @@ def ViT_BEiT_H14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -648,6 +638,7 @@ def ViT_BEiT_H14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -659,7 +650,6 @@ def ViT_BEiT_H14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -668,6 +658,7 @@ def ViT_BEiT_H14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -677,7 +668,6 @@ def ViT_BEiT_H16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -686,6 +676,7 @@ def ViT_BEiT_H16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -697,7 +688,6 @@ def ViT_BEiT_H16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -706,6 +696,7 @@ def ViT_BEiT_H16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -715,7 +706,6 @@ def ViT_BEiT_H32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -724,6 +714,7 @@ def ViT_BEiT_H32(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -735,7 +726,6 @@ def ViT_BEiT_H32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -744,6 +734,7 @@ def ViT_BEiT_H32(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -753,7 +744,6 @@ def ViT_BEiT_G14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -762,6 +752,7 @@ def ViT_BEiT_G14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -773,7 +764,6 @@ def ViT_BEiT_G14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -782,6 +772,7 @@ def ViT_BEiT_G14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -791,7 +782,6 @@ def ViT_BEiT_G16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -800,6 +790,7 @@ def ViT_BEiT_G16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -811,7 +802,6 @@ def ViT_BEiT_G16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -820,6 +810,7 @@ def ViT_BEiT_G16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -829,7 +820,6 @@ def ViT_BEiT_G32(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -838,6 +828,7 @@ def ViT_BEiT_G32(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -849,7 +840,6 @@ def ViT_BEiT_G32(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -858,6 +848,7 @@ def ViT_BEiT_G32(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model

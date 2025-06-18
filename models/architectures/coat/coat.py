@@ -1,43 +1,63 @@
 """
-  # Description:
-    - The following table comparing the params of the CoaT in Tensorflow on 
-    size 224 x 224 x 3:
+    Overview:
+        CoaT (Co-Scale Conv-Attentional Transformer) is a hierarchical vision transformer that 
+        integrates convolutional token embeddings and a novel co-scale attention mechanism. 
+        It aims to bridge the performance gap between CNNs and Vision Transformers by combining 
+        the local inductive bias of convolutions with the global context modeling of Transformers.
 
-       ----------------------------------------
-      |       Model Name     |    Params       |
-      |----------------------|-----------------|
-      |     CoaT-lite-tiny   |   5,721,960     |
-      |----------------------|-----------------|
-      |     CoaT-lite-mini   |   11,011,560    |
-      |----------------------|-----------------|
-      |     CoaT-lite-small  |   19,838,504    |
-      |----------------------|-----------------|
-      |     CoaT-mini        |   9,959,436     |
-      |----------------------|-----------------|
-      |     CoaT-tiny        |   19,046,924    |
-       ----------------------------------------
+        The key innovation is the **co-scale attention**, which allows interactions between 
+        multi-scale features from different resolution branches, enabling better feature fusion 
+        and improved accuracy across image classification benchmarks.
 
-  # Reference:
-    - [Co-Scale Conv-Attentional Image Transformers](https://arxiv.org/pdf/2104.06399.pdf)
-    - Source: https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/coat/coat.py
+    Key Characteristics:
+        - Hierarchical transformer backbone with convolutional patch embedding
+        - Co-scale attention enabling cross-resolution attention between different branches
+        - Lightweight convolution used for token embedding and downsampling
+        - Supports both lightweight (CoaT-Lite) and large-scale (CoaT) variants
+        - Strong performance with improved efficiency compared to vanilla ViT
 
+    Model Parameter Comparison:
+         ----------------------------------------
+        |       Model Name     |    Params       |
+        |----------------------|-----------------|
+        |     CoaT-lite-tiny   |   5,721,960     |
+        |----------------------|-----------------|
+        |     CoaT-lite-mini   |   11,011,560    |
+        |----------------------|-----------------|
+        |     CoaT-lite-small  |   19,838,504    |
+        |----------------------|-----------------|
+        |     CoaT-mini        |   9,959,436     |
+        |----------------------|-----------------|
+        |     CoaT-tiny        |   19,046,924    |
+         ----------------------------------------
+
+    References:
+        - Paper: "CoaT: Co-Scale Conv-Attentional Image Transformers"
+          https://arxiv.org/abs/2104.06399
+
+        - Official GitHub repository:
+          https://github.com/mlpc-ucsd/CoaT
+
+        - TensorFlow/Keras implementation:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/coat/coat.py
 """
 
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    Conv1D, Conv2D, DepthwiseConv2D, Reshape, Permute, Dropout,
-    Dense, GlobalMaxPooling2D, GlobalAveragePooling2D,
-    concatenate, add
+    Conv1D, Conv2D, DepthwiseConv2D, 
+    Reshape, Permute, Dropout, Dense,
+    concatenate, add,
 )
-from tensorflow.keras.regularizers import l2
 
 from models.layers import (
     SplitWrapper, TransposeWrapper, ResizeWrapper, ClassToken,
-    get_normalizer_from_name, get_activation_from_name
+    get_normalizer_from_name, get_activation_from_name,
 )
-from utils.model_processing import process_model_input
+from utils.model_processing import (
+    process_model_input, validate_conv_arg, check_regularizer,
+)
 
 
 
@@ -52,11 +72,11 @@ class ConvPositionalEncoding(tf.keras.layers.Layer):
         *args, **kwargs
     ):
         super(ConvPositionalEncoding, self).__init__(*args, **kwargs)
-        self.kernel_size = (kernel_size, kernel_size) if isinstance(kernel_size, int) else tuple(kernel_size)
+        self.kernel_size = validate_conv_arg(kernel_size)
         self.input_height = input_height
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
 
     def build(self, input_shape):
         self.pad = [
@@ -75,7 +95,7 @@ class ConvPositionalEncoding(tf.keras.layers.Layer):
             padding="valid",
             depthwise_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
-            depthwise_regularizer=l2(self.regularizer_decay),
+            depthwise_regularizer=self.regularizer_decay,
             name=self.name and self.name + "depth_conv"
         )
 
@@ -88,6 +108,21 @@ class ConvPositionalEncoding(tf.keras.layers.Layer):
         x = Reshape(target_shape=[self.height * self.width, self.channel])(x)
         x = concatenate([cls_token, x], axis=1)
         return x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "kernel_size": self.kernel_size,
+            "input_height": self.input_height,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 class ConvRelativePositionalEncoding(tf.keras.layers.Layer):
@@ -107,7 +142,7 @@ class ConvRelativePositionalEncoding(tf.keras.layers.Layer):
         self.input_height = input_height
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
 
     def build(self, input_shape):
         query_shape = input_shape[0]
@@ -125,7 +160,7 @@ class ConvRelativePositionalEncoding(tf.keras.layers.Layer):
                 padding="valid",
                 depthwise_initializer=self.kernel_initializer,
                 bias_initializer=self.bias_initializer,
-                depthwise_regularizer=l2(self.regularizer_decay),
+                depthwise_regularizer=self.regularizer_decay,
                 name=self.name and self.name + "depth_conv"
             )
             
@@ -153,6 +188,22 @@ class ConvRelativePositionalEncoding(tf.keras.layers.Layer):
                    [0, 0]]
         return tf.pad(EV_hat_img, padding)
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "head_splits": self.head_splits,
+            "head_kernel_size": self.head_kernel_size,
+            "input_height": self.input_height,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
 
 def factor_attention_conv_relative_positional_encoding(
     inputs,
@@ -166,7 +217,8 @@ def factor_attention_conv_relative_positional_encoding(
 ):
     if name is None:
         name = f"relative_positional_block{K.get_uid('factor_attention_conv_relative_positional_encoding')}"
-        
+
+    regularizer_decay = check_regularizer(regularizer_decay)
     blocks, dim = inputs.shape[1], inputs.shape[-1]
     key_dim = dim // num_heads
     qk_scale = 1.0 / (float(key_dim) ** 0.5)
@@ -176,7 +228,7 @@ def factor_attention_conv_relative_positional_encoding(
         use_bias=qkv_bias,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
+        kernel_regularizer=regularizer_decay,
         name=f"{name}.qkv"
     )(inputs)
     
@@ -213,7 +265,7 @@ def factor_attention_conv_relative_positional_encoding(
         units=dim,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
+        kernel_regularizer=regularizer_decay,
         name=f"{name}.projection"
     )(nn)
     return nn
@@ -234,6 +286,8 @@ def cpe_norm_crpe(
 ):
     if name is None:
         name = f"cpe_norm_crpe_block{K.get_uid('cpe_norm_crpe')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     cpe_layer = shared_cpe if shared_cpe is not None else ConvPositionalEncoding(
         kernel_size=(3, 3),
@@ -277,6 +331,8 @@ def res_mlp_block(
     if name is None:
         name = f"res_mlp_block{K.get_uid('res_mlp_block')}"
         
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     if drop_rate > 0:
         crpe_out = Dropout(
             rate=drop_rate,
@@ -293,7 +349,7 @@ def res_mlp_block(
         units=pre_mlp.shape[-1] * mlp_ratio,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
+        kernel_regularizer=regularizer_decay,
         name=f"{name}.mlp1"
     )(pre_mlp)
     
@@ -303,7 +359,7 @@ def res_mlp_block(
         units=pre_mlp.shape[-1],
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
+        kernel_regularizer=regularizer_decay,
         name=f"{name}.mlp2"
     )(nn)
 
@@ -336,6 +392,8 @@ def serial_block(
 ):
     if name is None:
         name = f"serial_block{K.get_uid('serial_block')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
         
     cpe_out, crpe_out = cpe_norm_crpe(
         inputs=inputs,
@@ -397,6 +455,8 @@ def parallel_block(
 ):
     if name is None:
         name = f"parallel_block{K.get_uid('parallel_block')}"
+    
+    regularizer_decay = check_regularizer(regularizer_decay)
         
     # Conv-Attention.
     cpe_outs, crpe_outs, crpe_images, resample_shapes = [], [], [], []
@@ -468,6 +528,8 @@ def patch_embed(
 ):
     if name is None:
         name = f"patch_embed_block{K.get_uid('patch_embed')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
     
     if len(inputs.shape) == 3:
         input_height = input_height if input_height > 0 else int(float(inputs.shape[1]) ** 0.5)
@@ -483,7 +545,7 @@ def patch_embed(
         groups=1,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
+        kernel_regularizer=regularizer_decay,
         name=f"{name}.conv"
     )(inputs)
 
@@ -494,22 +556,21 @@ def patch_embed(
 
 
 def CoaT(
-    serial_depths=[2, 2, 2, 2],
-    embed_dims=[64, 128, 256, 320],
-    mlp_ratios=[8, 8, 4, 4],
-    parallel_depth=0,
-    patch_size=4,
-    num_heads=8,
-    head_splits=[2, 3, 3],
-    head_kernel_size=[3, 5, 7],
-    use_shared_cpe=True,  # For checking model architecture only, keep input_shape height == width if set False
-    use_shared_crpe=True,  # For checking model architecture only, keep input_shape height == width if set False
-    out_features=None,
-    qkv_bias=True,
+    num_blocks,
+    embed_dims,
+    mlp_ratios,
+    parallel_depth,
+    patch_size,
+    num_heads,
+    head_splits,
+    head_kernel_size,
+    use_shared_cpe,                 # For checking model architecture only, keep input_shape height == width if set False
+    use_shared_crpe,                # For checking model architecture only, keep input_shape height == width if set False
+    out_features,
+    qkv_bias,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -529,6 +590,8 @@ def CoaT(
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
         
+    regularizer_decay = check_regularizer(regularizer_decay)
+        
     inputs = process_model_input(
         inputs,
         include_head=include_head,
@@ -543,8 +606,8 @@ def CoaT(
     shared_cpes = []
     shared_crpes = []
     block_heights = []
-    for sid, (depth, embed_dim, mlp_ratio) in enumerate(zip(serial_depths, embed_dims, mlp_ratios)):
-        name = "serial{}_".format(sid + 1)
+    for sid, (depth, embed_dim, mlp_ratio) in enumerate(zip(num_blocks, embed_dims, mlp_ratios)):
+        name = f"serial_block{sid + 1}"
         patch_size = patch_size if sid == 0 else 2
         patch_input_height = -1 if sid == 0 else block_heights[-1]
         
@@ -561,7 +624,7 @@ def CoaT(
         )
         
         block_heights.append(block_height)
-        x = ClassToken(name=name + "class_token")(x)
+        x = ClassToken(name=f"{name}.class_token")(x)
         
         shared_cpe = ConvPositionalEncoding(
             kernel_size=(3, 3),
@@ -569,7 +632,7 @@ def CoaT(
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
             regularizer_decay=regularizer_decay,
-            name="cpe{}_".format(sid + 1)
+            name=f"{name}.cpe"
         ) if use_shared_cpe else None
         
         shared_crpe = ConvRelativePositionalEncoding(
@@ -579,11 +642,10 @@ def CoaT(
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
             regularizer_decay=regularizer_decay,
-            name="crpe{}_".format(sid + 1)
+            name=f"{name}.crpe"
         ) if use_shared_crpe else None
         
         for bid in range(depth):
-            block_name = name + "block{}_".format(bid + 1)
             x = serial_block(
                 inputs=x,
                 embed_dim=embed_dim,
@@ -599,7 +661,7 @@ def CoaT(
                 regularizer_decay=regularizer_decay,
                 norm_eps=norm_eps,
                 drop_rate=drop_rate,
-                name=block_name
+                name=f"{name}.block{bid + 1}"
             )
             
         classfier_outs.append(x)
@@ -608,9 +670,7 @@ def CoaT(
         x = x[:, 1:, :]  # remove class token
 
     # Parallel blocks.
-    for pid in range(parallel_depth):
-        name = "parallel{}_".format(pid + 1)
-        
+    for pid in range(parallel_depth):        
         classfier_outs = parallel_block(
             inputs=classfier_outs,
             shared_cpes=shared_cpes,
@@ -626,16 +686,13 @@ def CoaT(
             regularizer_decay=regularizer_decay,
             norm_eps=norm_eps,
             drop_rate=drop_rate,
-            name=name
+            name=f"parallel_block{pid + 1}"
         )
 
     if out_features is not None:
         x = [classfier_outs[id][:, 1:, :] for id in out_features]
     elif parallel_depth == 0:
-        x = get_normalizer_from_name(
-            normalizer,
-            epsilon=norm_eps
-        )(classfier_outs[-1])[:, 0]
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps)(classfier_outs[-1])[:, 0]
     else:
         x = [get_normalizer_from_name(normalizer, epsilon=norm_eps)(xx)[:, :1, :] for id, xx in enumerate(classfier_outs[1:])]
         x = concatenate(x, axis=1)
@@ -658,29 +715,24 @@ def CoaT(
                 units=1 if num_classes == 2 else num_classes,
                 kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer,
-                kernel_regularizer=l2(regularizer_decay),
+                kernel_regularizer=regularizer_decay,
             ),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="global_maxpool")(x)
 
-    if embed_dims == [64, 128, 256, 320] and serial_depths == [2, 2, 2, 2]:
-        model = Model(inputs=inputs, outputs=x, name="CoaT-lite-tiny")
-    elif embed_dims == [64, 128, 320, 512] and serial_depths == [2, 2, 2, 2]:
-        model = Model(inputs=inputs, outputs=x, name="CoaT-lite-mini")
-    elif embed_dims == [64, 128, 320, 512] and serial_depths == [3, 4, 6, 3]:
-        model = Model(inputs=inputs, outputs=x, name="CoaT-lite-small")
+    model_name = "CoaT"
+    if embed_dims == [64, 128, 256, 320] and num_blocks == [2, 2, 2, 2]:
+        model_name += "-lite-tiny"
+    elif embed_dims == [64, 128, 320, 512] and num_blocks == [2, 2, 2, 2]:
+        model_name += "-lite-mini"
+    elif embed_dims == [64, 128, 320, 512] and num_blocks == [3, 4, 6, 3]:
+        model_name += "-lite-small"
     elif embed_dims == [152, 152, 152, 152] and mlp_ratios == [4, 4, 4, 4] and parallel_depth == 6:
-        model = Model(inputs=inputs, outputs=x, name="CoaT-tiny")
+        model_name += "-tiny"
     elif embed_dims == [152, 216, 216, 216] and mlp_ratios == [4, 4, 4, 4] and parallel_depth == 6:
-        model = Model(inputs=inputs, outputs=x, name="CoaT-mini")
-    else:
-        model = Model(inputs=inputs, outputs=x, name="CoaT")
-        
+        model_name += "-mini"
+
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -688,7 +740,6 @@ def CoaT_ltiny(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -700,7 +751,7 @@ def CoaT_ltiny(
 ) -> Model:
     
     model = CoaT(
-        serial_depths=[2, 2, 2, 2],
+        num_blocks=[2, 2, 2, 2],
         embed_dims=[64, 128, 256, 320],
         mlp_ratios=[8, 8, 4, 4],
         parallel_depth=0,
@@ -715,7 +766,6 @@ def CoaT_ltiny(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -732,7 +782,6 @@ def CoaT_lmini(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -744,7 +793,7 @@ def CoaT_lmini(
 ) -> Model:
     
     model = CoaT(
-        serial_depths=[2, 2, 2, 2],
+        num_blocks=[2, 2, 2, 2],
         embed_dims=[64, 128, 320, 512],
         mlp_ratios=[8, 8, 4, 4],
         parallel_depth=0,
@@ -759,7 +808,6 @@ def CoaT_lmini(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -776,7 +824,6 @@ def CoaT_lsmall(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -788,7 +835,7 @@ def CoaT_lsmall(
 ) -> Model:
     
     model = CoaT(
-        serial_depths=[3, 4, 6, 3],
+        num_blocks=[3, 4, 6, 3],
         embed_dims=[64, 128, 320, 512],
         mlp_ratios=[8, 8, 4, 4],
         parallel_depth=0,
@@ -803,7 +850,6 @@ def CoaT_lsmall(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -820,7 +866,6 @@ def CoaT_tiny(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -832,7 +877,7 @@ def CoaT_tiny(
 ) -> Model:
     
     model = CoaT(
-        serial_depths=[3, 4, 6, 3],
+        num_blocks=[3, 4, 6, 3],
         embed_dims=[152, 152, 152, 152],
         mlp_ratios=[4, 4, 4, 4],
         parallel_depth=6,
@@ -847,7 +892,6 @@ def CoaT_tiny(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -864,7 +908,6 @@ def CoaT_mini(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -876,7 +919,7 @@ def CoaT_mini(
 ) -> Model:
     
     model = CoaT(
-        serial_depths=[3, 4, 6, 3],
+        num_blocks=[3, 4, 6, 3],
         embed_dims=[152, 216, 216, 216],
         mlp_ratios=[4, 4, 4, 4],
         parallel_depth=6,
@@ -891,7 +934,6 @@ def CoaT_mini(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,

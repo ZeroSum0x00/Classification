@@ -7,12 +7,6 @@ import tensorflow as tf
 from utils.logger import logger
 
 
-def losses_prepare(loss_object):
-    loss = loss_object["loss"]
-    loss.coefficient = loss_object["coeff"]
-    return loss
-
-
 def train_prepare(
     execution_mode="graph",
     vram_usage="full",

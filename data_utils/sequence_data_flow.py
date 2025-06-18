@@ -22,6 +22,7 @@ class DataSequencePipeline(Sequence):
         normalizer="divide",
         mean_norm=None,
         std_norm=None,
+        sampler=None,
         interpolation="BILINEAR",
         phase="train",
         num_workers=1,
@@ -52,15 +53,18 @@ class DataSequencePipeline(Sequence):
             std=std_norm,
             interpolation=interpolation,
         )
-        
-        all_labels = [sample['label'] for sample in self.dataset]
-        class_weights = compute_class_weight(
-            class_weight='balanced',
-            classes=np.unique(all_labels),
-            y=all_labels,
-        )
-        self.class_weights = dict(enumerate(class_weights))
 
+        if sampler and sampler.lower() in ["balance", "balanced"]:
+            all_labels = [sample['label'] for sample in self.dataset]
+            class_weights = compute_class_weight(
+                class_weight='balanced',
+                classes=np.unique(all_labels),
+                y=all_labels,
+            )
+            self.class_weights = dict(enumerate(class_weights))
+        else:
+            self.class_weights = None
+            
     def load_data(self, sample):
         sample_image = sample.get("image")
         sample_label = sample["label"]
@@ -93,21 +97,23 @@ class DataSequencePipeline(Sequence):
 
         if self.num_workers > 1:
             with ThreadPool(self.num_workers) as pool:
-        #         batch_data = pool.map(self.load_data, [self.dataset[i % self.N] for i in batch_indices])
-        # else:
-        #     batch_data = [self.load_data(self.dataset[i % self.N]) for i in batch_indices]
                 batch_data = pool.map(self.load_data, [self.dataset[i] for i in batch_indices])
         else:
             batch_data = [self.load_data(self.dataset[i]) for i in batch_indices]
             
-        batch_image, batch_label = zip(*batch_data)
-        batch_image = np.stack(batch_image)
-        batch_label = np.array(batch_label)
-        
-        if self.debug_mode:
-            return batch_image, batch_label, [self.dataset[i]["path"] for i in batch_indices]
+        batch_images, batch_labels = zip(*batch_data)
+        batch_images = np.stack(batch_images)
+        batch_labels = np.array(batch_labels)
+
+        if self.class_weights:
+            batch_weights = np.array([self.class_weights.get(label, 1.0) for label in batch_labels], dtype=np.float32)
         else:
-            return batch_image, batch_label
+            batch_weights = np.ones_like(batch_labels, dtype=np.float32)
+            
+        if self.debug_mode:
+            return batch_images, batch_labels, batch_weights, [self.dataset[i]["path"] for i in batch_indices]
+        else:
+            return batch_images, batch_labels, batch_weights
     
     def on_epoch_end(self):
         if self.phase == "train":

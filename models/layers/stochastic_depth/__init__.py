@@ -1,2 +1,2 @@
-from .single_stochastic_depth import DropPath
-from .stochastic_depth import StochasticDepth, StochasticDepth2
+from .drop_path import DropPathV1, DropPathV2
+from .stochastic_depth import StochasticDepthV1, StochasticDepthV2

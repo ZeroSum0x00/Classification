@@ -19,10 +19,14 @@ def build_callbacks(config, result_path):
             save_path = result_path
             name = str(list(cfg.keys())[0])
             value = list(cfg.values())[0]
-            extend_path = value.pop("extend_path", None)
-            if extend_path is not None:
-                save_path = os.path.join(save_path, extend_path)
-    
+
+            try:
+                extend_path = value.pop("extend_path", None)
+                if extend_path is not None:
+                    save_path = os.path.join(save_path, extend_path)
+            except:
+                pass
+                
             if not value:
                 value = {}
 

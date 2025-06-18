@@ -1,8 +1,56 @@
 """
-  # Description:
-    - The following table comparing the params of the Data-efficient image Transformers (DeiT) in Tensorflow on 
-    size 224 x 224 x 3:
+    DeiT: Data-efficient Image Transformer with Knowledge Distillation
+    
+    Overview:
+        DeiT (Data-efficient Image Transformer) is a ViT-style backbone optimized to perform
+        well **without needing massive training datasets**. It achieves strong results on
+        ImageNet-1k **without extra pretraining**, thanks to **a distillation mechanism** using
+        a CNN teacher during training.
+    
+        Key innovations include:
+            - Efficient transformer training on small datasets (e.g. ImageNet-1k)
+            - No need for large-scale pretraining (like JFT-300M)
+            - Introduction of a **Distillation Token** alongside the [CLS] token
+            - Special **Distillation Loss** that transfers knowledge from CNN teachers
+    
+    Key Components:
+        • Patch Embedding:
+            - Identical to ViT: input image split into non-overlapping patches (e.g., 16×16)
+            - Each patch is flattened and linearly projected to a token
+    
+        • Class Token + Distillation Token:
+            - Two learnable tokens are prepended to patch tokens:
+                - `[CLS]`: for supervised classification
+                - `[DIST]`: for distilled supervision from a teacher model (e.g., ResNet-50)
+    
+            ```
+            Tokens = [CLS] + [DIST] + PatchTokens
+            ```
+    
+        • Position Embedding:
+            - Learnable positional embeddings added to each token (including [CLS] and [DIST])
+    
+        • Transformer Encoder:
+            - Stack of standard Transformer blocks (LN → MHSA → FFN), same as ViT
+    
+        • Dual Heads:
+            - Two MLP heads for output:
+                - Head[CLS]: predicts class label from [CLS] token
+                - Head[DIST]: predicts label from distillation token
+    
+            During inference: **only one of the two heads is used** (usually average or [CLS])
+    
+        • Distillation Loss:
+            - Supervised loss from [CLS] head (cross-entropy with ground truth)
+            - Distillation loss from [DIST] head (cross-entropy with teacher logits)
+            - Total loss = Supervised + λ × Distillation
+    
+        • Training Setup:
+            - Teacher = CNN (e.g., RegNetY-16GF or ResNet-50)
+            - Student = DeiT model
+            - Trained with data augmentation (Mixup, CutMix, RandomErasing, etc.)
 
+    Model Parameter Comparison:
        --------------------------------------
       |     Model Name     |    Params       |
       |--------------------------------------|
@@ -13,257 +61,285 @@
       |     DeiT-Base      |   87,375,056    |
        --------------------------------------
        
-  # Reference:
-    - [Training data-efficient image transformers
-       & distillation through attention](https://arxiv.org/pdf/2012.12877.pdf)
-       
-"""
-from __future__ import print_function
-from __future__ import absolute_import
+    References:
+        - Paper: “Training Data-Efficient Image Transformers & Distillation through Attention”  
+          https://arxiv.org/abs/2012.12877
+    
+        - Official PyTorch repository:
+          https://github.com/facebookresearch/deit
 
+"""
 import copy
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import (ExtractPatches, ClassificationToken,
-                           MultiHeadSelfAttention, MLPBlock,
-                           PositionalEmbedding, TransformerBlock,
-                           DistillationToken, SAMModel, 
-                           get_normalizer_from_name, get_activation_from_name)
-from utils.model_processing import _obtain_input_shape
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Lambda, Dense, Dropout,
+    GlobalAveragePooling1D
+)
+
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    ExtractPatches, ClassificationToken, 
+    MultiHeadSelfAttention, MLPBlock,
+    PositionalEmbedding, TransformerEncoderBlock,
+    DistillationToken,
+)
+from utils.model_processing import process_model_input, create_layer_instance, check_regularizer
 
 
 
-def DeiT(attention_block=None,
-         mlp_block=None,
-         num_layers=12,
-         patch_size=16,
-         num_heads=6,
-         mlp_dim=3072,
-         hidden_dim=384,
-         include_top=True, 
-         weights='imagenet',
-         input_tensor=None, 
-         input_shape=None,
-         pooling=None,
-         activation='gelu',
-         normalizer='layer-norm',
-         final_activation="softmax",
-         classes=1000,
-         sam_rho=0.0,
-         norm_eps=1e-6,
-         drop_rate=0.1,
-         training=False):
+def DeiT(
+    attention_block=None,
+    mlp_block=None,
+    num_layers=12,
+    patch_size=16,
+    num_heads=6,
+    mlp_dim=3072,
+    lasted_dim=384,
+    q_bias=True,
+    kv_bias=False,
+    use_attn_causal_mask=False,
+    use_gated_mlp=False,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
          
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+        "drop_rate": drop_rate,
+    }
 
-    x = ExtractPatches(patch_size, hidden_dim, name="Extract_Patches")(img_input)
-    x = DistillationToken(name="Distillation_Token")(x)
-    x = ClassificationToken(name="Classification_Token")(x)
-    x = PositionalEmbedding(name="Positional_Embedding")(x)
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-    for n in range(num_layers):
+    x = ExtractPatches(
+        patch_size=patch_size,
+        lasted_dim=lasted_dim,
+        name="extract_patches"
+    )(inputs)
+    
+    x = DistillationToken(name="distillation_token")(x)
+    x = ClassificationToken(name="classification_token")(x)
+    x = PositionalEmbedding(name="positional_embedding")(x)
+
+    for i in range(num_layers):
         if attention_block is None:
-            attn_clone = MultiHeadSelfAttention(num_heads=num_heads,
-                                                return_weight=False,
-                                                name=f"MultiHeadDotProductAttention_{n}")
+            attn_clone = create_layer_instance(
+                MultiHeadSelfAttention,
+                num_heads=num_heads,
+                num_embeds=-1,
+                q_bias=q_bias,
+                kv_bias=kv_bias,
+                use_causal_mask=use_attn_causal_mask,
+                **layer_constant_dict,
+            )
         else:
             attn_clone = copy.deepcopy(attention_block)
             
         if mlp_block is None:
-            mlp_clone = MLPBlock(mlp_dim,
-                                 activation=activation,
-                                 normalizer=normalizer, 
-                                 drop_rate=drop_rate, 
-                                 name=f"MlpBlock_{n}")
+            mlp_clone = create_layer_instance(
+                MLPBlock,
+                mlp_dim=mlp_dim,
+                out_dim=-1,
+                use_conv=False,
+                use_bias=q_bias,
+                use_gated=use_gated_mlp,
+                **layer_constant_dict,
+            )
         else:
             mlp_clone = copy.deepcopy(mlp_block)
 
-        x, _ = TransformerBlock(attn_clone,
-                                mlp_clone,
-                                activation=activation,
-                                norm_eps=norm_eps,
-                                drop_rate=drop_rate,
-                                name=f"Transformer.encoderblock_{n}")(x)
+        x, _ = TransformerEncoderBlock(
+            attention_block=attn_clone,
+            mlp_block=mlp_clone,
+            activation=activation,
+            normalizer=None,
+            norm_eps=norm_eps,
+            drop_rate=drop_rate,
+            name=f"block_{i + 1}"
+        )(x)
 
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="Transformer/encoder_norm")(x)
-    x_head = Lambda(lambda v: v[:, 0], name="Extract_Predict_Token")(x)
-    x_dist = Lambda(lambda v: v[:, 1], name="Extract_Distillation_Token")(x)
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="encoder_norm")(x)
+    x_head = Lambda(lambda v: v[:, 0], name="extract_predict_token")(x)
+    x_dist = Lambda(lambda v: v[:, 1], name="extract_distillation_token")(x)
 
-    if include_top:
-        x_head = Dense(1 if classes == 2 else classes, name='head')(x_head)
-        x_head = get_activation_from_name(final_activation)(x_head)
+    if include_head:
+        x_head = Sequential([
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x_head)
+
+        x_dist = Sequential([
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_dist")(x_dist)
         
-        x_dist = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="dist"
-        )(x_dist)
-    else:
-        if pooling == 'avg':
-            x_head = GlobalAveragePooling2D(name='head_global_avgpool')(x_head)
-            x_dist = GlobalAveragePooling2D(name='dist_global_avgpool')(x_dist)
-        elif pooling == 'max':
-            x_head = GlobalMaxPooling2D(name='head_global_maxpool')(x_head)
-            x_dist = GlobalMaxPooling2D(name='dist_global_maxpool')(x_dist)
+    # if training:
+    #     x = x_head, x_dist
+    # else:
+    # x = (x_head + x_dist) / 2
 
-    if training:
-        x = x_head, x_dist
-    else:
-        x = (x_head + x_dist) / 2
-
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, x, name=name + '_SAM')
-        else:
-            return Model(inputs, x, name=name)
-            
-    # Create model.
-    if num_heads == 3 and hidden_dim == 192:
-        model = __build_model(inputs, x, sam_rho, name='DeiT-Tiny')
-    elif num_heads == 6 and hidden_dim == 384:
-        model = __build_model(inputs, x, sam_rho, name='DeiT-Small')
-    elif num_heads == 12 and hidden_dim == 768:
-        model = __build_model(inputs, x, sam_rho, name='DeiT-Base')
-    else:
-        model = __build_model(inputs, x, sam_rho, name='DeiT')
-             
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model_name = "DeiT"
+    if num_heads == 3 and lasted_dim == 192:
+        model_name += "-tiny"
+    elif num_heads == 6 and lasted_dim == 384:
+        model_name += "-small"
+    elif num_heads == 12 and lasted_dim == 768:
+        model_name += "-base"
+        
+    model = Model(inputs=inputs, outputs=[x_head, x_dist], name=model_name)
     return model
 
 
-def DeiT_Ti(include_top=True, 
-            weights='imagenet',
-            input_tensor=None, 
-            input_shape=None,
-            pooling=None,
-            final_activation="softmax",
-            classes=1000,
-            sam_rho=0.0,
-            norm_eps=1e-6,
-            drop_rate=0.1):
+def DeiT_Ti16(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    model = DeiT(attention_block=None,
-                 mlp_block=None,
-                 num_layers=12,
-                 patch_size=16,
-                 num_heads=3,
-                 mlp_dim=3072,
-                 hidden_dim=192,
-                 include_top=include_top,
-                 weights=weights, 
-                 input_tensor=input_tensor,
-                 input_shape=input_shape,
-                 pooling=pooling, 
-                 final_activation=final_activation,
-                 classes=classes,
-                 sam_rho=sam_rho,
-                 norm_eps=norm_eps,
-                 drop_rate=drop_rate)
+    model = DeiT(
+        attention_block=None,
+        mlp_block=None,
+        num_layers=12,
+        patch_size=16,
+        num_heads=3,
+        mlp_dim=3072,
+        lasted_dim=192,
+        q_bias=True,
+        kv_bias=False,
+        use_attn_causal_mask=False,
+        use_gated_mlp=False,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
-def DeiT_S(include_top=True, 
-           weights='imagenet',
-           input_tensor=None, 
-           input_shape=None,
-           pooling=None,
-           final_activation="softmax",
-           classes=1000,
-           sam_rho=0.0,
-           norm_eps=1e-6,
-           drop_rate=0.1):
+def DeiT_S16(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    model = DeiT(attention_block=None,
-                 mlp_block=None,
-                 num_layers=12,
-                 patch_size=16,
-                 num_heads=6,
-                 mlp_dim=3072,
-                 hidden_dim=384,
-                 include_top=include_top,
-                 weights=weights, 
-                 input_tensor=input_tensor,
-                 input_shape=input_shape,
-                 pooling=pooling, 
-                 final_activation=final_activation,
-                 classes=classes,
-                 sam_rho=sam_rho,
-                 norm_eps=norm_eps,
-                 drop_rate=drop_rate)
+    model = DeiT(
+        attention_block=None,
+        mlp_block=None,
+        num_layers=12,
+        patch_size=16,
+        num_heads=6,
+        mlp_dim=3072,
+        lasted_dim=384,
+        q_bias=True,
+        kv_bias=False,
+        use_attn_causal_mask=False,
+        use_gated_mlp=False,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
                 
-def DeiT_B(include_top=True, 
-           weights='imagenet',
-           input_tensor=None, 
-           input_shape=None,
-           pooling=None,
-           final_activation="softmax",
-           classes=1000,
-           sam_rho=0.0,
-           norm_eps=1e-6,
-           drop_rate=0.1):
+def DeiT_B16(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    model = DeiT(attention_block=None,
-                 mlp_block=None,
-                 num_layers=12,
-                 patch_size=16,
-                 num_heads=12,
-                 mlp_dim=3072,
-                 hidden_dim=768,
-                 include_top=include_top,
-                 weights=weights, 
-                 input_tensor=input_tensor,
-                 input_shape=input_shape,
-                 pooling=pooling, 
-                 final_activation=final_activation,
-                 classes=classes,
-                 sam_rho=sam_rho,
-                 norm_eps=norm_eps,
-                 drop_rate=drop_rate)
+    model = DeiT(
+        attention_block=None,
+        mlp_block=None,
+        num_layers=12,
+        patch_size=16,
+        num_heads=12,
+        mlp_dim=3072,
+        lasted_dim=768,
+        q_bias=True,
+        kv_bias=False,
+        use_attn_causal_mask=False,
+        use_gated_mlp=False,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model

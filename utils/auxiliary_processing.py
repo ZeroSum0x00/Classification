@@ -1,7 +1,9 @@
+import io
 import cv2
 import importlib
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 
 def dynamic_import(module_name, global_vars=None):
@@ -74,3 +76,24 @@ def change_color_space(image, current_space="BGR", to_space="BGR"):
         elif current_space.lower() == "hsv" and to_space.lower() == "gray":
             return cv2.cvtColor(image, cv2.COLOR_HSV2GRAY)
     return image
+
+
+def fig_to_cv2_image(fig):
+    """
+    Chuyển matplotlib Figure sang ảnh OpenCV.
+    
+    Args:
+        fig (matplotlib.figure.Figure): Figure cần chuyển.
+        
+    Returns:
+        image_cv2 (np.ndarray): Ảnh BGR.
+    """
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight')
+    buf.seek(0)
+
+    image_bytes = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    image_cv2 = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+
+    buf.close()
+    return image_cv2

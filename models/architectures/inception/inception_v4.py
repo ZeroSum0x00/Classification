@@ -1,17 +1,92 @@
 """
-  # Description:
-    - The following table comparing the params of the Inception v4 in Tensorflow on 
-    size 299 x 299 x 3:
+    InceptionV4: Deep Multi-Path Backbone with Residual-Free Optimization and Structured Scaling
+    
+    Overview:
+        InceptionV4 is a deeper and more powerful evolution of the Inception family,
+        combining improved inception modules with better regularization, deeper stages,
+        and more structured grid reduction strategies.
+    
+        Unlike Inception-ResNet, InceptionV4 avoids residual connections and relies on
+        pure Inception blocks. It adopts standardized and modularized block types to
+        allow more scalable and tunable architectures. This design improves representational
+        capacity without overly increasing computational cost.
+    
+        Key innovations include:
+            - Pure Inception Blocks (A, B, C): Modular, stackable inception variants
+            - Stem Block: Optimized front-end block for early feature extraction
+            - Grid Reduction Blocks: Efficient downsampling with minimal information loss
+    
+    Key Components:
+        • Stem Block:
+            - The input stage of InceptionV4, responsible for early spatial reduction.
+            - Includes multiple 3x3 convolutions and branching paths (e.g., 3x3 max pool,
+              3x3 stride-2 conv, and 1x1 → 3x3 conv).
+            - Outputs rich feature maps while reducing resolution from the input image.
+    
+        • Inception-A / B / C Blocks:
+            - **Inception-A**: Optimized for low-resolution feature maps (35×35).
+                • 1x1 conv, 3x3 conv, 3x3 → 3x3 stacked convs, avg pooling branches.
+            - **Inception-B**: Used for medium-resolution feature maps (17×17).
+                • Extensive use of factorized 7x7 convolutions (1x7 + 7x1).
+            - **Inception-C**: Designed for low-resolution maps (8×8).
+                • Incorporates asymmetric convolutions and expansion via 1x1 convs.
+            - All blocks use multi-branch design and concatenate the outputs.
+    
+        • Grid Reduction Blocks (Reduction-A / B):
+            - Replaces max pooling with structured downsampling paths:
+                • Parallel 3x3 stride-2 conv
+                • Conv paths with increasing depth and stride
+                • 3x3 stride-2 max pooling
+            - Used between stages to halve feature map resolution (e.g., 35→17, 17→8).
+    
+        • Stage-wise Structure:
+            - InceptionV4 follows a clear block pattern:
+            - Encourages regularity, tuning flexibility, and scalable depth.
+    
+        • Global Average Pooling:
+            - At the end of the network, a GAP layer replaces fully connected layers to reduce overfitting.
+            - Final FC + Softmax layer for classification.
 
-       --------------------------------------------
-      |        Model Name        |    Params       |
-      |--------------------------------------------|
-      |       Inception v4       |   139,456,552   |
-       --------------------------------------------
+    General Model Architecture:
+         --------------------------------------------------------------------------------
+        | Stage                  | Layer                       | Output Shape            |
+        |------------------------+-----------------------------+-------------------------|
+        | Input                  | input_layer                 | (None, 299, 299, 3)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stem                   | ConvolutionBlock (3x3, s=2) | (None, 149, 149, 32)    |
+        |                        | ConvolutionBlock (3x3, s=1) | (None, 147, 147, 32)    |
+        |                        | ConvolutionBlock (3x3, s=1) | (None, 147, 147, 64)    |
+        |                        | double_branch + concat      | (None, 73, 73, 160)     |
+        |                        | double_branch + concat      | (None, 71, 71, 192)     |
+        |                        | double_branch + concat      | (None, 35, 35, 384)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 1                | inception_A (4x)            | (None, 35, 35, 384)     |
+        |                        | reduction_A                 | (None, 17, 17, 1024)    |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 2                | inception_B (7x)            | (None, 17, 17, 1024)    |
+        |                        | reduction_B                 | (None, 8, 8, 1536)      |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 3                | inception_C (3x)            | (None, 8, 8, 1536)      |
+        |------------------------+-----------------------------+-------------------------|
+        | CLS Logics             | AveragePooling2D (8x8, s=1) | (None, 1, 1, 1536)      |
+        |                        | Flatten                     | (None, 1536)            |
+        |                        | fc (Logics)                 | (None, 1000)            |
+         --------------------------------------------------------------------------------
+         
+    Model Parameter Comparison:
+         --------------------------------------------
+        |        Model Name        |     Params      |
+        |--------------------------------------------|
+        |       Inception v4       |    42,742,984   |
+         --------------------------------------------
 
-  # Reference:
-    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/pdf/1602.07261.pdf)
-    - Source: https://github.com/titu1994/Inception-v4/blob/master/inception_v4.py
+    References:
+        - Paper: “Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning”  
+          https://arxiv.org/abs/1602.07261
+    
+        - TensorFlow/Keras implementation:
+          https://github.com/titu1994/Inception-v4/blob/master/inception_v4.py
+          https://github.com/Cadene/pretrained-models.pytorch/blob/master/pretrainedmodels/models/inceptionv4.py
 
 """
 
@@ -24,16 +99,16 @@ from tensorflow.keras.layers import (
     GlobalMaxPooling2D, GlobalAveragePooling2D,
     concatenate
 )
-from tensorflow.keras.regularizers import l2
 
 from .inception_v3 import convolution_block
 from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import process_model_input
+from utils.model_processing import process_model_input, check_regularizer, create_model_backbone
 
 
 def stem_block(
     inputs,
     filters,
+    use_bias=False,
     activation="relu",
     normalizer="batch-norm",
     kernel_initializer="he_normal",
@@ -45,12 +120,15 @@ def stem_block(
     if name is None:
         name = f"stem_block_{K.get_uid('stem_block')}"
 
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     x = convolution_block(
         inputs=inputs,
         filters=filters,
         kernel_size=(3, 3),
         strides=(2, 2),
         padding='valid',
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -66,6 +144,7 @@ def stem_block(
         kernel_size=(3, 3),
         strides=(1, 1),
         padding='valid',
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -80,6 +159,7 @@ def stem_block(
         filters=filters * 2,
         kernel_size=(3, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -101,6 +181,7 @@ def stem_block(
         kernel_size=(3, 3),
         strides=(2, 2),
         padding='valid',
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -117,6 +198,7 @@ def stem_block(
         filters=filters * 2,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -132,6 +214,7 @@ def stem_block(
         kernel_size=(3, 3),
         strides=(1, 1),
         padding='valid',
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -147,6 +230,7 @@ def stem_block(
         kernel_size=(1, 1),
         strides=(1, 1),
         padding='valid',
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -161,6 +245,7 @@ def stem_block(
         filters=filters * 2,
         kernel_size=(7, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -175,6 +260,7 @@ def stem_block(
         filters=filters * 2,
         kernel_size=(1, 7),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -190,6 +276,7 @@ def stem_block(
         kernel_size=(3, 3),
         strides=(1, 1),
         padding='valid',
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -207,6 +294,7 @@ def stem_block(
         kernel_size=(3, 3),
         strides=(2, 2),
         padding='valid',
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -229,6 +317,7 @@ def stem_block(
 def inception_A(
     inputs,
     filters,
+    use_bias=False,
     activation="relu",
     normalizer="batch-norm",
     kernel_initializer="he_normal",
@@ -240,6 +329,8 @@ def inception_A(
     if name is None:
         name = f"inception_block_a_{K.get_uid('inception_block_a')}"
 
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     # Branch 1:
     branch1 = AveragePooling2D(
         pool_size=(3, 3),
@@ -253,6 +344,7 @@ def inception_A(
         filters=int(filters * 3/2),
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -268,6 +360,7 @@ def inception_A(
         filters=int(filters * 3/2),
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -283,6 +376,7 @@ def inception_A(
         filters=filters,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -297,6 +391,7 @@ def inception_A(
         filters=int(filters * 3/2),
         kernel_size=(3, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -312,6 +407,7 @@ def inception_A(
         filters=filters,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -326,6 +422,7 @@ def inception_A(
         filters=int(filters * 3/2),
         kernel_size=(3, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -340,6 +437,7 @@ def inception_A(
         filters=int(filters * 3/2),
         kernel_size=(3, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -359,6 +457,7 @@ def reduction_A(
     l=224,
     m=256,
     n=384,
+    use_bias=False,
     activation="relu",
     normalizer="batch-norm",
     kernel_initializer="he_normal",
@@ -370,6 +469,8 @@ def reduction_A(
     if name is None:
         name = f"reduction_a_{K.get_uid('reduction_a')}"
 
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     # Branch 1:
     branch1 = MaxPooling2D(
         pool_size=(3, 3),
@@ -385,6 +486,7 @@ def reduction_A(
         kernel_size=(3, 3),
         strides=(2, 2),
         padding="valid",
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -400,6 +502,7 @@ def reduction_A(
         filters=k,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -412,8 +515,9 @@ def reduction_A(
     branch3 = convolution_block(
         inputs=branch3,
         filters=l,
-        kernel_size=(1, 7),
+        kernel_size=(3, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -429,6 +533,7 @@ def reduction_A(
         kernel_size=(3, 3),
         strides=(2, 2),
         padding="valid",
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -445,6 +550,7 @@ def reduction_A(
 def inception_B(
     inputs,
     filters,
+    use_bias=False,
     activation="relu",
     normalizer="batch-norm",
     kernel_initializer="he_normal",
@@ -456,6 +562,8 @@ def inception_B(
     if name is None:
         name = f"inception_b_{K.get_uid('inception_b')}"
 
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     # Branch 1:
     branch1 = AveragePooling2D(
         pool_size=(3, 3),
@@ -466,9 +574,10 @@ def inception_B(
     
     branch1 = convolution_block(
         inputs=branch1,
-        filters=128,
+        filters=filters,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -481,9 +590,10 @@ def inception_B(
     # Branch 2:
     branch2 = convolution_block(
         inputs=inputs,
-        filters=384,
+        filters=filters * 3,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -496,9 +606,10 @@ def inception_B(
     # Branch 3:
     branch3 = convolution_block(
         inputs=inputs,
-        filters=192,
+        filters=int(filters * 3/2),
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -510,9 +621,10 @@ def inception_B(
     
     branch3 = convolution_block(
         inputs=branch3,
-        filters=224,
+        filters=int(filters * 7/4),
         kernel_size=(1, 7),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -524,9 +636,10 @@ def inception_B(
     
     branch3 = convolution_block(
         inputs=branch3,
-        filters=256,
+        filters=filters * 2,
         kernel_size=(7, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -539,9 +652,10 @@ def inception_B(
     # Branch 4:
     branch4 = convolution_block(
         inputs=inputs,
-        filters=192,
+        filters=int(filters * 3/2),
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -553,9 +667,10 @@ def inception_B(
     
     branch4 = convolution_block(
         inputs=branch4,
-        filters=192,
+        filters=int(filters * 3/2),
         kernel_size=(1, 7),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -567,9 +682,10 @@ def inception_B(
     
     branch4 = convolution_block(
         inputs=branch4,
-        filters=224,
+        filters=int(filters * 7/4),
         kernel_size=(7, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -581,9 +697,10 @@ def inception_B(
     
     branch4 = convolution_block(
         inputs=branch4,
-        filters=224,
+        filters=int(filters * 7/4),
         kernel_size=(1, 7),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -595,9 +712,10 @@ def inception_B(
     
     branch4 = convolution_block(
         inputs=branch4,
-        filters=256,
+        filters=filters * 2,
         kernel_size=(7, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -614,6 +732,7 @@ def inception_B(
 def reduction_B(
     inputs,
     filters,
+    use_bias=False,
     activation="relu",
     normalizer="batch-norm",
     kernel_initializer="he_normal",
@@ -624,6 +743,8 @@ def reduction_B(
 ):
     if name is None:
         name = f"reduction_b_{K.get_uid('reduction_b')}"
+
+    regularizer_decay = check_regularizer(regularizer_decay)
         
     # Branch 1:
     branch1 = MaxPooling2D(
@@ -635,9 +756,10 @@ def reduction_B(
     # Branch 2:
     branch2 = convolution_block(
         inputs=inputs,
-        filters=192,
+        filters=filters,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -649,10 +771,11 @@ def reduction_B(
     
     branch2 = convolution_block(
         inputs=branch2,
-        filters=192,
+        filters=filters,
         kernel_size=(3, 3),
         strides=(2, 2),
         padding="valid",
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -665,9 +788,10 @@ def reduction_B(
     # Branch 3:
     branch3 = convolution_block(
         inputs=inputs,
-        filters=256,
+        filters=int(filters * 4/3),
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -679,9 +803,10 @@ def reduction_B(
     
     branch3 = convolution_block(
         inputs=branch3,
-        filters=256,
+        filters=int(filters * 4/3),
         kernel_size=(1, 7),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -693,9 +818,10 @@ def reduction_B(
     
     branch3 = convolution_block(
         inputs=branch3,
-        filters=320,
+        filters=int(filters * 5/3),
         kernel_size=(7, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -707,10 +833,11 @@ def reduction_B(
     
     branch3 = convolution_block(
         inputs=branch3,
-        filters=320,
+        filters=int(filters * 5/3),
         kernel_size=(3, 3),
         strides=(2, 2),
         padding="valid",
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -727,6 +854,7 @@ def reduction_B(
 def inception_C(
     inputs,
     filters,
+    use_bias=False,
     activation="relu",
     normalizer="batch-norm",
     kernel_initializer="he_normal",
@@ -737,6 +865,8 @@ def inception_C(
 ):
     if name is None:
         name = f"inception_c_{K.get_uid('inception_c')}"
+
+    regularizer_decay = check_regularizer(regularizer_decay)
         
     # Branch 1:
     branch1 = AveragePooling2D(
@@ -748,9 +878,10 @@ def inception_C(
     
     branch1 = convolution_block(
         inputs=branch1,
-        filters=256,
+        filters=filters,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -763,9 +894,10 @@ def inception_C(
     # Branch 2:
     branch2 = convolution_block(
         inputs=inputs,
-        filters=256,
+        filters=filters,
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -779,9 +911,10 @@ def inception_C(
     # Branch 3:
     branch3 = convolution_block(
         inputs=inputs,
-        filters=384,
+        filters=int(filters * 3/2),
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -793,9 +926,10 @@ def inception_C(
     
     branch31 = convolution_block(
         inputs=branch3,
-        filters=256,
+        filters=filters,
         kernel_size=(1, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -807,9 +941,10 @@ def inception_C(
     
     branch32 = convolution_block(
         inputs=branch3,
-        filters=256,
+        filters=filters,
         kernel_size=(3, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -822,9 +957,10 @@ def inception_C(
     # Branch 4:
     branch4 = convolution_block(
         inputs=inputs,
-        filters=384,
+        filters=int(filters * 3/2),
         kernel_size=(1, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -836,9 +972,10 @@ def inception_C(
     
     branch4 = convolution_block(
         inputs=branch4,
-        filters=448,
+        filters=int(filters * 7/4),
         kernel_size=(1, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -850,9 +987,10 @@ def inception_C(
     
     branch4 = convolution_block(
         inputs=branch4,
-        filters=512,
+        filters=filters * 2,
         kernel_size=(3, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -864,9 +1002,10 @@ def inception_C(
     
     branch41 = convolution_block(
         inputs=branch4,
-        filters=256,
+        filters=filters,
         kernel_size=(1, 3),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -878,9 +1017,10 @@ def inception_C(
     
     branch42 = convolution_block(
         inputs=branch4,
-        filters=256,
+        filters=filters,
         kernel_size=(3, 1),
         strides=(1, 1),
+        use_bias=use_bias,
         activation=activation, 
         normalizer=normalizer, 
         kernel_initializer=kernel_initializer,
@@ -895,11 +1035,11 @@ def inception_C(
 
 
 def Inception_v4(
+    filters,
     num_blocks,
     inputs=[299, 299, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -919,6 +1059,7 @@ def Inception_v4(
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -939,7 +1080,7 @@ def Inception_v4(
     # Stem block
     x = stem_block(
         inputs=inputs,
-        filters=32,
+        filters=filters,
         **layer_constant_dict,
         name="stem"
     )
@@ -948,7 +1089,7 @@ def Inception_v4(
     for i in range(num_blocks[0]):
         x = inception_A(
             inputs=x,
-            filters=64,
+            filters=filters * 2,
             **layer_constant_dict,
             name=f"stage1.block{i + 1}"
         )
@@ -967,7 +1108,7 @@ def Inception_v4(
     for i in range(num_blocks[1]):
         x = inception_B(
             inputs=x,
-            filters=128,
+            filters=filters * 4,
             **layer_constant_dict,
             name=f"stage2.block{i + 1}"
         )
@@ -975,7 +1116,7 @@ def Inception_v4(
     # Reduction-B
     x = reduction_B(
         inputs=x,
-        filters=192,
+        filters=filters * 6,
         **layer_constant_dict,
         name=f"stage2.block{i + 2}"
     )
@@ -984,35 +1125,30 @@ def Inception_v4(
     for i in range(num_blocks[2]):
         x = inception_C(
             inputs=x,
-            filters=256,
+            filters=filters * 8,
             **layer_constant_dict,
             name=f"stage3.block{i + 1}"
         )
 
     if include_head:
         x = Sequential([
-            AveragePooling2D(pool_size=(8, 8), strides=(1, 1), padding='same'),
+            AveragePooling2D(pool_size=(8, 8), strides=(1, 1)),
             Dropout(rate=drop_rate),
             Flatten(),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avg_pooling')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_max_pooling')(x)
-            
+
+    model_name = "Inception-v4"
     if num_blocks == [4, 7, 3]:
-        name = "Inception-base-v4"
-    else:
-        name = "Inception-v4"
+        model_name += "-base"
         
-    model = Model(inputs=inputs, outputs=x, name=name)
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
 def Inception_v4_backbone(
+    filters,
     num_blocks,
     inputs=[299, 299, 3],
     weights="imagenet",
@@ -1021,32 +1157,29 @@ def Inception_v4_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = Inception_v4(
-        num_blocks=num_blocks,
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
-
     custom_layers = custom_layers or [
         "stem.block3",
-        "stage1.block2",
+        "stem.merger2",
         f"stage1.block{num_blocks[0]}.merger",
-        f"stage2.block{num_blocks[1] + 1}.merger",
+        f"stage2.block{num_blocks[1]}.merger",
     ]
     
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=Inception_v4,
+        custom_layers=custom_layers,
+        filters=filters,
+        num_blocks=num_blocks,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def Inception_base_v4(
     inputs=[299, 299, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -1058,11 +1191,11 @@ def Inception_base_v4(
 ) -> Model:
     
     model = Inception_v4(
+        filters=32,
         num_blocks=[4, 7, 3],
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -1083,21 +1216,18 @@ def Inception_base_v4_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = Inception_base_v4(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
-
     custom_layers = custom_layers or [
         "stem.block3",
-        "stage1.block2",
-        "stage1.block3.merger",
-        "stage2.block5.merger",
+        "stem.merger2",
+        "stage1.block4.merger",
+        "stage2.block7.merger",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=Inception_base_v4,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )

@@ -1,8 +1,52 @@
 """
-  # Description:
-    - The following table comparing the params of the Swin Transformer (Swin) in Tensorflow on 
-    size 224 x 224 x 3:
+    SwinV2: Scalable Vision Transformer with Enhanced Stability and Resolution
+    
+    Overview:
+        Swin Transformer V2 is an improved hierarchical Vision Transformer architecture
+        that extends SwinV1 by addressing **training instability**, **resolution scaling**, and
+        **global generalization**. It retains the core idea of **shifted window attention**
+        but adds new normalization and attention scaling techniques.
+    
+        Key innovations include:
+            - Log-Spaced Continuous Positional Bias: Generalizes better to high resolution
+            - Cosine Attention Scaling: Stabilizes training for large-scale ViTs
+            - Post-Norm Transformer Blocks: Improves optimization
+            - Supports extreme resolutions (e.g., 4K) and 22B-param models
+    
+    Key Components:
+        • Patch Partitioning:
+            - Identical to SwinV1:
+                - Image is split into non-overlapping 4×4 patches
+                - Each patch is linearly embedded into tokens
+    
+        • SwinV2 Block:
+            - Similar structure to SwinV1, but includes:
+                - **Post-Norm**: LayerNorm is applied *after* attention/MLP
+                - **Cosine Attention Scaling**: Replaces dot-product with scaled cosine sim
+                - **Log-Spaced Relative Position Bias (Log-RPB)**:
+                    - Enables resolution-agnostic positional encoding
+    
+        • Windowed Attention with Shifting:
+            - Attention is computed within local windows (W-MSA), then shifted (SW-MSA)
+            - Efficient and ensures interaction between adjacent windows
+    
+        • Patch Merging:
+            - Used to downsample spatial resolution between stages (same as SwinV1)
+            - Combines 2×2 neighboring patches + linear projection
+    
+        • Hierarchical Staging:
+            - Multi-stage pyramid with increasing channel dimensions:
 
+        • Normalization & Stability:
+            - Post-Norm is more stable for deep transformers
+            - Cosine attention + learnable scaling improves convergence for large models
+    
+        • ViT Scaling:
+            - SwinV2 scales from:
+                - **Tiny** to **Base** (ImageNet)
+                - Up to **Giant (3B)** and **22B models** (used for 4K segmentation)
+                
+    Model Parameter Comparison:
        ----------------------------------------------------
       |            Model Name            |    Params       |
       |----------------------------------------------------|
@@ -15,32 +59,31 @@
       |     Swin Transformer v2 large    |  196,762,792    |
        ----------------------------------------------------
 
-  # Reference:
-    - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/pdf/2103.14030.pdf)
-    - Source: https://github.com/microsoft/Swin-Transformer
+    References:
+        - Paper: “Swin Transformer V2: Scaling Up Capacity and Resolution”  
+          https://arxiv.org/abs/2111.09883
+    
+        - Official PyTorch repository:
+          https://github.com/microsoft/Swin-Transformer
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling1D
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Dense, Dropout,
+    GlobalAveragePooling1D
+)
 
 from .swin import window_partition, window_reverse, PatchEmbed, PatchMerging
-from models.layers import MLPBlock, DropPath, get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    MLPBlock, DropPathV1, DropPathV2, LinearLayer,
+)
+from utils.model_processing import process_model_input, validate_conv_arg, check_regularizer
+
 
 
 class WindowAttention(tf.keras.layers.Layer):
@@ -53,64 +96,98 @@ class WindowAttention(tf.keras.layers.Layer):
         qkv_bias (bool, optional):  If True, add a learnable bias to query, key, value. Default: True
         qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set
         attn_drop (float, optional): Dropout ratio of attention weight. Default: 0.0
-        proj_drop (float, optional): Dropout ratio of output. Default: 0.0
+        drop_rate (float, optional): Dropout ratio of output. Default: 0.0
     """
 
-    def __init__(self, dim, window_size, num_heads, qkv_bias=True, attn_drop=0., proj_drop=0., pretrained_window_size=[0, 0], *args, **kwargs):
+    def __init__(
+        self,
+        dim,
+        num_heads,
+        window_size,
+        qkv_bias=True,
+        pretrained_window_size=[0, 0],
+        activation="gelu",
+        normalizer=None,
+        kernel_initializer="glorot_uniform",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        attn_drop_rate=0.,
+        drop_rate=0.,
+        *args, **kwargs
+    ):
         super(WindowAttention, self).__init__(*args, **kwargs)
-        self.dim                    = dim
-        self.window_size            = (window_size, window_size) if isinstance(window_size, int) else window_size
-        self.num_heads              = num_heads
-        self.qkv_bias               = qkv_bias
-        self.attn_drop              = attn_drop
-        self.proj_drop              = proj_drop
-        self.pretrained_window_size = (pretrained_window_size, pretrained_window_size) if isinstance(pretrained_window_size, int) else pretrained_window_size
+        self.dim = dim
+        self.num_heads = num_heads
+        self.window_size = validate_conv_arg(window_size)
+        self.qkv_bias = qkv_bias
+        self.pretrained_window_size = validate_conv_arg(pretrained_window_size)
+        self.activation = activation
+        self.normalizer = normalizer
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = check_regularizer(regularizer_decay)
+        self.norm_eps = norm_eps
+        self.attn_drop_rate = attn_drop_rate
+        self.drop_rate = drop_rate
 
     def build(self, input_shape):
-        with tf.init_scope():
-            initial_logic_value = tf.math.log(10 * tf.ones(shape=(self.num_heads, 1, 1), dtype=tf.float32))
-        # self.logit_scale = self.add_weight(
-        #     'attn/logit_scale',
-        #     shape=(self.num_heads, 1, 1),
-        #     initial_value = initial_logic_value,
-        #     trainable   = True
-        # )
-        self.logit_scale = tf.Variable(
-            initial_value = initial_logic_value, 
-            trainable     = True, 
-            name          = 'attn.logit_scale'
+        self.logit_scale = self.add_weight(
+            shape=(self.num_heads, 1, 1),
+            initializer=tf.keras.initializers.Constant(np.log(10.0)),
+            trainable=True,
+            name="attn.logit_scale"
         )
 
         # mlp to generate continuous relative position bias
         self.cpb_mlp = Sequential([
-            Dense(units=512, use_bias=True),
-            get_activation_from_name('relu'),
-            Dense(units=self.num_heads, use_bias=False)
+            Dense(
+                units=512,
+                use_bias=True,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                kernel_regularizer=self.regularizer_decay,
+            ),
+            get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps),
+            get_activation_from_name(self.activation),
+            Dense(
+                units=self.num_heads,
+                use_bias=False,
+                kernel_initializer=self.kernel_initializer,
+                bias_initializer=self.bias_initializer,
+                kernel_regularizer=self.regularizer_decay,
+            )
         ])
 
         # get relative_coords_table
         with tf.init_scope():
             relative_coords_h = np.arange(-(self.window_size[0] - 1), self.window_size[0], dtype=np.float32)
             relative_coords_w = np.arange(-(self.window_size[1] - 1), self.window_size[1], dtype=np.float32)
-            relative_coords_hw, relative_coords_ww = np.meshgrid(relative_coords_h, relative_coords_w, indexing='ij')
+            relative_coords_hw, relative_coords_ww = np.meshgrid(relative_coords_h, relative_coords_w, indexing="ij")
             relative_coords_table = np.expand_dims(np.stack([relative_coords_hw, relative_coords_ww]).transpose([1, 2, 0]), axis=0)
+            
             if self.pretrained_window_size[0] > 0:
                 relative_coords_table[:, :, :, 0] /= (self.pretrained_window_size[0] - 1)
                 relative_coords_table[:, :, :, 1] /= (self.pretrained_window_size[1] - 1)
             else:
                 relative_coords_table[:, :, :, 0] /= (self.window_size[0] - 1)
                 relative_coords_table[:, :, :, 1] /= (self.window_size[1] - 1)
-            relative_coords_table *= 8  # normalize to -8, 8
-            relative_coords_table = tf.math.sign(relative_coords_table) * np.log2(tf.math.abs(relative_coords_table) + 1.0) / np.log2(8)          # *
-        self.relative_coords_table = tf.Variable(
-            initial_value=relative_coords_table, trainable=False, name=f'attn.relative_coords_table'
-        )
+                
+            relative_coords_table *= 8
+            relative_coords_table = tf.math.sign(relative_coords_table) * tf.math.log(tf.math.abs(relative_coords_table) + 1.0) / tf.math.log(8.0)
 
+        self.relative_coords_table = self.add_weight(
+            shape=relative_coords_table.shape,
+            initializer=tf.keras.initializers.Constant(relative_coords_table),
+            trainable=False,
+            name="attn.relative_coords_table"
+        )
+        
         with tf.init_scope():
-            coords_h        = np.arange(self.window_size[0])
-            coords_w        = np.arange(self.window_size[1])
-            coords          = np.stack(np.meshgrid(coords_h, coords_w, indexing='ij'))
-            coords_flatten  = coords.reshape(2, -1)
+            coords_h = np.arange(self.window_size[0])
+            coords_w = np.arange(self.window_size[1])
+            coords = np.stack(np.meshgrid(coords_h, coords_w, indexing="ij"))
+            coords_flatten = coords.reshape(2, -1)
             relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
             relative_coords = relative_coords.transpose([1, 2, 0])
             relative_coords[:, :, 0] += self.window_size[0] - 1
@@ -118,47 +195,40 @@ class WindowAttention(tf.keras.layers.Layer):
             relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
             relative_position_index = relative_coords.sum(-1).astype(np.int64)
             relative_position_tensor = tf.convert_to_tensor(relative_position_index)
-        self.relative_position_index = tf.Variable(
-            initial_value=relative_position_tensor, trainable=False, name='attn.relative_position_index'
+            
+        self.relative_position_index = self.add_weight(
+            shape=relative_position_tensor.shape,
+            initializer=tf.keras.initializers.Constant(relative_position_tensor),
+            dtype=tf.int64,
+            trainable=False,
+            name="attn.relative_position_index"
         )
 
-        if self.qkv_bias:
-            q_bias = self.add_weight(
-                name        = 'attn.q_bias',
-                shape       = (self.dim,),
-                initializer = tf.initializers.zeros(),
-                trainable   = True
-            )
-            with tf.init_scope():
-                k_init = tf.zeros_initializer()
-                k_bias = tf.Variable(
-                    initial_value = k_init(shape=(self.dim,), dtype=tf.float32), 
-                    trainable     = False, 
-                    name          = 'attn.k_bias'
-                )
-            v_bias = self.add_weight(
-                name        = 'attn.v_bias',
-                shape       = (self.dim,),
-                initializer = tf.initializers.zeros(),
-                trainable   = True
-            )
-            qkv_bias = tf.concat([q_bias, k_bias, v_bias], axis=0)
-            # self.qkv_projection = Dense(self.dim * 3, use_bias=True, bias_initializer=qkv_bias)
-            self.qkv_projection = Dense(self.dim * 3, use_bias=True)
-        else:
-            self.qkv_projection = Dense(self.dim * 3, use_bias=False)
+        self.qkv_projection = Dense(
+            units=self.dim * 3,
+            use_bias=self.qkv_bias,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.regularizer_decay,
+        )
         
-        self.attention_dropout  = Dropout(self.attn_drop)
-        self.projection         = Dense(self.dim)
-        self.projection_dropout = Dropout(self.proj_drop)
-        self.softmax_activ      = get_activation_from_name('softmax')
-
-    def call(self, inputs, mask=None):
-        B_, N, C = inputs.shape
-        qkv      = self.qkv_projection(inputs)
-        qkv      = tf.reshape(qkv, shape=[-1, N, 3, self.num_heads, C // self.num_heads])
-        qkv      = tf.transpose(qkv, perm=[2, 0, 3, 1, 4])
-        q, k, v  = qkv[0], qkv[1], qkv[2]
+        self.projection = Dense(
+            units=self.dim,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.regularizer_decay,
+        )
+        
+        self.attention_dropout = Dropout(self.attn_drop_rate)
+        self.projection_dropout = Dropout(self.drop_rate)
+        self.softmax_activ = get_activation_from_name("softmax")
+        
+    def call(self, inputs, mask=None, training=False):
+        B_, N, C = tf.unstack(tf.shape(inputs))
+        qkv = self.qkv_projection(inputs)
+        qkv = tf.reshape(qkv, shape=[-1, N, 3, self.num_heads, C // self.num_heads])
+        qkv = tf.transpose(qkv, perm=[2, 0, 3, 1, 4])        
+        q, k, v = qkv[0], qkv[1], qkv[2]
 
         # cosine attention
         attn = (tf.linalg.normalize(q, axis=-1)[0] @ tf.transpose(tf.linalg.normalize(k, axis=-1)[0], perm=[0, 1, 3, 2]))
@@ -166,13 +236,19 @@ class WindowAttention(tf.keras.layers.Layer):
         logit_scale = tf.math.exp(logit_scale)
         attn = attn * logit_scale
 
-        relative_position_bias_table = self.cpb_mlp(self.relative_coords_table)
+        relative_position_bias_table = self.cpb_mlp(self.relative_coords_table, training=training)
         relative_position_bias_table = tf.reshape(relative_position_bias_table, shape=[-1, self.num_heads])
 
-        relative_position_bias = tf.gather(relative_position_bias_table,
-                                           tf.reshape(self.relative_position_index, shape=[-1]))
-        relative_position_bias = tf.reshape(relative_position_bias,
-                                            shape=[self.window_size[0] * self.window_size[1], self.window_size[0] * self.window_size[1], -1])        
+        relative_position_bias = tf.gather(
+            relative_position_bias_table,
+            tf.reshape(self.relative_position_index, shape=[-1]),
+        )
+        
+        relative_position_bias = tf.reshape(
+            relative_position_bias,
+            shape=[self.window_size[0] * self.window_size[1], self.window_size[0] * self.window_size[1], -1],
+        )
+        
         relative_position_bias = tf.transpose(relative_position_bias, perm=[2, 0, 1])
         relative_position_bias = 16 * tf.nn.sigmoid(relative_position_bias)
 
@@ -180,22 +256,43 @@ class WindowAttention(tf.keras.layers.Layer):
 
         if mask is not None:
             nW = mask.shape[0]
-            attn = tf.reshape(attn, shape=[-1, nW, self.num_heads, N, N]) + \
-                tf.cast(tf.expand_dims(tf.expand_dims(mask, axis=1), axis=0), tf.float32)
-
+            attn = tf.reshape(tensor=attn, shape=[-1, nW, self.num_heads, N, N]) + tf.cast(tf.expand_dims(tf.expand_dims(mask, axis=1), axis=0), tf.float32)
             attn = tf.reshape(attn, shape=[-1, self.num_heads, N, N])
             attn = tf.nn.softmax(attn, axis=-1)
         else:
             attn = tf.nn.softmax(attn, axis=-1)
 
-        attn = self.attention_dropout(attn)
+        attn = self.attention_dropout(attn, training=training)
         x = tf.transpose((attn @ v), perm=[0, 2, 1, 3])
         x = tf.reshape(x, shape=[-1, N, C])
-        x = self.projection(x)
-        x = self.projection_dropout(x)
+        x = self.projection(x, training=training)
+        x = self.projection_dropout(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "dim": self.dim,
+            "num_heads": self.num_heads,
+            "window_size": self.window_size,
+            "qkv_bias": self.qkv_bias,
+            "pretrained_window_size": self.pretrained_window_size,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps,
+            "attn_drop_rate": self.attn_drop_rate,
+            "drop_rate": self.drop_rate
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class SwinTransformerBlock(tf.keras.layers.Layer):
     r""" Swin Transformer Block.
 
@@ -212,54 +309,110 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
         drop_path_prob (float, optional): Stochastic depth rate. Default: 0.0
     """
     
-    def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0, mlp_ratio=4.,
-                 qkv_bias=True, pretrained_window_size=0, activation='gelu', normalizer='layer-norm', proj_drop=0., attn_drop=0., drop_path_prob=0., *args, **kwargs):
+    def __init__(
+        self,
+        dim,
+        num_heads,
+        input_resolution,
+        window_size=(7, 7),
+        shift_size=(0, 0),
+        mlp_ratio=4.,
+        qkv_bias=True,
+        pretrained_window_size=0,
+        activation="gelu",
+        normalizer="layer-norm",
+        kernel_initializer="glorot_uniform",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        drop_path_rate=0.,
+        attn_drop_rate=0.,
+        drop_rate=0.,
+        *args, **kwargs
+    ):
         super(SwinTransformerBlock, self).__init__(*args, **kwargs)
         self.dim = dim
-        self.input_resolution = input_resolution
         self.num_heads = num_heads
-        self.window_size = window_size
-        self.shift_size = shift_size
+        self.input_resolution = input_resolution
+        self.window_size = validate_conv_arg(window_size)
+        self.shift_size = validate_conv_arg(shift_size)
         self.mlp_ratio = mlp_ratio
 
-        if min(self.input_resolution) <= self.window_size:
-            self.shift_size = 0
-            self.window_size = min(self.input_resolution)
-        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
+        if input_resolution[0] <= self.window_size[0] or input_resolution[1] <= self.window_size[1]:
+            self.shift_size = (0, 0)
+            self.window_size = (
+                min(input_resolution[0], self.window_size[0]),
+                min(input_resolution[1], self.window_size[1])
+            )
+            
+        assert 0 <= self.shift_size[0] < self.window_size[0]
+        assert 0 <= self.shift_size[1] < self.window_size[1]
 
         self.qkv_bias = qkv_bias
         self.pretrained_window_size = pretrained_window_size
         self.activation = activation
         self.normalizer = normalizer
-        self.proj_drop = proj_drop
-        self.attn_drop = attn_drop
-        self.drop_path_prob = drop_path_prob
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = check_regularizer(regularizer_decay)
+        self.norm_eps = norm_eps
+        self.drop_path_rate = drop_path_rate
+        self.attn_drop_rate = attn_drop_rate
+        self.drop_rate = drop_rate
 
     def build(self, input_shape):
-        self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
-        self.attention   = WindowAttention(dim=self.dim,
-                                           window_size=self.window_size,
-                                           num_heads=self.num_heads,
-                                           qkv_bias=self.qkv_bias,
-                                           pretrained_window_size=self.pretrained_window_size,
-                                           attn_drop=self.attn_drop,
-                                           proj_drop=self.proj_drop)
-
-        self.drop_path   = DropPath(self.drop_path_prob if self.drop_path_prob > 0. else 0.)
-        self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
-        mlp_hidden_dim   = int(self.dim * self.mlp_ratio)
-        self.mlp         = MLPBlock(mlp_dim=mlp_hidden_dim,
-                                    activation=self.activation,
-                                    drop_rate=self.proj_drop)
-        if self.shift_size > 0:
+        mlp_hidden_dim = int(self.dim * self.mlp_ratio)
+        
+        self.attention = WindowAttention(
+            dim=self.dim,
+            window_size=self.window_size,
+            num_heads=self.num_heads,
+            qkv_bias=self.qkv_bias,
+            activation=self.activation,
+            normalizer=self.normalizer,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+            attn_drop_rate=self.attn_drop_rate,
+            drop_rate=self.drop_rate,
+            pretrained_window_size=self.pretrained_window_size
+        )
+        
+        self.mlp = MLPBlock(
+            mlp_dim=mlp_hidden_dim,
+            out_dim=-1,
+            activation=self.activation,
+            normalizer=None,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+            drop_rate=self.drop_rate
+        )
+        
+        self.drop_path = DropPath(self.drop_path_rate) if self.drop_path_rate > 0. else LinearLayer()
+        self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        
+        Wh, Ww = self.window_size
+        Sh, Sw = self.shift_size
+        if Sh > 0 or Sw > 0:
             H, W = self.input_resolution
             img_mask = np.zeros([1, H, W, 1])
-            h_slices = (slice(0,                 -self.window_size),
-                        slice(-self.window_size, -self.shift_size),
-                        slice(-self.shift_size,   None))
-            w_slices = (slice(0,                 -self.window_size),
-                        slice(-self.window_size, -self.shift_size),
-                        slice(-self.shift_size,   None))
+            
+            h_slices = (
+                slice(0, -Wh),
+                slice(-Wh, -Sh),
+                slice(-Sh, None)
+            )
+            
+            w_slices = (
+                slice(0, -Ww),
+                slice(-Ww, -Sw),
+                slice(-Sw, None)
+            )
+            
             cnt = 0
             for h in h_slices:
                 for w in w_slices:
@@ -268,50 +421,60 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
 
             img_mask = tf.convert_to_tensor(img_mask)
             mask_windows = window_partition(img_mask, self.window_size)
-            mask_windows = tf.reshape(mask_windows,
-                                      shape=[-1, self.window_size * self.window_size])
+            mask_windows = tf.reshape(mask_windows, shape=[-1, Wh * Ww])
             attn_mask = tf.expand_dims(mask_windows, axis=1) - tf.expand_dims(mask_windows, axis=2)
             attn_mask = tf.where(tf.not_equal(attn_mask, 0), -100.0 * tf.ones_like(attn_mask), attn_mask)
             attn_mask = tf.where(tf.equal(attn_mask, 0), tf.zeros_like(attn_mask), attn_mask)
-            self.attn_mask = tf.Variable(initial_value=attn_mask, trainable=False)
+            self.attn_mask = self.add_weight(
+                shape=attn_mask.shape,
+                initializer=tf.keras.initializers.Constant(attn_mask),
+                trainable=False,
+                name="attn_mask"
+            )
         else:
             self.attn_mask = None
 
-    def call(self, inputs):
+    def call(self, inputs, training=False):
         B, L, C = inputs.shape
         H, W = self.input_resolution
         assert L == H * W, "input feature has wrong size"
 
         shortcut = inputs
         x = tf.reshape(inputs, shape=[-1, H, W, C])
-
-        pad_left = pad_top = 0
-        pad_right = (self.window_size - W % self.window_size) % self.window_size
-        pad_bottom = (self.window_size - H % self.window_size) % self.window_size
-        pad = tf.constant([[0,        0,],
-                           [pad_top,  pad_bottom],
-                           [pad_left, pad_right],
-                           [0,        0]])
-        x = tf.pad(x, pad, mode='CONSTANT', constant_values=0)
+        
+        Wh, Ww = self.window_size
+        Sh, Sw = self.shift_size
+        
+        pad_right = (Ww - W % Ww) % Ww
+        pad_bottom = (Wh - H % Wh) % Wh
+        
+        pad = tf.constant(
+            [[0, 0],
+            [0, pad_bottom],
+            [0, pad_right],
+            [0, 0]]
+        )
+        
+        x = tf.pad(x, pad, mode="CONSTANT")
         _, Hp, Wp, _ = x.shape
 
         # cyclic shift
-        if self.shift_size > 0:
-            shifted_x = tf.roll(x, shift=[-self.shift_size, -self.shift_size], axis=[1, 2])
+        if Sh > 0 or Sw > 0:
+            shifted_x = tf.roll(x, shift=[-Sh, -Sw], axis=[1, 2])
         else:
             shifted_x = x
 
         x_windows = window_partition(shifted_x, self.window_size)
-        x_windows = tf.reshape(x_windows, shape=[-1, self.window_size * self.window_size, C])
+        x_windows = tf.reshape(x_windows, shape=[-1, Wh * Ww, C])
 
         # W-MSA/SW-MSA
-        attn_windows = self.attention(x_windows, mask=self.attn_mask)
-        attn_windows = tf.reshape(attn_windows, shape=[-1, self.window_size, self.window_size, C])
+        attn_windows = self.attention(x_windows, mask=self.attn_mask, training=training)
+        attn_windows = tf.reshape(attn_windows, shape=[-1, Wh, Ww, C])
         shifted_x = window_reverse(attn_windows, self.window_size, Hp, Wp, C)
 
         # reverse cyclic shift
-        if self.shift_size > 0:
-            x = tf.roll(shifted_x, shift=[self.shift_size, self.shift_size], axis=[1, 2])
+        if Sh > 0 or Sw > 0:
+            x = tf.roll(shifted_x, shift=[Sh, Sw], axis=[1, 2])
         else:
             x = shifted_x
 
@@ -319,278 +482,322 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
             x = x[:, :H, :W, :]
 
         x = tf.reshape(x, shape=[-1, H * W, C])
-
-        # FFN
-        x = shortcut + self.drop_path(x)
-        x = x + self.drop_path(self.mlp(self.norm_layer2(x)))
+        x = self.norm_layer1(x, training=training)
+        x = shortcut + self.drop_path(x, training=training)
+        x = self.norm_layer2(x, training=training)
+        x = self.mlp(x, training=training)
+        x = x + self.drop_path(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "dim": self.dim,
+            "num_heads": self.num_heads,
+            "input_resolution": self.input_resolution,
+            "window_size": self.window_size,
+            "shift_size": self.shift_size,
+            "mlp_ratio": self.mlp_ratio,
+            "qkv_bias": self.qkv_bias,
+            "pretrained_window_size": self.pretrained_window_size,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps,
+            "drop_path_rate": self.drop_path_rate,
+            "attn_drop_rate": self.attn_drop_rate,
+            "drop_rate": self.drop_rate
+        })
+        return config
 
-def BasicLayer(
-    x, dim, input_resolution, depth, num_heads, window_size,
-    mlp_ratio=4., qkv_bias=True, pretrained_window_size=0, activation='gelu', drop=0., attn_drop=0., drop_path_prob=0., name=""
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
+def Swin_v2(
+    embed_dim=96,
+    patch_size=(4, 4),
+    num_heads=[3, 6, 12, 24],
+    depths=[2, 2, 6, 2],
+    window_size=(7, 7),
+    mlp_ratio=4.0,
+    qkv_bias=True,
+    pretrained_window_size=(0, 0),
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    attn_drop_rate=0.0,
+    drop_path_rate=0.1,
+    drop_rate=0.1
 ):
-    for i in range(depth):
-        x = SwinTransformerBlock(
-                    dim                    = dim,
-                    input_resolution       = input_resolution,
-                    num_heads              = num_heads,
-                    window_size            = window_size,
-                    shift_size             = 0 if (i % 2 == 0) else window_size // 2,
-                    mlp_ratio              = mlp_ratio,
-                    qkv_bias               = qkv_bias,
-                    pretrained_window_size = pretrained_window_size,
-                    activation             = activation,
-                    proj_drop              = drop,
-                    attn_drop              = attn_drop,
-                    drop_path_prob         = drop_path_prob[i] if isinstance(drop_path_prob, list) else drop_path_prob,
-                )(x)
-    return x
-
-
-def Swin_v2(embed_dim=96,
-            patch_size=(4, 4),
-            num_heads=[3, 6, 12, 24],
-            depths=[2, 2, 6, 2],
-            window_size=7,
-            mlp_ratio=4.0,
-            qkv_bias=True,
-            pretrained_window_size=0,
-            include_top=True,
-            weights='imagenet',
-            input_tensor=None,
-            input_shape=None,
-            pooling=None,
-            final_activation="softmax",
-            classes=1000,
-            drop_rate=0.0,
-            attn_drop_rate=0.0,
-            drop_path_rate=0.1):
              
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    patch_size = validate_conv_arg(patch_size)
+    window_size = validate_conv_arg(window_size)
+    pretrained_window_size = validate_conv_arg(pretrained_window_size)
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+        "drop_rate": drop_rate,
+    }
 
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-    x = PatchEmbed(embed_dim, patch_size, drop_rate=drop_rate)(img_input)
-    patches_resolution  = [input_shape[0] // patch_size[0], input_shape[1] // patch_size[1]]
-    dpr                 = [x for x in np.linspace(0., drop_path_rate, sum(depths))]
-    num_layers          = len(depths)
-    for i, (head, depth) in enumerate(zip(num_heads, depths)):
+    x = PatchEmbed(
+        embed_dim=embed_dim,
+        patch_size=patch_size,
+        **layer_constant_dict,
+        name="patch_embedding"
+    )(inputs)
+    
+    patches_resolution = [inputs.shape[1] // patch_size[0], inputs.shape[2] // patch_size[1]]
+    dpr = [x for x in np.linspace(0., drop_path_rate, sum(depths))]
+
+    for i, depth in enumerate(depths):
         dim = int(embed_dim * 2 ** i)
-        input_resolution    = (patches_resolution[0] // (2 ** i), patches_resolution[1] // (2 ** i))
-        x = BasicLayer(x,
-                       dim                    = dim,
-                       input_resolution       = input_resolution,
-                       depth                  = depth,
-                       num_heads              = head,
-                       window_size            = window_size,
-                       mlp_ratio              = mlp_ratio,
-                       qkv_bias               = qkv_bias,
-                       pretrained_window_size = pretrained_window_size,
-                       activation             = 'gelu',
-                       drop                   = drop_rate,
-                       attn_drop              = attn_drop_rate,
-                       drop_path_prob         = dpr[sum(depths[:i]):sum(depths[:i + 1])],
-        )
-        if (i < num_layers - 1):
-            x   = PatchMerging(input_resolution)(x)
+        input_resolution = (patches_resolution[0] // (2 ** i), patches_resolution[1] // (2 ** i))
+        drop_path_prob = dpr[sum(depths[:i]):sum(depths[:i + 1])]
+        
+        for j in range(depth):
+            x = SwinTransformerBlock(
+                dim=dim,
+                num_heads=num_heads[i],
+                input_resolution=input_resolution,
+                window_size=window_size,
+                shift_size=(0, 0) if (j % 2 == 0) else (window_size[0] // 2, window_size[1] // 2),
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                pretrained_window_size=pretrained_window_size,
+                drop_path_rate=drop_path_prob[j] if isinstance(drop_path_prob, list) else drop_path_prob,
+                attn_drop_rate=attn_drop_rate,
+                **layer_constant_dict,
+                name=f"stage_{i + 1}.block_{j + 1}"
+            )(x)
             
-    x = get_normalizer_from_name('layer-norm', epsilon=1e-5)(x)
-                
-    if include_top:
-        x = GlobalAveragePooling1D()(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_maxpool')(x)
+        if (i < len(depths) - 1):
+            x = PatchMerging(
+                input_resolution=input_resolution,
+                **layer_constant_dict,
+                name=f"stage_{i + 1}.block_{j + 2}"
+            )(x)
             
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"stage_{i + 1}.block_{j + 1}.final_norm")(x)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
+    if include_head:
+        x = Sequential([
+            GlobalAveragePooling1D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
 
-    # Create model.
+    model_name = "SwinTransformer-v2"
     if num_heads == [3, 6, 12, 24] and depths == [2, 2, 6, 2]:
-        model = Model(inputs, x, name='SwinTransformer-v2-Tiny')
+        model_name += "-tiny"
     elif num_heads == [3, 6, 12, 24] and depths == [2, 2, 18, 2]:
-        model = Model(inputs, x, name='SwinTransformer-v2-Small')
+        model_name += "-small"
     elif num_heads == [4, 8, 16, 32] and depths == [2, 2, 18, 2]:
-        model = Model(inputs, x, name='SwinTransformer-v2-Base')
+        model_name += "-base"
     elif num_heads == [6, 12, 24, 48] and depths == [2, 2, 18, 2]:
-        model = Model(inputs, x, name='SwinTransformer-v2-Large')
-    else:
-        model = Model(inputs, x, name='SwinTransformer')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+        model_name += "-large"
+        
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def SwinT_v2(include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             drop_rate=0.0,
-             attn_drop_rate=0.0,
-             drop_path_rate=0.2):
+def SwinT_v2(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    attn_drop_rate=0.1,
+    drop_path_rate=0.2,
+    drop_rate=0.1
+):
 
-    model = Swin_v2(embed_dim=96,
-                    patch_size=(4, 4),
-                    num_heads=[3, 6, 12, 24],
-                    depths=[2, 2, 6, 2],
-                    window_size=7,
-                    mlp_ratio=4.0,
-                    qkv_bias=True,
-                    pretrained_window_size=0,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    drop_rate=drop_rate,
-                    attn_drop_rate=attn_drop_rate,
-                    drop_path_rate=drop_rate)
+    model = Swin_v2(
+        embed_dim=96,
+        patch_size=(4, 4),
+        num_heads=[3, 6, 12, 24],
+        depths=[2, 2, 6, 2],
+        window_size=(7, 7),
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        pretrained_window_size=(0, 0),
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        attn_drop_rate=attn_drop_rate,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def SwinS_v2(include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             drop_rate=0.0,
-             attn_drop_rate=0.0,
-             drop_path_rate=0.3):
+def SwinS_v2(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    attn_drop_rate=0.1,
+    drop_path_rate=0.3,
+    drop_rate=0.1
+):
 
-    model = Swin_v2(embed_dim=96,
-                    patch_size=(4, 4),
-                    num_heads=[3, 6, 12, 24],
-                    depths=[2, 2, 18, 2],
-                    window_size=7,
-                    mlp_ratio=4.0,
-                    qkv_bias=True,
-                    pretrained_window_size=0,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    drop_rate=drop_rate,
-                    attn_drop_rate=attn_drop_rate,
-                    drop_path_rate=drop_rate)
+    model = Swin_v2(
+        embed_dim=96,
+        patch_size=(4, 4),
+        num_heads=[3, 6, 12, 24],
+        depths=[2, 2, 18, 2],
+        window_size=(7, 7),
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        pretrained_window_size=(0, 0),
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        attn_drop_rate=attn_drop_rate,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def SwinB_v2(include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             drop_rate=0.0,
-             attn_drop_rate=0.0,
-             drop_path_rate=0.5):
+def SwinB_v2(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    attn_drop_rate=0.1,
+    drop_path_rate=0.5,
+    drop_rate=0.1
+):
 
-    model = Swin_v2(embed_dim=128,
-                    patch_size=(4, 4),
-                    num_heads=[4, 8, 16, 32],
-                    depths=[2, 2, 18, 2],
-                    window_size=7,
-                    mlp_ratio=4.0,
-                    qkv_bias=True,
-                    pretrained_window_size=0,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    drop_rate=drop_rate,
-                    attn_drop_rate=attn_drop_rate,
-                    drop_path_rate=drop_rate)
+    model = Swin_v2(
+        embed_dim=128,
+        patch_size=(4, 4),
+        num_heads=[4, 8, 16, 32],
+        depths=[2, 2, 18, 2],
+        window_size=(7, 7),
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        pretrained_window_size=(0, 0),
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        attn_drop_rate=attn_drop_rate,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def SwinL_v2(include_top=True, 
-             weights='imagenet',
-             input_tensor=None, 
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             drop_rate=0.0,
-             attn_drop_rate=0.0,
-             drop_path_rate=0.5):
+def SwinL_v2(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    attn_drop_rate=0.1,
+    drop_path_rate=0.5,
+    drop_rate=0.1
+):
 
-    model = Swin_v2(embed_dim=192,
-                    patch_size=(4, 4),
-                    num_heads=[6, 12, 24, 48],
-                    depths=[2, 2, 18, 2],
-                    window_size=7,
-                    mlp_ratio=4.0,
-                    qkv_bias=True,
-                    pretrained_window_size=0,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    drop_rate=drop_rate,
-                    attn_drop_rate=attn_drop_rate,
-                    drop_path_rate=drop_rate)
+    model = Swin_v2(
+        embed_dim=192,
+        patch_size=(4, 4),
+        num_heads=[6, 12, 24, 48],
+        depths=[2, 2, 18, 2],
+        window_size=(7, 7),
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        pretrained_window_size=(0, 0),
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        attn_drop_rate=attn_drop_rate,
+        drop_path_rate=drop_path_rate,
+        drop_rate=drop_rate
+    )
     return model
+    

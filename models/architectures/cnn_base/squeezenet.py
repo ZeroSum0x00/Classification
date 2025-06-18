@@ -1,37 +1,76 @@
 """
-  # Description:
-    - The following table comparing the params of the SqueezeNet in Tensorflow on 
-    size 224 x 224 x 3:
+    # Overview:
+        SqueezeNet is a lightweight convolutional neural network architecture
+        designed to achieve AlexNet-level accuracy on ImageNet with significantly
+        fewer parameters — making it ideal for deployment on mobile and embedded systems.
+    
+    # Key Features:
+        - Achieves AlexNet-level accuracy with **~50× fewer parameters** (~1.2M vs ~60M).
+        - Utilizes **Fire Modules**:
+            * A "squeeze" layer (1x1 conv) that reduces depth.
+            * Followed by an "expand" layer with a mix of 1x1 and 3x3 convolutions.
+        - No fully connected layers — replaced with convolution + global average pooling.
+        - Small model size (~5MB), ideal for low-latency or memory-constrained environments.
 
-       -------------------------------------
-      |     Model Name    |    Params       |
-      |-------------------------------------|
-      |    SqueezeNet     |    2,237,904    |
-       -------------------------------------
+    General Model Architecture:
+         -------------------------------------------------------------------------------
+        | Stage                  | Layer                       | Output Shape           |
+        |------------------------+-----------------------------+------------------------|
+        | Input                  | input_layer                 | (None, 224, 224, 3)    |
+        |------------------------+-----------------------------+------------------------|
+        | Stem                   | ConvolutionBlock (7x7, s=2) | (None, 111, 111, 96)   |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 55, 55, 96)     |
+        |------------------------+-----------------------------+------------------------|
+        | Stage 1                | fire_module1                | (None, 55, 55, 128)    |
+        |                        | fire_module2                | (None, 55, 55, 128)    |
+        |                        | fire_module3                | (None, 55, 55, 256)    |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 27, 27, 256)    |
+        |------------------------+-----------------------------+------------------------|
+        | Stage 2                | fire_module4                | (None, 27, 27, 256)    |
+        |                        | fire_module5                | (None, 27, 27, 384)    |
+        |                        | fire_module6                | (None, 27, 27, 384)    |
+        |                        | fire_module7                | (None, 27, 27, 512)    |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 13, 13, 512)    |
+        |------------------------+-----------------------------+------------------------|
+        | Stage 3                | fire_module8                | (None, 13, 13, 512)    |
+        |                        | ConvolutionBlock (1x1, s=1) | (None, 13, 13, 1000)   |
+        |------------------------+-----------------------------+------------------------|
+        | CLS Logics             | AveragePooling              | (None, 1, 1, 1000)     |
+        |                        | Flatten                     | (None, 1000)           |
+        |                        | fc (Logics)                 | (None, 1000)           |
+         -------------------------------------------------------------------------------
+         
+    Model Parameter Comparison:
+         -------------------------------------
+        |     Model Name    |    Params       |
+        |-------------------------------------|
+        |    SqueezeNet     |    2,237,904    |
+         -------------------------------------
 
-  # Reference:
-    - [SQUEEZENET: ALEXNET-LEVEL ACCURACY WITH 50X FEWER PARAMETERS AND <0.5MB MODEL SIZE](https://arxiv.org/pdf/1602.07360.pdf)
-    - Source: https://github.com/guaiguaibao/GoogLeNet_Tensorflow2.0/tree/master/tensorflow2.0/GoogLeNet
-              https://github.com/marload/ConvNets-TensorFlow2/blob/master/models/SqueezeNet.py
-
+    # Reference:
+        - Paper: "SqueezeNet: AlexNet-level accuracy with 50x fewer parameters and <0.5MB model size"
+          https://arxiv.org/abs/1602.07360
+          
+        - PyTorch repository:
+          https://github.com/marload/ConvNets-TensorFlow2/blob/master/models/SqueezeNet.py
 """
 
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    Conv2D, Flatten, Dropout, Dense, MaxPooling2D, AveragePooling2D,
-    GlobalAveragePooling2D, GlobalMaxPooling2D, concatenate
+    Conv2D, Flatten, Dropout, Dense,
+    MaxPooling2D, AveragePooling2D,
+    concatenate,
 )
-from tensorflow.keras.regularizers import l2
 
 from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import process_model_input
+from utils.model_processing import process_model_input, create_model_backbone, check_regularizer
 
 
 
 def fire_module(
-    x,
+    inputs,
     filters,
     squeeze_channel,
     activation="relu",
@@ -44,21 +83,23 @@ def fire_module(
 ):
     if name is None:
         name = f"fire_module_{K.get_uid('fire_module')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
-    x = Conv2D(
-        filters=squeeze_channel,
-        kernel_size=(1, 1),
-        strides=(1, 1),
-        padding="valid",
-        kernel_initializer=kernel_initializer,
-        bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
-        name=f"{name}.conv"
-    )(x)
-    
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.norm")(x)
-    x = get_activation_from_name(activation, name=f"{name}.activ")(x)
-    
+    x = Sequential([
+        Conv2D(
+            filters=squeeze_channel,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"{name}.conv_block")(inputs)
+
     expand_1x1 = Sequential([
         Conv2D(
             filters=filters // 2,
@@ -67,10 +108,10 @@ def fire_module(
             padding="valid",
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
+            kernel_regularizer=regularizer_decay,
         ),
         get_normalizer_from_name(normalizer, epsilon=norm_eps),
-        get_activation_from_name(activation)
+        get_activation_from_name(activation),
     ], name=f"{name}.expand_1x1")(x)
     
     expand_3x3 = Sequential([
@@ -81,10 +122,10 @@ def fire_module(
             padding="same",
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
+            kernel_regularizer=regularizer_decay,
         ),
         get_normalizer_from_name(normalizer, epsilon=norm_eps),
-        get_activation_from_name(activation)
+        get_activation_from_name(activation),
     ], name=f"{name}.expand_3x3")(x)
     
     return concatenate([expand_1x1, expand_3x3], name=f"{name}.fusion")
@@ -94,7 +135,6 @@ def SqueezeNet(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="relu",
     normalizer=None,
     num_classes=1000,
@@ -113,7 +153,8 @@ def SqueezeNet(
     if weights == "imagenet" and include_head and num_classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
-
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -130,33 +171,36 @@ def SqueezeNet(
         min_size=32,
         weights=weights,
     )
+
+    # Stage 0:
+    x = Sequential([
+        Conv2D(
+            filters=96,
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name="stem.block1")(inputs)
     
-    x = Conv2D(
-        filters=96,
-        kernel_size=(3, 3),
-        strides=(2, 2),
-        padding="valid",
-        kernel_initializer=kernel_initializer,
-        bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
-        name="stem.conv"
-    )(inputs)
-    
-    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="stem.norm")(x)
-    x = get_activation_from_name(activation, name="stem.activ")(x)
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stem.pool")(x)
 
+    # Stage 1:
     for i in range(2):
         x = fire_module(
-            x=x,
+            inputs=x,
             filters=128,
             squeeze_channel=16,
             **layer_constant_dict,
-            name=f"stage1.block{i+1}"
+            name=f"stage1.block{i + 1}"
         )
 
     x = fire_module(
-        x,
+        inputs=x,
         filters=256,
         squeeze_channel=32,
         **layer_constant_dict,
@@ -165,8 +209,9 @@ def SqueezeNet(
     
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stage1.pool")(x)
 
+    # Stage 2:
     x = fire_module(
-        x=x,
+        inputs=x,
         filters=256,
         squeeze_channel=32,
         **layer_constant_dict,
@@ -175,15 +220,15 @@ def SqueezeNet(
     
     for i in range(2):
         x = fire_module(
-            x=x,
+            inputs=x,
             filters=384,
             squeeze_channel=48,
             **layer_constant_dict,
-            name=f"stage2.block{i+2}"
+            name=f"stage2.block{i + 2}"
         )
         
     x = fire_module(
-        x=x,
+        inputs=x,
         filters=512,
         squeeze_channel=64,
         **layer_constant_dict,
@@ -192,40 +237,37 @@ def SqueezeNet(
     
     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="stage2.pool")(x)
 
+    # Stage 3:
     x = fire_module(
-        x=x,
+        inputs=x,
         filters=512,
         squeeze_channel=64,
         **layer_constant_dict,
         name="stage3.block1"
     )
     
-    x = Conv2D(
-        filters=1 if num_classes == 2 else num_classes,
-        kernel_size=(1, 1),
-        strides=(1, 1),
-        padding="valid",
-        kernel_initializer=kernel_initializer,
-        bias_initializer=bias_initializer,
-        kernel_regularizer=l2(regularizer_decay),
-        name="stage3.block2"
-    )(x)
-    
-    x = AveragePooling2D((13, 13), strides=(1, 1), name="stage3.pool")(x)
+    x = Sequential([
+        Dropout(rate=drop_rate),
+        Conv2D(
+            filters=1 if num_classes == 2 else num_classes,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+    ], name="stage3.block2")(x)
 
     if include_head:
         x = Sequential([
+            AveragePooling2D(pool_size=(13, 13), strides=(1, 1)),
             Dropout(rate=drop_rate),
-            Flatten(name="flatten"),
+            Flatten(),
             Dropout(drop_rate),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
 
     model = Model(inputs=inputs, outputs=x, name="SqueezeNet")
     return model
@@ -234,26 +276,23 @@ def SqueezeNet(
 def SqueezeNet_backbone(
     inputs=[224, 224, 3],
     weights="imagenet",
-    activation="leaky-relu",
-    normalizer="batch-norm",
+    activation="relu",
+    normalizer=None,
     custom_layers=[]
 ) -> Model:
-
-    model = SqueezeNet(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer
-    )
 
     custom_layers = custom_layers or [
         "stem.activ",
         "stage1.block3.fusion",
         "stage2.block4.fusion",
-        "stage3.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=SqueezeNet,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+    

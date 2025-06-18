@@ -1,56 +1,106 @@
 """
-  # Description:
-    - The following table comparing the params of the Big Transfer (BiT) in Tensorflow on 
-    size 224 x 224 x 3:
-
-       ---------------------------------------
-      |     Model Name      |    Params       |
-      |---------------------------------------|
-      |     BiT_S_R50x1     |   25,549,352    |
-      |---------------------|-----------------|
-      |     BiT_S_R50x3     |   217,177,128   |
-      |---------------------|-----------------|
-      |     BiT_M_R50x1     |   25,549,352    |
-      |---------------------|-----------------|
-      |     BiT_M_R50x3     |   217,177,128   |
-      |---------------------|-----------------|
-      |     BiT_S_R101x1    |   44,541,480    |
-      |---------------------|-----------------|
-      |     BiT_S_R101x3    |   387,792,936   |
-      |---------------------|-----------------|
-      |     BiT_M_R101x1    |   44,541,480    |
-      |---------------------|-----------------|
-      |     BiT_M_R101x3    |   387,792,936   |
-      |---------------------|-----------------|
-      |     BiT_S_R152x4    |   936,258,856   |
-      |---------------------|-----------------|
-      |     BiT_M_R152x4    |   936,258,856   |
-       ---------------------------------------
-
-  # Reference:
-    - [Big Transfer (BiT): General Visual Representation Learning](https://arxiv.org/pdf/1912.11370.pdf)
-    - Source: https://github.com/google-research/big_transfer
-    - Note: The S and M variants of the model are the same but trained on the ImageNet-21k and JFT-300M datasets respectively
+    BiT: Big Transfer Backbone using Pretrained ResNet for Universal Representation
     
+    Overview:
+        BiT (Big Transfer) is a large-scale pretraining framework based on ResNet
+        architectures, designed to transfer well to diverse downstream tasks
+        (classification, detection, segmentation, etc.). It emphasizes **pretraining
+        on massive datasets** (e.g., JFT-300M) and then fine-tuning with minimal task-specific changes.
+    
+        Key innovations include:
+            - Scalable ResNet architectures (BiT-S, BiT-M, BiT-L)
+            - Pretraining on huge, weakly-labeled datasets
+            - Minimal fine-tuning: 1 training run can solve many tasks
+            - Frozen early layers + linear classifier achieves strong performance
+    
+    Key Components:
+        • Scalable ResNet Backbone:
+            - Uses standard ResNet variants: ResNet-50, 101, 152, 200
+            - Trained with minimal tweaks: BatchNorm, ReLU, no tricks
+            - Named as:
+                - **BiT-S**: Trained from scratch on ImageNet-21k
+                - **BiT-M**: Pretrained on JFT-300M
+                - **BiT-L**: Larger ResNet with more capacity
+    
+        • Pretraining Strategy:
+            - Trained on massive datasets using supervised classification objective
+            - Emphasis on **clean design** over architectural novelty
+            - Large-scale training + weight decay + strong augmentations (e.g., RandAugment)
+    
+        • Transfer Learning Pipeline:
+            - Pretrained BiT model is **frozen or partially fine-tuned**
+            - Downstream tasks can be solved with:
+                - Linear head (BiT-L ⭢ SOTA with only logistic regression)
+                - Fine-tuned fully or partially
+
+        • Simplicity Principle:
+            - No custom layers (e.g., attention, gating)
+            - Standard CNN but scaled up and trained properly
+            - Focuses on *data and scale* instead of model complexity
+
+    General Model Architecture:
+         -------------------------------------------------------------------------
+        | Stage         | Layer                         | Output Shape            |
+        |---------------+-------------------------------+-------------------------|
+        | Input         | input_layer                   | (None, 224, 224, 3)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stem          | PaddingFromKernelSize (7x7)   | (None, 225, 225, 3)     |
+        |               | StandardizedConv2D (7x7, s=2) | (None, 112, 112, 64)    |
+        |               | StandardizedConv2D (7x7, s=2) | (None, 114, 114, 64)    |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 1       | MaxPooling2D (3x3, s=2)       | (None, 56, 56, 64)      |
+        |               | bottleneck_unit_v2 (x3)       | (None, 56, 56, 256)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 2       | bottleneck_unit_v2 (s=2)      | (None, 28, 28, 512)     |
+        |               | bottleneck_unit_v2 (x3)       | (None, 28, 28, 512)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 3       | bottleneck_unit_v2 (s=2)      | (None, 14, 14, 1024)    |
+        |               | bottleneck_unit_v2 (x5)       | (None, 14, 14, 1024)    |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 4       | bottleneck_unit_v2 (s=2)      | (None, 7, 7, 2048)      |
+        |               | bottleneck_unit_v2 (x2)       | (None, 7, 7, 2048)      |
+        |---------------+-------------------------------+-------------------------|
+        | CLS Logics    | GlobalAveragePooling2D        | (None, 2048)            |
+        |               | fc (Logics)                   | (None, 1000)            |
+         -------------------------------------------------------------------------
+         
+    Model Parameter Comparison:
+         -------------------------------------
+        |     Model Name    |    Params       |
+        |-------------------|-----------------|
+        |     BiT_R50x1     |   25,549,352    |
+        |-------------------|-----------------|
+        |     BiT_R101x1    |   44,541,480    |
+        |-------------------|-----------------|
+        |     BiT_R50x3     |   217,319,080   |
+        |-------------------|-----------------|
+        |     BiT_R101x3    |   387,934,888   |
+        |-------------------|-----------------|
+        |     BiT_R152x4    |   936,533,224   |
+         -------------------------------------
+
+    
+    References:
+        - Paper: “Big Transfer (BiT): General Visual Representation Learning”  
+          https://arxiv.org/abs/1912.11370
+    
+        - Official code (TensorFlow + JAX):  
+          https://github.com/google-research/big_transfer
+
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import MaxPool2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Dense, Dropout,
+    MaxPooling2D, GlobalAveragePooling2D,
+    add,
+)
+
+from models.layers import get_activation_from_name, get_normalizer_from_name, LinearLayer
+from utils.model_processing import process_model_input, check_regularizer, create_model_backbone
+
 
 
 class PaddingFromKernelSize(tf.keras.layers.Layer):
@@ -73,433 +123,538 @@ class PaddingFromKernelSize(tf.keras.layers.Layer):
                    [0,                         0]]
         return tf.pad(x, padding)
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "kernel_size": self.kernel_size
+        })
+        return config
 
-def stem_block(inputs, filters, conv_size=(7, 7), conv_stride=(2, 2), pool_size=(3, 3), pool_stride=(2, 2)):
-    x = PaddingFromKernelSize(kernel_size=conv_size)(inputs)
-    x = Conv2D(filters=filters,
-               kernel_size=conv_size,
-               strides=conv_stride,
-               use_bias=False)(x)
-    x = PaddingFromKernelSize(kernel_size=pool_size)(x)
-    x = MaxPool2D(pool_size=pool_size, strides=pool_stride, padding="valid")(x)
-    return x
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
-    
-def bottleneck_unit_v2(inputs, num_filters, stride=2, activation='relu', normalizer='group-norm'):
+
+
+class StandardizedConv2D(Conv2D):
+    """
+    Chuẩn hóa kernel trước khi tích chập.
+    Dựa trên paper: https://arxiv.org/abs/1903.10520
+    """
+    def call(self, inputs):
+        # Tính mean và variance theo chiều [0, 1, 2] (H, W, in_channels)
+        mean, var = tf.nn.moments(self.kernel, axes=[0, 1, 2], keepdims=True)
+        # Chuẩn hóa kernel
+        standardized_kernel = (self.kernel - mean) / tf.sqrt(var + 1e-10)
+
+        # Áp dụng phép tích chập
+        outputs = tf.nn.conv2d(
+            inputs,
+            standardized_kernel,
+            strides=self.strides,
+            padding=self.padding.upper(),
+            dilations=self.dilation_rate,
+            data_format='NHWC'
+        )
+
+        if self.use_bias:
+            outputs = tf.nn.bias_add(outputs, self.bias, data_format='NHWC')
+
+        if self.activation is not None:
+            return self.activation(outputs)
+
+        return outputs
+
+      
+def bottleneck_unit_v2(
+    inputs,
+    filters,
+    kernel_size=(3, 3),
+    strides=(2, 2),
+    use_bias=False,
+    activation="relu",
+    normalizer="group-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
     shortcut = inputs
-    x = get_normalizer_from_name(normalizer)(inputs)
-    x = get_activation_from_name(activation)(x)
 
-    if (stride > 1) or (4 * num_filters != inputs.shape[-1]):
-        shortcut = Conv2D(filters=4 * num_filters,
-                          kernel_size=1,
-                          strides=stride,
-                          use_bias=False,
-                          padding="valid")(x)
-    x = Conv2D(filters=num_filters,
-               kernel_size=1,
-               use_bias=False,
-               padding="valid")(x)
-    x = get_normalizer_from_name(normalizer)(x)
-    x = get_activation_from_name(activation)(x)
-    x = PaddingFromKernelSize(kernel_size=3)(x)
-    x = Conv2D(filters=num_filters,
-               kernel_size=3,
-               strides=stride,
-               use_bias=False,
-               padding="valid")(x)
-    x = get_normalizer_from_name(normalizer)(x)
-    x = get_activation_from_name(activation)(x)
-    x = Conv2D(filters=4 * num_filters,
-               kernel_size=1,
-               use_bias=False,
-               padding="valid")(x)
-    return add([x, shortcut])
+    x = Sequential([
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"{name}.pre_norm")(inputs)
+
+    if (max(strides) > 1) or (4 * filters != inputs.shape[-1]):
+        shortcut = StandardizedConv2D(
+            filters=4 * filters,
+            kernel_size=(1, 1),
+            strides=strides,
+            use_bias=use_bias,
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+            name=f"{name}.shortcut"
+        )(x)
+
+    x = Sequential([
+        StandardizedConv2D(
+            filters=filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=use_bias,
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        PaddingFromKernelSize(kernel_size=(3, 3)),
+        StandardizedConv2D(
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            use_bias=use_bias,
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        StandardizedConv2D(
+            filters=4 * filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=use_bias,
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+    ], name=f"{name}.conv_block")(x)
+
+    return add([x, shortcut], name=f"{name}.add")
 
 
-def resnet_block(inputs, filters, stride, iter, activation='relu', normalizer='group-norm'):
-    x = inputs
-    for i in range(1, iter + 1):
-        x = bottleneck_unit_v2(x, filters, (stride if i == 1 else 1), activation=activation, normalizer=normalizer)
-    return x
-
-     
-def ResnetV2(layers,
-             strides,
-             filter_downsample_factor,
-             model_variant,
-             include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000):
-
-    if weights not in {'imagenet', None}:
+def ResnetV2(
+    filters,
+    num_blocks,
+    channel_scale,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
+    
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-    filters = tuple(16 * filter_downsample_factor * 2**b for b in range(len(layers)))
-    
-    x = stem_block(img_input, 64)
-                 
-    for filter, stride, layer in zip(filters, strides, layers):
-        x = resnet_block(x, filter, stride, layer, activation='relu', normalizer='group-norm')
-
-    x = get_activation_from_name('relu')(x)
-    x = get_normalizer_from_name('group-norm')(x)
-
-    if include_top:
-        # Classification block
-        x = GlobalAveragePooling2D()(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D()(x)
-            
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    # Create model.
-    if layers == (3, 4, 6, 3):
-        model = Model(inputs, x, name=f'BiT-{model_variant.upper()}-R50x{filter_downsample_factor//4}')
-    elif layers == (3, 4, 23, 3):
-        model = Model(inputs, x, name=f'BiT-{model_variant.upper()}-R101x{filter_downsample_factor//4}')
-    elif layers == (3, 8, 36, 3):
-        model = Model(inputs, x, name=f'BiT-{model_variant.upper()}-R152x{filter_downsample_factor//4}')
-    else:
-        model = Model(inputs, x, name=f'BiT-{model_variant.upper()}')
-
-    # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            if layers == (3, 4, 6, 3):
-                if filter_downsample_factor / 4 == 1:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-                elif filter_downsample_factor / 4 == 3:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-            elif layers == (3, 4, 23, 3):
-                if filter_downsample_factor / 4 == 1:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-                elif filter_downsample_factor / 4 == 3:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-            elif layers == (3, 8, 36, 3):
-                if filter_downsample_factor / 4 == 4:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-        else:
-            if layers == (3, 4, 6, 3):
-                if filter_downsample_factor / 4 == 1:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-                elif filter_downsample_factor / 4 == 3:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-            elif layers == (3, 4, 23, 3):
-                if filter_downsample_factor / 4 == 1:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-                elif filter_downsample_factor / 4 == 3:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-            elif layers == (3, 8, 36, 3):
-                if filter_downsample_factor / 4 == 4:
-                    if model_variant.upper() == "S":
-                        weights_path = None
-                    elif model_variant.upper() == "M":
-                        weights_path = None
-                        
-        try:
-            if weights_path is not None:
-                model.load_weights(weights_path)
-        except:
-            raise Exception("Imagenet weights is not have this variant!")
-            
-    elif weights is not None:
-        model.load_weights(weights)
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
         
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
-    return model
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
 
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-
-def BiT_S_R50x1(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+    filters = filters if isinstance(filters, (tuple, list)) else [filters * channel_scale**i for i in range(len(num_blocks))]
     
-    model = ResnetV2(layers=(3, 4, 6, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=4,
-                     model_variant='S',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
-    return model
-
-
-def BiT_S_R50x3(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+    x = Sequential([
+        PaddingFromKernelSize(kernel_size=(7, 7)),
+        StandardizedConv2D(
+            filters=filters[0],
+            kernel_size=(7, 7),
+            strides=(2, 2),
+            use_bias=False,
+        ),
+        PaddingFromKernelSize(kernel_size=(3, 3)),
+    ], name="stem")(inputs)
     
-    model = ResnetV2(layers=(3, 4, 6, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=12,
-                     model_variant='S',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
-    return model
+    for i, num_block in enumerate(num_blocks):
+        for j in range(num_block):
+            if i == 0 and j == 0:
+                x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name=f"stage{i + 1}.block{j + 1}")(x)
+            else:
+                x = bottleneck_unit_v2(
+                    inputs=x,
+                    filters=filters[i],
+                    kernel_size=(3, 3),
+                    strides=(2, 2) if (i != 0 and j == 0) else (1, 1),
+                    use_bias=False,
+                    **layer_constant_dict,
+                    name=f"stage{i + 1}.block{j + 1}"
+                )
 
-                    
-def BiT_M_R50x1(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+    x = Sequential([
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"stage{i + 2}.block{j + 2}")(x)
+
+    if include_head:
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
+
+    model_name = "BiT"
+    if num_blocks == (4, 4, 6, 3):
+        model_name += f"-R50x"
+    elif num_blocks == (4, 4, 23, 3):
+        model_name += f"-R101x"
+    elif num_blocks == (4, 8, 36, 3):
+        model_name += f"-R152x"
+    model_name += str(filters[0] // 64)
     
-    model = ResnetV2(layers=(3, 4, 6, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=4,
-                     model_variant='M',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def BiT_M_R50x3(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+def ResnetV2_backbone(
+    filters,
+    num_blocks,
+    channel_scale,
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        f"stage1.block{num_blocks[0]}.add",
+        f"stage2.block{num_blocks[1]}.add",
+        f"stage3.block{num_blocks[2]}.add",
+    ]
+
+    return create_model_backbone(
+        model_fn=ResnetV2,
+        custom_layers=custom_layers,
+        filters=filters,
+        num_blocks=num_blocks,
+        channel_scale=channel_scale,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
     
-    model = ResnetV2(layers=(3, 4, 6, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=12,
-                     model_variant='M',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
-    return model
-
-
-def BiT_S_R101x1(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+def BiT_R50x1(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = ResnetV2(layers=(3, 4, 23, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=4,
-                     model_variant='S',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    model = ResnetV2(
+        filters=64,
+        num_blocks=(4, 4, 6, 3),
+        channel_scale=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def BiT_S_R101x3(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+def BiT_R50x1_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.add",
+        "stage2.block4.add",
+        "stage3.block6.add",
+    ]
+
+    return create_model_backbone(
+        model_fn=BiT_R50x1,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
     
-    model = ResnetV2(layers=(3, 4, 23, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=12,
-                     model_variant='S',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
-    return model
-
-                    
-def BiT_M_R101x1(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+def BiT_R50x3(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = ResnetV2(layers=(3, 4, 23, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=4,
-                     model_variant='M',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    model = ResnetV2(
+        filters=192,
+        num_blocks=(4, 4, 6, 3),
+        channel_scale=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def BiT_M_R101x3(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+def BiT_R50x3_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.add",
+        "stage2.block4.add",
+        "stage3.block6.add",
+    ]
+
+    return create_model_backbone(
+        model_fn=BiT_R50x3,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
     
-    model = ResnetV2(layers=(3, 4, 23, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=12,
-                     model_variant='M',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
-    return model
-
-
-def BiT_S_R152x4(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+def BiT_R101x1(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = ResnetV2(layers=(3, 8, 36, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=16,
-                     model_variant='S',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    model = ResnetV2(
+        filters=64,
+        num_blocks=(4, 4, 23, 3),
+        channel_scale=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def BiT_M_R152x4(include_top=True,
-                weights='imagenet',
-                input_tensor=None,
-                input_shape=None,
-                pooling=None,
-                final_activation="softmax",
-                classes=1000) -> Model:
+def BiT_R101x1_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.add",
+        "stage2.block4.add",
+        "stage3.block23.add",
+    ]
+
+    return create_model_backbone(
+        model_fn=BiT_R101x1,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
     
-    model = ResnetV2(layers=(3, 8, 36, 3),
-                     strides=(1, 2, 2, 2),
-                     filter_downsample_factor=16,
-                     model_variant='M',
-                     include_top=include_top,
-                     weights=weights, 
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape, 
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+def BiT_R101x3(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = ResnetV2(
+        filters=192,
+        num_blocks=(4, 4, 23, 3),
+        channel_scale=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
+
+
+def BiT_R101x3_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.add",
+        "stage2.block4.add",
+        "stage3.block23.add",
+    ]
+
+    return create_model_backbone(
+        model_fn=BiT_R101x3,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    
+def BiT_R152x4(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = ResnetV2(
+        filters=256,
+        num_blocks=(4, 8, 36, 3),
+        channel_scale=2,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+def BiT_R152x4_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="group-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.add",
+        "stage2.block8.add",
+        "stage3.block36.add",
+    ]
+
+    return create_model_backbone(
+        model_fn=BiT_R152x4,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+    

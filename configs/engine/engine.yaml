@@ -49,11 +49,12 @@ Dataset:
             - CenterCrop:
                 size: 224
     dataloader_mode: &dataloader_mode "tf"
+    sampler: "balance"
     get_data_mode: 0
 
 Train:
     train_strategy: "scratch"        # "scratch", "fine-tuning"
-    execution_mode: "graph"          # "eager", "graph"
+    execution_mode: "eager"          # "eager", "graph"
     vram_usage: "limit"             # "full", "growth", "limit"
     vram_limit_mb: null
     mixed_precision_dtype: null
@@ -64,7 +65,6 @@ Train:
     model_save_head: &model_save_head True
     random_seed: 0
     num_workers: &num_workers 4
-    class_weight: "balance"
     batch_size: 8
     epoch:
         start: 0

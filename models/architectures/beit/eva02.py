@@ -1,39 +1,53 @@
 """
-  # Description:
-    - The following table comparing the params of the EVA-02 base BEiT block
-    in Tensorflow on in Tensorflow on size 336 x 336 x 3:
-
-       -------------------------------------------
-      |       Model Name      |      Params       |
-      |-------------------------------------------|
-      |     EVA02-Tiny-14     |      5,645,800    |
-      |-----------------------|-------------------|
-      |     EVA02-Small-14    |     21,907,432    |
-      |-----------------------|-------------------|
-      |     EVA02-Base-14     |     86,330,344    |
-      |-----------------------|-------------------|
-      |     EVA02-Large-14    |    304,030,632    |
-      |-----------------------|-------------------|
-      |     EVA02-Huge-14     |    631,907,944    |
-      |-----------------------|-------------------|
-      |     EVA02-Gaint-14    |    954,763,816    |
-       -------------------------------------------
-
-  # Reference:
-    - [EVA-02: A Visual Representation for Neon Genesis](https://arxiv.org/pdf/2303.11331.pdf)
-
+    Overview:
+        This script summarizes parameter counts for the EVA-02 model family (a.k.a. EVA-CLIP),
+        which builds upon BEiT-style Vision Transformers and is pretrained using large-scale contrastive learning
+        (CLIP-style) with a focus on visual representation quality and scalability.
+    
+        EVA-02 has been adopted as the visual backbone in models like Segment Anything (SAM) and InternVL.
+    
+        All models are implemented in TensorFlow, using input resolution 518 x 518 x 3 and patch size 14.
+        
+    Model Parameter Comparison:
+         -------------------------------------------
+        |       Model Name      |      Params       |
+        |-----------------------+-------------------|
+        |     EVA02-Tiny-14     |      5,645,800    |
+        |-----------------------+-------------------|
+        |     EVA02-Small-14    |     21,907,432    |
+        |-----------------------+-------------------|
+        |     EVA02-Base-14     |     86,330,344    |
+        |-----------------------+-------------------|
+        |     EVA02-Large-14    |    304,030,632    |
+        |-----------------------+-------------------|
+        |     EVA02-Huge-14     |    631,907,944    |
+        |-----------------------+-------------------|
+        |     EVA02-Gaint-14    |    954,763,816    |
+         -------------------------------------------
+       
+    Notes:
+        - Trained with contrastive vision-language objectives (CLIP-style).
+        - "-14" indicates a patch size of 14×14 in the ViT backbone.
+        - Parameter count is for the image encoder only.
+    
+    References:
+        - Paper: "EVA-02: A Visual Representation for Neon Genesis"
+          https://arxiv.org/pdf/2303.11331.pdf
+          
+        - Official PyTorch repository:
+          https://github.com/baaivision/EVA/tree/master/EVA-02
+          
+        - TensorFlow/Keras port by leondgarse:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/beit/eva02.py
 """
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.layers import (
-    Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
-)
-from tensorflow.keras.regularizers import l2
+from tensorflow.keras.layers import Dense, Dropout
 
 from .beit import BEiT
-from models.layers import get_activation_from_name, SAMModel
-from utils.model_processing import process_model_input
+from models.layers import get_activation_from_name
+from utils.model_processing import process_model_input, check_regularizer
 
 
 
@@ -46,15 +60,14 @@ def EVA02(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="swish",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
                  
@@ -67,6 +80,8 @@ def EVA02(
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
         
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     inputs = process_model_input(
         inputs,
         include_head=include_head,
@@ -102,59 +117,36 @@ def EVA02(
         text_positional_dropout=0,
         text_use_positional_embedding=True,
         inputs=inputs,
-        include_head=False,
-        weights=None,
-        pooling=pooling,
+        include_head=include_head,
+        num_classes=num_classes,
+        weights=weights,
         activation=activation,
         normalizer=normalizer,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
-    
-    x = backbone.output
 
-    if include_head:
-        x = Sequential([
-            Dropout(drop_rate),
-            Dense(
-                units=1 if num_classes == 2 else num_classes,
-                kernel_initializer=kernel_initializer,
-                bias_initializer=bias_initializer,
-                kernel_regularizer=l2(regularizer_decay),
-            ),
-            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
-        ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="global_maxpool")(x)
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, outputs, name=name + "_SAM")
-        else:
-            return Model(inputs=inputs, outputs=outputs, name=name)
-            
+    model_name = "EVA02"
     if num_layers == 12:
         if num_heads < 5:
-            model = __build_model(inputs, x, sam_rho, name=f"EVA02-Tiny-{patch_size}")
+            model_name += "-tiny"
         elif num_heads < 8:
-            model = __build_model(inputs, x, sam_rho, name=f"EVA02-Small-{patch_size}")
+            model_name += "-small"
         else:
-            model = __build_model(inputs, x, sam_rho, name=f"EVA02-Base-{patch_size}")
+            model_name += "-base"
     elif num_layers == 24:
-        model = __build_model(inputs, x, sam_rho, name=f"EVA02-Large-{patch_size}")
+        model_name += "-large"
     elif num_layers == 32:
-        model = __build_model(inputs, x, sam_rho, name=f"EVA02-Huge-{patch_size}")
+        model_name += "-huge"
     elif num_layers == 40:
-        model = __build_model(inputs, x, sam_rho, name=f"EVA02-Gaint-{patch_size}")
-    else:
-        model = __build_model(inputs, x, sam_rho, name=f"EVA02-{patch_size}")
+        model_name += "-gaint"
+    model_name += f"-{patch_size}"
         
+    model = Model(inputs=inputs, outputs=backbone.outputs, name=model_name)
     return model
 
 
@@ -162,15 +154,14 @@ def EVA02_T14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="swish",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -183,15 +174,14 @@ def EVA02_T14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -201,15 +191,14 @@ def EVA02_S14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="swish",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -222,15 +211,14 @@ def EVA02_S14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -240,15 +228,14 @@ def EVA02_B14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="swish",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -261,15 +248,14 @@ def EVA02_B14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -279,15 +265,14 @@ def EVA02_L14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="swish",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -300,15 +285,14 @@ def EVA02_L14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -318,15 +302,14 @@ def EVA02_H14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="swish",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -339,15 +322,14 @@ def EVA02_H14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -357,15 +339,14 @@ def EVA02_G14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="swish",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -378,15 +359,14 @@ def EVA02_G14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model

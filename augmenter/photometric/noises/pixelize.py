@@ -9,7 +9,8 @@ def pixelize(image, ratio=.2):
         raise TypeError("img should be image. Got {}".format(type(image)))
 
     im_height, im_width = image.shape[:2]
-    tmp_w, tmp_h = int(im_width * ratio), int(im_height * ratio)
+    tmp_w = max(1, int(im_width * ratio))
+    tmp_h = max(1, int(im_height * ratio))
 
     image = cv2.resize(image, (tmp_w, tmp_h), interpolation=cv2.INTER_NEAREST)
     image = cv2.resize(image, (im_width, im_height), interpolation=cv2.INTER_NEAREST)

@@ -1,8 +1,50 @@
 """
-  # Description:
-    - The following table comparing the params of the ViTImageEncoder (Segment Anything Model) in Tensorflow on 
-    size 1024 x 1024 x 3:
+    ViTImageEncoder: Vision Transformer Backbone for Promptable Dense Representation
+    
+    Overview:
+        ViTImageEncoder is the Vision Transformer (ViT)-based backbone used in the
+        **Segment Anything Model (SAM)**. It encodes input images into dense patch-level
+        representations that support **promptable segmentation** via attention-based decoding.
+    
+        Key innovations include:
+            - Pure ViT backbone with windowed attention for scalability
+            - Flexible patch embeddings that retain spatial resolution
+            - Supports universal prompts (points, boxes, masks) for zero-shot segmentation
+    
+    Key Components:
+        • Patch Embedding:
+            - The input image is divided into fixed-size non-overlapping patches
+            - Each patch is projected into a token using a Conv2d layer:
+                - `Patch size`: typically 16×16 or 14×14 (for ViT-B, ViT-H)
+                - `Embedding dim`: e.g., 768 (ViT-B), 1024 (ViT-L), 1280 (ViT-H)
 
+        • Transformer Encoder:
+            - Stack of ViT blocks: each with Multi-Head Self-Attention (MHSA) and MLP
+            - For efficiency in large models, SAM uses:
+                - **Windowed attention** (localized self-attention within patch regions)
+                - Interleaved with **global attention blocks** every few layers
+    
+            - Each ViT Block:
+                - LayerNorm →
+                - Multi-Head Self-Attention (Windowed or Global) →
+                - LayerNorm →
+                - MLP (2-layer feedforward with GELU)
+    
+        • Positional Embedding:
+            - 2D learnable position embeddings are added to each patch token
+            - Preserves spatial layout essential for segmentation
+    
+        • Output Feature Map:
+            - Final token sequence is reshaped into a 2D grid (downsampled spatial map)
+            - Output shape: `[B, C, H/patch, W/patch]` → used by SAM decoder head
+    
+        • ViT Variants (used in SAM):
+            - **ViT-B** (Base): 12 heads, 12 layers, 768-dim
+            - **ViT-L** (Large): 16 heads, 24 layers, 1024-dim
+            - **ViT-H** (Huge): 16 heads, 32 layers, 1280-dim
+            - All pretrained on SA-1B dataset with masked autoencoding + segmentation objectives
+
+    Model Parameter Comparison:
        -------------------------------------------------
       |        Model Name            |     Params       |
       |-------------------------------------------------|
@@ -12,33 +54,35 @@
       |-------------------------------------------------|
       |     ViTImageEncoder huge     |   631,837,928    |
        -------------------------------------------------
-
-  # Reference:
-    - [Segment Anything](https://ai.meta.com/research/publications/segment-anything/)
-    - Source: https://github.com/facebookresearch/segment-anything
-
+    
+    References:
+        - Paper: “Segment Anything”  
+          https://arxiv.org/abs/2304.02643
+          
+        - Blog/Overview:  
+          https://ai.facebook.com/blog/segment-anything-foundation-model-image-segmentation/
+          
+        - Official PyTorch repository:
+          https://github.com/facebookresearch/segment-anything
+    
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
-import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Dense, Dropout, GlobalAveragePooling2D,
+    add
+)
 
-from models.layers import get_activation_from_name, get_normalizer_from_name, PositionalEmbedding, MLPBlock
-from utils.model_processing import _obtain_input_shape
-
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    PositionalEmbedding, MLPBlock,
+)
+from utils.model_processing import (
+    process_model_input, correct_pad,
+    validate_conv_arg, check_regularizer,
+)
 
 
 def nonoverlap_window_partition(x, window_size):
@@ -60,10 +104,12 @@ def nonoverlap_window_partition(x, window_size):
     pad_w = (window_size - W % window_size) % window_size
 
     if pad_h > 0 or pad_w > 0:
-        pad = tf.constant([[0, 0,],
-                           [0, pad_h],
-                           [0, pad_w],
-                           [0, 0]])
+        pad = tf.constant(
+            [[0, 0,],
+            [0, pad_h],
+            [0, pad_w],
+            [0, 0]]
+        )
         x = tf.pad(x, pad, mode='CONSTANT', constant_values=0)
 
     Hp, Wp = H + pad_h, W + pad_w
@@ -118,11 +164,13 @@ class PatchEmbed(tf.keras.layers.Layer):
         self.hidden_dim = hidden_dim
 
     def build(self, input_shape):
-        self.extractor = Conv2D(filters=self.hidden_dim,
-                                kernel_size=self.patch_size,
-                                strides=self.patch_size,
-                                padding="valid",
-                                name="embedding")
+        self.extractor = Conv2D(
+            filters=self.hidden_dim,
+            kernel_size=self.patch_size,
+            strides=self.patch_size,
+            padding="valid",
+            name="embedding"
+        )
         
     def call(self, inputs, training=False):
         x = self.extractor(inputs, training=training)
@@ -131,9 +179,9 @@ class PatchEmbed(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-                "patch_size": self.patch_size,
-                "hidden_dim": self.hidden_dim,
-            })
+            "patch_size": self.patch_size,
+            "hidden_dim": self.hidden_dim,
+        })
         return config
 
     @classmethod
@@ -180,6 +228,7 @@ class AddingDecomposedRelationPos(tf.keras.layers.Layer):
             rel_pos_resized = tf.squeeze(rel_pos_resized, axis=-1)
         else:
             rel_pos_resized = rel_pos
+            
         # Scale the coords with short length if shapes for q and k are different.
         q_coords = np.arange(q_size)
         q_coords = np.expand_dims(q_coords, axis=-1) * max(k_size / q_size, 1.0)
@@ -206,6 +255,18 @@ class AddingDecomposedRelationPos(tf.keras.layers.Layer):
         attn = tf.reshape(attn, shape=(-1, q_h * q_w, k_h * k_w))
         return attn
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "q_size": self.q_size,
+            "k_size": self.k_size,
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+        
 
 class WindowAttention(tf.keras.layers.Layer):
 
@@ -219,42 +280,71 @@ class WindowAttention(tf.keras.layers.Layer):
             use_rel_pos (bool): If True, add relative positional embeddings to the attention map.
     """
     
-    def __init__(self, dim, num_heads, qkv_bias=True, use_rel_pos=False, *args, **kwargs):
+    def __init__(
+        self,
+        dim,
+        num_heads,
+        qkv_bias=True,
+        use_rel_pos=False,
+        kernel_initializer="glorot_uniform",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        *args, **kwargs
+    ):
         super(WindowAttention, self).__init__(*args, **kwargs)
-        self.dim         = dim
-        self.num_heads   = num_heads
-        self.qkv_bias    = qkv_bias
-        self.head_dim    = dim // num_heads
-        self.scale       = self.head_dim ** -0.5
+        self.dim = dim
+        self.num_heads = num_heads
+        self.qkv_bias = qkv_bias
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
         self.use_rel_pos = use_rel_pos
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         
     def build(self, input_shape):
         q_size = k_size = input_shape[1:3]
-        self.qkv_projection     = Dense(self.dim * 3, use_bias=self.qkv_bias)
-        self.projection         = Dense(self.dim)
-        self.attention          = AddingDecomposedRelationPos(q_size, k_size)
+        
+        self.qkv_projection = Dense(
+            units=self.dim * 3,
+            use_bias=self.qkv_bias,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.regularizer_decay,
+        )
+        
+        self.projection = Dense(
+            units=self.dim,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.regularizer_decay,
+        )
+        
+        self.attention = AddingDecomposedRelationPos(q_size, k_size)
+        
         if self.use_rel_pos:
             self.rel_pos_h = self.add_weight(
-                f'attn.relative_position_height',
-                shape       = ((2 * input_shape[1] - 1), self.head_dim),
+                shape = ((2 * input_shape[1] - 1), self.head_dim),
                 initializer = tf.initializers.zeros(),
-                trainable   = True
+                trainable = True,
+                name=f'attn.relative_position_height'
             )
+            
             self.rel_pos_w = self.add_weight(
-                f'attn.relative_position_width',
-                shape       = ((2 * input_shape[2] - 1), self.head_dim),
+                shape = ((2 * input_shape[2] - 1), self.head_dim),
                 initializer = tf.initializers.zeros(),
-                trainable   = True
+                trainable = True,
+                name=f'attn.relative_position_width'
             )
             
     def call(self, inputs, training=False):
         B_, H, W, C = inputs.shape
-        qkv         = self.qkv_projection(inputs, training=training)
-        qkv         = tf.reshape(qkv, shape=[-1, H * W, 3, self.num_heads, C // self.num_heads])        
-        qkv         = tf.transpose(qkv, perm=[2, 0, 3, 1, 4])
-        qkv         = tf.reshape(qkv, shape=[3, -1 , H * W, C // self.num_heads])
-        q, k, v     = qkv[0], qkv[1], qkv[2]
-        attn        = (q * self.scale) @ tf.transpose(k, perm=[0, 2 ,1])
+        qkv = self.qkv_projection(inputs, training=training)
+        qkv = tf.reshape(qkv, shape=[-1, H * W, 3, self.num_heads, C // self.num_heads])        
+        qkv = tf.transpose(qkv, perm=[2, 0, 3, 1, 4])
+        qkv = tf.reshape(qkv, shape=[3, -1 , H * W, C // self.num_heads])
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        attn = (q * self.scale) @ tf.transpose(k, perm=[0, 2 ,1])
 
         if self.use_rel_pos:
             attn = self.attention(attn, q, self.rel_pos_h, self.rel_pos_w)
@@ -267,7 +357,24 @@ class WindowAttention(tf.keras.layers.Layer):
         x = self.projection(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "dim": self.dim,
+            "num_heads": self.num_heads,
+            "qkv_bias": self.qkv_bias,
+            "use_rel_pos": self.use_rel_pos,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class SwinTransformerBlock(tf.keras.layers.Layer):
 
     """
@@ -279,35 +386,71 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
             window_size (int): Window size.
             mlp_ratio (float): Ratio of mlp hidden dim to embedding dim.
             qkv_bias (bool, optional): If True, add a learnable bias to query, key, value. Default: True
+            use_rel_pos (bool): If True, add relative positional embeddings to the attention map.
             activation (str or object): Activation layer.
             normalizer (str or object): Normalization layer.
-            use_rel_pos (bool): If True, add relative positional embeddings to the attention map.
-            proj_drop (float, optional): Dropout rate. Default: 0.0
+            drop_rate (float, optional): Dropout rate. Default: 0.0
     """
     
-    def __init__(self, dim, num_heads, window_size=0, mlp_ratio=4., qkv_bias=True, activation='gelu', normalizer='layer-norm', use_rel_pos=False, proj_drop=0., *args, **kwargs):
+    def __init__(
+        self,
+        dim,
+        num_heads,
+        window_size=0,
+        mlp_ratio=4.,
+        qkv_bias=True,
+        use_rel_pos=False,
+        activation="gelu",
+        normalizer="layer-norm",
+        kernel_initializer="glorot_uniform",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        drop_rate=0.,
+        *args, **kwargs
+    ):
         super(SwinTransformerBlock, self).__init__(*args, **kwargs)
         self.dim = dim
         self.num_heads = num_heads
         self.window_size = window_size
         self.mlp_ratio = mlp_ratio
         self.qkv_bias = qkv_bias
+        self.use_rel_pos = use_rel_pos
         self.activation = activation
         self.normalizer = normalizer
-        self.use_rel_pos = use_rel_pos
-        self.proj_drop  = proj_drop
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.regularizer_decay = check_regularizer(regularizer_decay)
+        self.norm_eps = norm_eps
+        self.drop_rate = drop_rate
 
     def build(self, input_shape):
-        self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
-        self.attention   = WindowAttention(dim=self.dim,
-                                           num_heads=self.num_heads,
-                                           qkv_bias=self.qkv_bias,
-                                           use_rel_pos=self.use_rel_pos)
-        self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=1e-5)
-        mlp_hidden_dim   = int(self.dim * self.mlp_ratio)
-        self.mlp         = MLPBlock(mlp_dim=mlp_hidden_dim,
-                                    activation=self.activation,
-                                    drop_rate=self.proj_drop)
+        mlp_hidden_dim = int(self.dim * self.mlp_ratio)
+        
+        self.attention = WindowAttention(
+            dim=self.dim,
+            num_heads=self.num_heads,
+            qkv_bias=self.qkv_bias,
+            use_rel_pos=self.use_rel_pos,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+        )
+        
+        self.mlp = MLPBlock(
+            mlp_dim=mlp_hidden_dim,
+            out_dim=-1,
+            activation=self.activation,
+            normalizer=None,
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            regularizer_decay=self.regularizer_decay,
+            norm_eps=self.norm_eps,
+            drop_rate=self.drop_rate
+        )
+        
+        self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
+        self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         
     def call(self, inputs, training=False):
         shortcut = inputs
@@ -327,231 +470,271 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
         y = self.mlp(y, training=training)
         return x + y
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "dim": self.dim,
+            "num_heads": self.num_heads,
+            "window_size": self.window_size,
+            "mlp_ratio": self.mlp_ratio,
+            "qkv_bias": self.qkv_bias,
+            "use_rel_pos": self.use_rel_pos,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps,
+            "drop_rate": self.drop_rate
+        })
+        return config
 
-def BasicLayer(
-    x, dim, depth, num_heads, window_size, mlp_ratio=4., qkv_bias=True, activation='gelu', normalizer='layer-norm', use_rel_pos=False, global_attn_indexes=(), proj_drop=0., name=""
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
+def ViTImageEncoder(
+    filters=256,
+    embed_dim=768,
+    patch_size=(16, 16),
+    num_heads=12,
+    depth=12,
+    window_size=7,
+    mlp_ratio=4.0,
+    qkv_bias=True,
+    use_abs_pos=True,
+    use_rel_pos=False,
+    global_attn_indexes=[],
+    inputs=[1024, 1024, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
 ):
-    for i in range(depth):
-        x = SwinTransformerBlock(
-                    dim                 = dim,
-                    num_heads           = num_heads,
-                    window_size         = window_size if i not in global_attn_indexes else 0,
-                    mlp_ratio           = mlp_ratio,
-                    qkv_bias            = qkv_bias,
-                    activation          = activation,
-                    normalizer          = normalizer,
-                    use_rel_pos         = use_rel_pos,
-                    proj_drop           = proj_drop,
-                    name                = f"SwinTransformerBlock.block_{i}")(x)
-    return x
 
-
-def ViTImageEncoder(filters=256,
-                    embed_dim=768,
-                    patch_size=(16, 16),
-                    num_heads=12,
-                    depth=12,
-                    window_size=7,
-                    mlp_ratio=4.0,
-                    qkv_bias=True,
-                    use_abs_pos=True,
-                    use_rel_pos=False,
-                    global_attn_indexes=(),
-                    include_top=True,
-                    weights='imagenet',
-                    input_tensor=None,
-                    input_shape=None,
-                    pooling=None,
-                    final_activation="softmax",
-                    classes=1000,
-                    drop_rate=0.0):
-                        
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
         
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=1024,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+        "drop_rate": drop_rate,
+    }
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=1024,
+        min_size=32,
+        weights=weights
+    )
 
-    x = PatchEmbed(patch_size, embed_dim, name="patched_embedding")(img_input)
+    x = PatchEmbed(patch_size, embed_dim, name="patched_embedding")(inputs)
 
     if use_abs_pos:
         pe_init = tf.random_normal_initializer(stddev=0.06)
-        pos_embed = tf.Variable(name="pos_embedding",
-                                initial_value=pe_init(shape=(1, input_shape[0] // patch_size[0], input_shape[1] // patch_size[1], embed_dim)),
-                                dtype=tf.float32,
-                                trainable=True)
-        x = add([x, pos_embed], name="add_positional_embedding")
+        pos_embed = tf.Variable(
+            initial_value=pe_init(shape=(1, inputs.shape[1] // patch_size[0], inputs.shape[2] // patch_size[1], embed_dim)),
+            dtype=tf.float32,
+            trainable=True,
+            name="pos_embedding",
+        )
         
-    x = BasicLayer(x,
-                   dim                 = embed_dim,
-                   depth               = depth,
-                   num_heads           = num_heads,
-                   window_size         = window_size,
-                   mlp_ratio           = mlp_ratio,
-                   qkv_bias            = qkv_bias,
-                   activation          = 'gelu',
-                   normalizer          = 'layer-norm',
-                   use_rel_pos         = use_rel_pos,
-                   global_attn_indexes = global_attn_indexes,
-                   proj_drop           = drop_rate)
-                        
+        x = add([x, pos_embed], name="add_positional_embedding")
+
+    for i in range(depth):
+        x = SwinTransformerBlock(
+            dim=embed_dim,
+            num_heads=num_heads,
+            window_size=window_size if i not in global_attn_indexes else 0,
+            mlp_ratio=mlp_ratio,
+            qkv_bias=qkv_bias,
+            use_rel_pos=use_rel_pos,
+            **layer_constant_dict,
+            name=f"block_{i}")(x)
+
     x = Sequential([
-        Conv2D(filters=filters,
-               kernel_size=(1, 1),
-               strides=(1, 1),
-               padding="valid",
-               use_bias=False),
-        get_normalizer_from_name('layer-norm'),
-        Conv2D(filters=filters,
-               kernel_size=(3, 3),
-               strides=(1, 1),
-               padding="same",
-               use_bias=False),
-        get_normalizer_from_name('layer-norm'),
+        Conv2D(
+            filters=filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding="valid",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        Conv2D(
+            filters=filters,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            padding="same",
+            use_bias=False,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
     ], name="neck")(x)
 
-    if include_top:
-        x = GlobalAveragePooling2D()(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avgpool')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_maxpool')(x)
+    if include_head:
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    # Create model.
-    model = Model(inputs, x, name='ViTImageEncoder')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model_name = "ViTImageEncoder"
+    if embed_dim == 768 and num_heads == 12 and depth == 12:
+        model_name += "-base"
+    elif embed_dim == 1024 and num_heads == 16 and depth == 24:
+        model_name += "-large"
+    elif embed_dim == 1280 and num_heads == 16 and depth == 32:
+        model_name += "-huge"
+        
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def ViTImageEncoder_B(include_top=True, 
-                      weights='imagenet',
-                      input_tensor=None, 
-                      input_shape=None,
-                      pooling=None,
-                      final_activation="softmax",
-                      classes=1000,
-                      drop_rate=0.0):
+def ViTImageEncoder_B(
+    inputs=[1024, 1024, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    model = ViTImageEncoder(filters=256,
-                            embed_dim=768,
-                            patch_size=(16, 16),
-                            num_heads=12,
-                            depth=12,
-                            window_size=14,
-                            mlp_ratio=4,
-                            qkv_bias=True,
-                            use_abs_pos=True,
-                            use_rel_pos=False,
-                            global_attn_indexes=[2, 5, 8, 11],
-                            include_top=include_top,
-                            weights=weights, 
-                            input_tensor=input_tensor, 
-                            input_shape=input_shape, 
-                            pooling=pooling, 
-                            final_activation=final_activation,
-                            classes=classes,
-                            drop_rate=drop_rate)
+    model = ViTImageEncoder(
+        filters=256,
+        embed_dim=768,
+        patch_size=(16, 16),
+        num_heads=12,
+        depth=12,
+        window_size=14,
+        mlp_ratio=4,
+        qkv_bias=True,
+        use_abs_pos=True,
+        use_rel_pos=False,
+        global_attn_indexes=[2, 5, 8, 11],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ViTImageEncoder_L(include_top=True, 
-                      weights='imagenet',
-                      input_tensor=None, 
-                      input_shape=None,
-                      pooling=None,
-                      final_activation="softmax",
-                      classes=1000,
-                      drop_rate=0.0):
+def ViTImageEncoder_L(
+    inputs=[1024, 1024, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    model = ViTImageEncoder(filters=256,
-                            embed_dim=1024,
-                            patch_size=(16, 16),
-                            num_heads=16,
-                            depth=24,
-                            window_size=14,
-                            mlp_ratio=4,
-                            qkv_bias=True,
-                            use_abs_pos=True,
-                            use_rel_pos=False,
-                            global_attn_indexes=[5, 11, 17, 23],
-                            include_top=include_top,
-                            weights=weights, 
-                            input_tensor=input_tensor, 
-                            input_shape=input_shape, 
-                            pooling=pooling, 
-                            final_activation=final_activation,
-                            classes=classes,
-                            drop_rate=drop_rate)
+    model = ViTImageEncoder(
+        filters=256,
+        embed_dim=1024,
+        patch_size=(16, 16),
+        num_heads=16,
+        depth=24,
+        window_size=14,
+        mlp_ratio=4,
+        qkv_bias=True,
+        use_abs_pos=True,
+        use_rel_pos=False,
+        global_attn_indexes=[5, 11, 17, 23],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ViTImageEncoder_H(include_top=True, 
-                      weights='imagenet',
-                      input_tensor=None, 
-                      input_shape=None,
-                      pooling=None,
-                      final_activation="softmax",
-                      classes=1000,
-                      drop_rate=0.0):
+def ViTImageEncoder_H(
+    inputs=[1024, 1024, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
 
-    model = ViTImageEncoder(filters=256,
-                            embed_dim=1280,
-                            patch_size=(16, 16),
-                            num_heads=16,
-                            depth=32,
-                            window_size=14,
-                            mlp_ratio=4,
-                            qkv_bias=True,
-                            use_abs_pos=True,
-                            use_rel_pos=False,
-                            global_attn_indexes=[7, 15, 23, 31],
-                            include_top=include_top,
-                            weights=weights, 
-                            input_tensor=input_tensor, 
-                            input_shape=input_shape, 
-                            pooling=pooling, 
-                            final_activation=final_activation,
-                            classes=classes,
-                            drop_rate=drop_rate)
+    model = ViTImageEncoder(
+        filters=256,
+        embed_dim=1280,
+        patch_size=(16, 16),
+        num_heads=16,
+        depth=32,
+        window_size=14,
+        mlp_ratio=4,
+        qkv_bias=True,
+        use_abs_pos=True,
+        use_rel_pos=False,
+        global_attn_indexes=[7, 15, 23, 31],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
+    

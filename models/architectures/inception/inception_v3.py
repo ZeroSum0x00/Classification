@@ -1,17 +1,102 @@
 """
-  # Description:
-    - The following table comparing the params of the Inception v3 in Tensorflow on 
-    size 299 x 299 x 3:
+    InceptionV3: Enhanced Multi-Branch Backbone with Factorized Convolutions and Label Smoothing
+    
+    Overview:
+        InceptionV3 is an improved version of the original Inception (GoogLeNet)
+        architecture, focusing on improving both performance and efficiency
+        through several design innovations.
+    
+        It refines the Inception module by factorizing convolutions (e.g., 3x3 into 1x3 + 3x1),
+        introducing auxiliary losses, label smoothing regularization, and batch normalization.
+        The architecture is deeper, wider, and more optimized for training and inference speed.
+    
+        Key innovations include:
+            - Factorized Convolutions: Reduces computation while preserving receptive field
+            - Grid Size Reduction: Efficient downsampling without feature loss
+            - Auxiliary Classifiers: Used for deep supervision and regularization
+    
+    Key Components:
+        • Inception Module v3:
+            - An evolution of the original Inception block with factorized convolutions:
+                • 3×3 replaced with 1×3 + 3×1
+                • 5×5 replaced with two 3×3
+            - Multi-branch processing:
+                • 1×1 conv
+                • 1×1 → (1×3 + 3×1) conv
+                • 1×1 → two 3×3 convs
+                • 3×3 max pool → 1×1 conv
+            - Outputs from all branches are concatenated.
+    
+        • Factorized Convolutions:
+            - High-cost convolutions (e.g., 7×7) are broken into smaller kernels to reduce FLOPs.
+            - Example: A 7×7 convolution becomes a 1×7 followed by a 7×1.
+    
+        • Grid Size Reduction:
+            - Replaces stride-2 pooling with more structured downsampling:
+                • Parallel 3×3 stride-2 conv
+                • 3×3 conv followed by 3×3 stride-2 conv
+                • 3×3 stride-2 max pooling
+            - Merges all branches for efficient spatial resolution reduction.
+    
+        • Auxiliary Classifiers:
+            - Intermediate outputs used during training for better gradient flow.
+            - Each auxiliary head includes average pooling → 1x1 conv → FC layers → softmax.
+    
+        • Label Smoothing & Regularization:
+            - Adds a small probability to incorrect classes to reduce overconfidence.
+            - Improves generalization and robustness of predictions.
+    
+        • Batch Normalization:
+            - Applied throughout the network to accelerate training convergence and stability.
+    
+    General Model Architecture:
+         --------------------------------------------------------------------------------
+        | Stage                  | Layer                       | Output Shape            |
+        |------------------------+-----------------------------+-------------------------|
+        | Input                  | input_layer                 | (None, 299, 299, 3)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stem                   | ConvolutionBlock (7x7, s=2) | (None, 112, 112, 64)    |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 56, 56, 64)      |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 1                | ConvolutionBlock (1x1, s=1) | (None, 56, 56, 64)      |
+        |                        | ConvolutionBlock (3x3, s=1) | (None, 56, 56, 192)     |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 28, 28, 192)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 2                | inception_block_v1          | (None, 28, 28, 256)     |
+        |                        | inception_block_v1          | (None, 28, 28, 480)     |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 14, 14, 480)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 3                | inception_block_v1          | (None, 14, 14, 512)     |
+        |                        | inception_block_v1          | (None, 14, 14, 512)     |
+        |                        | inception_block_v1          | (None, 14, 14, 512)     |
+        |                        | inception_block_v1          | (None, 14, 14, 528)     |
+        |                        | inception_block_v1          | (None, 14, 14, 832)     |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 7, 7, 832)       |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 4                | inception_block_v1          | (None, 7, 7, 832)       |
+        |                        | inception_block_v1          | (None, 7, 7, 1024)      |
+        |------------------------+-----------------------------+-------------------------|
+        | CLS Logics             | AveragePooling2D (7x7, s=1) | (None, 1, 1, 1024)      |
+        |                        | Flatten                     | (None, 1024)            |
+        |                        | fc (Logics)                 | (None, 1000)            |
+         --------------------------------------------------------------------------------
+         
+    Model Parameter Comparison:
+         --------------------------------------
+        |     Model Name     |    Params       |
+        |--------------------------------------|
+        |    Inception v3    |   23,869,000    |
+         --------------------------------------
 
-       --------------------------------------
-      |     Model Name     |    Params       |
-      |--------------------------------------|
-      |    Inception v3    |   23,869,000    |
-       --------------------------------------
-
-  # Reference:
-    - [An image is worth 16x16 words: transformers for image recognition at scale](https://arxiv.org/pdf/2010.11929.pdf)
-    - Source: https://github.com/faustomorales/vit-keras
+    References:
+        - Paper: “Rethinking the Inception Architecture for Computer Vision”
+          https://arxiv.org/abs/1512.00567
+    
+        - TensorFlow/Keras implementation:
+          https://github.com/keras-team/keras-applications/blob/master/keras_applications/inception_v3.py
+    
+        - PyTorch implementation:
+          https://github.com/pytorch/vision/blob/main/torchvision/models/inception.py
 
 """
 
@@ -20,14 +105,12 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv2D, Dense, Dropout,
-    MaxPooling2D, AveragePooling2D,
-    GlobalMaxPooling2D, GlobalAveragePooling2D,
-    concatenate
+    MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D,
+    concatenate,
 )
-from tensorflow.keras.regularizers import l2
 
 from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import process_model_input
+from utils.model_processing import process_model_input, check_regularizer, create_model_backbone
 
 
 def convolution_block(
@@ -47,6 +130,8 @@ def convolution_block(
 ):
     if name is None:
         name = f"convolution_block_{K.get_uid('convolution_block')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     return Sequential([
         Conv2D(
@@ -57,7 +142,7 @@ def convolution_block(
             use_bias=use_bias,
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
+            kernel_regularizer=regularizer_decay,
         ),
         get_normalizer_from_name(normalizer, epsilon=norm_eps),
         get_activation_from_name(activation),
@@ -77,6 +162,8 @@ def stem_block(
 ):
     if name is None:
         name = f"stem_block_{K.get_uid('stem_block')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     x = convolution_block(
         inputs=inputs,
@@ -190,6 +277,7 @@ def inception_block_A(
 
     filters_branch1 = [filters_branch1] if isinstance(filters_branch1, int) else filters_branch1
     filters_branch4 = [filters_branch4] if isinstance(filters_branch4, int) else filters_branch4
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     # Branch 1: 1x1 Convolution
     branch1 = convolution_block(
@@ -328,6 +416,7 @@ def inception_block_B(
         name = f"inception_block_b_{K.get_uid('inception_block_b')}"
 
     filters_branch1 = [filters_branch1] if isinstance(filters_branch1, int) else filters_branch1
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     # Branch 1: 3x3 Convolution with stride 2
     branch1 = convolution_block(
@@ -425,6 +514,7 @@ def inception_block_C(
 
     filters_branch1 = [filters_branch1] if isinstance(filters_branch1, int) else filters_branch1
     filters_branch4 = [filters_branch4] if isinstance(filters_branch4, int) else filters_branch4
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     # Branch 1: 1x1 Convolution
     branch1 = convolution_block(
@@ -606,6 +696,8 @@ def inception_block_D(
 ):
     if name is None:
         name = f"inception_block_d_{K.get_uid('inception_block_d')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     # Branch 1: 1x1 conv -> 3x3 conv with stride 2
     branch1 = convolution_block(
@@ -697,6 +789,7 @@ def inception_block_E(
 
     filters_branch1 = [filters_branch1] if isinstance(filters_branch1, int) else filters_branch1
     filters_branch4 = [filters_branch4] if isinstance(filters_branch4, int) else filters_branch4
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     # Branch 1x1
     branch1x1 = convolution_block(
@@ -795,7 +888,6 @@ def Inception_v3(
     inputs=[299, 299, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -814,7 +906,8 @@ def Inception_v3(
     if weights == "imagenet" and include_head and num_classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
-
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -902,18 +995,13 @@ def Inception_v3(
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="avg_pool")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="max_pool")(x)
 
     if num_blocks == [3, 4, 2]:
-        name = "Inception-base-v3"
+        model_name = "Inception-base-v3"
     else:
-        name = "Inception-v3"
+        model_name = "Inception-v3"
         
-    model = Model(inputs=inputs, outputs=x, name=name)
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -926,15 +1014,6 @@ def Inception_v3_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = Inception_v3(
-        num_blocks=num_blocks,
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
-
     custom_layers = custom_layers or [
         "stem.block3",
         "stage1.block2",
@@ -942,16 +1021,21 @@ def Inception_v3_backbone(
         f"stage2.block{num_blocks[1] + 1}.merger",
     ]
     
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=Inception_v3,
+        custom_layers=custom_layers,
+        num_blocks=num_blocks,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def Inception_base_v3(
     inputs=[299, 299, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -967,7 +1051,6 @@ def Inception_base_v3(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -988,14 +1071,6 @@ def Inception_base_v3_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = Inception_base_v3(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
-
     custom_layers = custom_layers or [
         "stem.block3",
         "stage1.block2",
@@ -1003,6 +1078,11 @@ def Inception_base_v3_backbone(
         "stage2.block5.merger",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=Inception_base_v3,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )

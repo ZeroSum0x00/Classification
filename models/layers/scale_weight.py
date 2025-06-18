@@ -9,32 +9,40 @@ class ScaleWeight(tf.keras.layers.Layer):
         self.use_bias = use_bias
         
     def build(self, input_shape):
-        weights_init = tf.keras.initializers.Constant(value=self.scale_ratio)
-        self.weight_ratio = tf.Variable(
-            initial_value=weights_init(shape=(input_shape[-1])),
+        self.weight_ratio = self.add_weight(
+            shape=(input_shape[-1],),
+            initializer=tf.keras.initializers.Constant(value=self.scale_ratio),
             trainable=True,
-            name=f"scale-weight/weights"
+            name="weight_ratio"
         )
+        
         if self.use_bias:
-            bias_init = tf.keras.initializers.Zeros()
-            self.bias = tf.Variable(
-            initial_value=bias_init(shape=(input_shape[-1])),
-            trainable=True,
-            name=f"scale-weight/bias"
-        )
+            self.bias = self.add_weight(
+                shape=(input_shape[-1],),
+                initializer=tf.keras.initializers.Zeros(),
+                trainable=True,
+                name="bias"
+            )
+        else:
+            self.bias = None
+            
         super(ScaleWeight, self).build(input_shape)
 
     def call(self, inputs, training=False):
-        if hasattr(self, "bias"):
-            return inputs * self.weight_ratio + self.bias
-        else:
-            return inputs * self.weight_ratio
+        output = inputs * self.weight_ratio
+        if self.bias is not None:
+            output += self.bias
+        return output
 
     def get_config(self):
-        config = super(ScaleWeight, self).get_config()
+        config = super().get_config()
         config.update({
             "scale_ratio": self.scale_ratio,
             "use_bias": self.use_bias
         })
         return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
     

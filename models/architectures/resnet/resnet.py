@@ -1,638 +1,701 @@
 """
-  # Description:
-    - The following table comparing the params of the ResNet in Tensorflow on 
-    size 224 x 224 x 3:
+    ResNet: Deep Residual Backbone with Identity Shortcut Connections
+    
+    Overview:
+        ResNet (Residual Network) is a foundational CNN architecture that introduced
+        **residual connections**, enabling the training of very deep networks by
+        addressing the vanishing gradient problem. Its design has made it a standard
+        backbone for a wide range of vision tasks (classification, detection, segmentation).
+    
+        Key innovations include:
+            - Identity Shortcut Connections: Bypass path for better gradient flow
+            - Residual Learning: Models the residual function F(x) = H(x) - x
+            - Deep but Efficient: Enables networks with 50, 101, 152+ layers
+    
+    Key Components:
+        • Residual Block:
+            - Main unit of ResNet architecture
+            - Composed of 2 or 3 convolutions + BatchNorm + ReLU, with a shortcut connection:
 
-       --------------------------------------
-      |     Model Name      |    Params      |
-      |--------------------------------------|
-      |     ResNet-18       |   11,708,328   |
-      |---------------------|----------------|
-      |     ResNet-34       |   21,827,624   |
-      |---------------------|----------------|
-      |     ResNet-50       |   25,636,712   |
-      |---------------------|----------------|
-      |     ResNet-101      |   44,707,176   |
-      |---------------------|----------------|
-      |     ResNet-152      |   60,419,944   |
-       --------------------------------------
+            - If input and output dimensions differ, the shortcut has a 1×1 conv (projection)
+            - Two types:
+                - **BasicBlock** (used in ResNet-18/34)
+                - **Bottleneck** (used in ResNet-50/101/152): 1x1 → 3x3 → 1x1 conv
+    
+        • Bottleneck Block:
+            - 1×1 conv (reduce channels) →
+            - 3×3 conv (process features) →
+            - 1×1 conv (expand channels) →
+            - Residual add + ReLU
+    
+        • Downsampling:
+            - Achieved by:
+                - Stride = 2 in some convolutions (usually 1st conv of a stage)
+                - 1×1 conv in shortcut if dimensions change
+    
+        • Network Staging:
+            - The network is structured in multiple stages:
 
-  # Reference:
-    - [Deep Residual Learning for Image Recognition](https://arxiv.org/pdf/1512.03385.pdf)
-    - Source: https://github.com/keras-team/keras-applications/blob/master/keras_applications/resnet50.py
+        • Variants:
+            - **ResNet-18 / 34**: Use BasicBlock
+            - **ResNet-50 / 101 / 152**: Use BottleneckBlock
+            - Pretrained variants widely available
+
+    General Model Architecture:
+         -------------------------------------------------------------------------
+        | Stage         | Layer                         | Output Shape            |
+        |---------------+-------------------------------+-------------------------|
+        | Input         | input_layer                   | (None, 224, 224, 3)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stem          | ZeroPadding2D (3x3)           | (None, 230, 230, 3)     |
+        |               | ConvolutionBlock (7x7, s=2)   | (None, 112, 112, 64)    |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 1       | MaxPooling2D (3x3, s=2)       | (None, 55, 55, 64)      |
+        |               | resnet_block (x3)             | (None, 55, 55, 256)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 2       | resnet_block (s=2)            | (None, 28, 28, 512)     |
+        |               | resnet_block (x3)             | (None, 28, 28, 512)     |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 3       | resnet_block (s=2)            | (None, 14, 14, 1024)    |
+        |               | resnet_block (x5)             | (None, 14, 14, 1024)    |
+        |---------------+-------------------------------+-------------------------|
+        | Stage 4       | resnet_block (s=2)            | (None, 7, 7, 2048)      |
+        |               | resnet_block (x2)             | (None, 7, 7, 2048)      |
+        |---------------+-------------------------------+-------------------------|
+        | CLS Logics    | AveragePooling2D              | (None, 1, 1, 2048)      |
+        |               | Flatten                       | (None, 2048)            |
+        |               | fc (Logics)                   | (None, 1000)            |
+         -------------------------------------------------------------------------
+
+    Model Parameter Comparison:
+         --------------------------------------
+        |     Model Name      |    Params      |
+        |--------------------------------------|
+        |     ResNet-18       |   11,708,328   |
+        |---------------------|----------------|
+        |     ResNet-34       |   21,827,624   |
+        |---------------------|----------------|
+        |     ResNet-50       |   25,636,712   |
+        |---------------------|----------------|
+        |     ResNet-101      |   44,707,176   |
+        |---------------------|----------------|
+        |     ResNet-152      |   60,419,944   |
+         --------------------------------------
+
+    References:
+        - Paper: “Deep Residual Learning for Image Recognition”  
+          https://arxiv.org/abs/1512.03385
+    
+        - Official PyTorch repository:  
+          https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
+    
+        - TensorFlow/Keras implementation:
+          https://github.com/keras-team/keras-applications/blob/master/keras_applications/resnet50.py
+
+        - PyTorch implementation:
+          https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    ZeroPadding2D, Conv2D, Flatten,
+    MaxPooling2D, AveragePooling2D,
+    Dense, Dropout, GlobalAveragePooling2D,
+    add
+)
 
-from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape
-
-
-RESNET50_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels.h5'
-RESNET50_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
+from models.layers import get_activation_from_name, get_normalizer_from_name, LinearLayer
+from utils.model_processing import (
+    process_model_input, correct_pad,
+    validate_conv_arg, check_regularizer,
+    create_model_backbone,
+)
 
 
-def BasicBlock(input_tensor, filters, kernel_size=3, downsaple=False, activation="relu", normalizer='batch-norm', stage='a', block=1):
-    prefix = 'residual_block_' + stage + str(block)
-    filter1, filter2 = filters
-    if downsaple and stage != 'a':
-        strides = 2
-    else:
-        strides = 1
-        
-    shortcut = input_tensor
 
-    x = Conv2D(filters=filter1, kernel_size=kernel_size, strides=strides, padding='same', name=prefix + '_conv1')(input_tensor)
-    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
-    x = get_activation_from_name(activation, name=prefix + '_activation1')(x)
+def basic_block(
+    inputs,
+    filters,
+    kernel_size=(3, 3),
+    strides=(1, 1),
+    use_bias=True,
+    residual=False,
+    use_final_activ=False,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"basic_block_{K.get_uid('basic_block')}"
+
+    shortcut = inputs
+    kernel_size = validate_conv_arg(kernel_size)
+    strides = validate_conv_arg(strides)
+    regularizer_decay = check_regularizer(regularizer_decay)
     
-    x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=(1, 1), padding='same', name=prefix + '_conv2')(x)
-    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
+    x = Sequential([
+        Conv2D(
+            filters=filters[0],
+            kernel_size=kernel_size,
+            strides=strides,
+            padding="same",
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters[1],
+            kernel_size=kernel_size,
+            strides=(1, 1),
+            padding="same",
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name=f"{name}.conv_block")(inputs)
 
-    if downsaple:
-      shortcut = Conv2D(filters=filter2, kernel_size=(1, 1), strides=strides, name=prefix + '_shortcut')(shortcut)
-      shortcut = get_normalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
+    if residual:
+        shortcut = Sequential([
+            Conv2D(
+                filters=filters[1],
+                kernel_size=(1, 1),
+                strides=strides,
+                use_bias=use_bias,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=regularizer_decay,
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        ], name=f"{name}.shortcut")(shortcut)
 
-    x = add([x, shortcut], name=prefix + '_merge')
-    x = get_activation_from_name(activation, name=prefix + '_final')(x)
+    x = add([x, shortcut], name=f"{name}.fusion")
+
+    if use_final_activ:
+        x = get_activation_from_name(activation, name=f"{name}.final_activ")(x)
+
     return x
 
 
-def Bottleneck(input_tensor, filters, kernel_size=3, downsaple=False, activation="relu", normalizer='batch-norm', stage='a', block=1):
-    prefix = 'residual_block_' + stage + str(block)
-    filter1, filter2, filter3 = filters
-    if downsaple and stage != 'a':
-        strides = 2
-    else:
-        strides = 1   
+def bottle_neck(
+    inputs,
+    filters,
+    kernel_size=(3, 3),
+    strides=(1, 1),
+    use_bias=True,
+    residual=False,
+    use_final_activ=False,
+    activation="relu",
+    normalizer="batch-norm",
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"bottle_neck_block_{K.get_uid('bottleneck')}"
         
-    shortcut = input_tensor
-
-    x = Conv2D(filters=filter1, kernel_size=(1, 1), strides=(1, 1), name=prefix + '_conv1')(input_tensor)
-    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm1')(x)
-    x = get_activation_from_name(activation, name=prefix + '_activation1')(x)
+    shortcut = inputs
+    kernel_size = validate_conv_arg(kernel_size)
+    strides = validate_conv_arg(strides)
+    regularizer_decay = check_regularizer(regularizer_decay)
     
-    x = Conv2D(filters=filter2, kernel_size=kernel_size, strides=strides, padding='same', name=prefix + '_conv2')(x)
-    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm2')(x)
-    x = get_activation_from_name(activation, name=prefix + '_activation2')(x)
+    x = Sequential([
+        Conv2D(
+            filters=filters[0],
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters[1],
+            kernel_size=kernel_size,
+            strides=strides,
+            padding="same",
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=filters[2],
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name=f"{name}.conv_block")(inputs)
     
-    x = Conv2D(filters=filter3, kernel_size=(1, 1), strides=(1, 1), name=prefix + '_conv3')(x)
-    x = get_normalizer_from_name(normalizer, name=prefix + '_batchnorm3')(x)
+    if residual:
+        shortcut = Sequential([
+            Conv2D(
+                filters=filters[2],
+                kernel_size=(1, 1),
+                strides=strides,
+                use_bias=use_bias,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=regularizer_decay,
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        ], name=f"{name}.shortcut")(shortcut)
 
-    if downsaple:
-      shortcut = Conv2D(filters=filter3, kernel_size=(1, 1), strides=strides, name=prefix + '_shortcut')(shortcut)
-      shortcut = get_normalizer_from_name(normalizer, name=prefix + '_shortcut_batchnorm')(shortcut)
+    x = add([x, shortcut], name=f"{name}.fusion")
 
-    x = add([x, shortcut], name=prefix + '_merge')
-    x = get_activation_from_name(activation, name=prefix + '_final')(x)
+    if use_final_activ:
+        x = get_activation_from_name(activation, name=f"{name}.final_activ")(x)
+
     return x
 
 
-def ResNetA(num_blocks,
-            include_top=True, 
-            weights='imagenet',
-            input_tensor=None, 
-            input_shape=None,
-            pooling=None,
-            final_activation="softmax",
-            classes=1000):
-  
-    if weights not in {'imagenet', None}:
+def ResNet(
+    filters,
+    block,
+    num_blocks,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
+
+    def get_filters(filters):
+        return [filters, filters, filters * 4] if block == bottle_neck else [filters, filters]
+        
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
         
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "use_bias": True,
+        "use_final_activ": True,
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-    # Block conv1
-    x = ZeroPadding2D(padding=(3, 3), name='initial_block_zeropadding')(img_input)
-    x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), name='initial_block_conv')(x)
-    x = get_normalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
-    x = get_activation_from_name('relu', name='initial_block_activation')(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='initial_block_maxpool')(x)
+    x = Sequential([
+        ZeroPadding2D(padding=(3, 3)),
+        Conv2D(
+            filters=filters,
+            kernel_size=(7, 7),
+            strides=(2, 2),
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name="stem")(inputs)
 
-    # Block conv2_x
-    for i in range(num_blocks[0]):
-        downsaple = True if i == 0 else False
-        x = BasicBlock(x, [64, 64], 3, downsaple, stage='a', block=i+1)
-    
-    # Block conv3_x
-    for i in range(num_blocks[1]):
-        downsaple = True if i == 0 else False
-        x = BasicBlock(x, [128, 128], 3, downsaple, stage='b', block=i+1)
+    for i, num_block in enumerate(num_blocks):
+        f = get_filters(filters * 2**i)
+        residual = True
+        for j in range(num_block):
+            if i == 0 and j == 0:
+                x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name=f"stage{i + 1}.block{j + 1}")(x)
+            else:
+                x = block(
+                    inputs=x,
+                    filters=f,
+                    kernel_size=(3, 3),
+                    strides=(2, 2) if (i != 0 and j == 0) else (1, 1),
+                    residual=residual,
+                    **layer_constant_dict,
+                    name=f"stage{i + 1}.block{j + 1}"
+                )
+                residual = False
 
-    # Block conv4_x
-    for i in range(num_blocks[2]):
-        downsaple = True if i == 0 else False
-        x = BasicBlock(x, [256, 256], 3, downsaple, stage='c', block=i+1)
+    if include_head:
+        x = Sequential([
+            AveragePooling2D(pool_size=(7, 7)),
+            Dropout(rate=drop_rate),
+            Flatten(),
+            Dropout(drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
 
-    # Block conv5_x
-    for i in range(num_blocks[3]):
-        downsaple = True if i == 0 else False
-        x = BasicBlock(x, [512, 512], 3, downsaple, stage='d', block=i+1)
-    
-    outputs = AveragePooling2D(pool_size=(7, 7), name='avg_pool')(x)
+    model_name = "ResNet"
+    if block == basic_block:
+        if num_blocks == [3, 2, 2, 2]:
+            model_name += "-18"
+        elif num_blocks == [4, 4, 6, 3]:
+            model_name += "-34"
+    elif block == bottle_neck:
+        if num_blocks == [4, 4, 6, 3]:
+            model_name += "-50"
+        elif num_blocks == [4, 4, 23, 3]:
+            model_name += "-101"
+        elif num_blocks == [4, 8, 36, 3]:
+            model_name += "-152"
 
-    # Final Block
-    if include_top:
-        outputs = Flatten(name='flatten')(outputs)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            outputs = GlobalAveragePooling2D(name='global_avgpool')(outputs)
-        elif pooling == 'max':
-            outputs = GlobalMaxPooling2D(name='global_maxpool')(outputs)
-            
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-    
-    # Create model.
-    if num_blocks == [2, 2, 2, 2]:
-        model = Model(inputs, outputs, name='ResNet-18')
-    elif num_blocks == [3, 4, 6, 3]:
-        model = Model(inputs, outputs, name='ResNet-34')
-    else:
-        model = Model(inputs, outputs, name='ResNet-A')
-    
-    # Load weights.
-    if weights == 'imagenet':
-        
-        if include_top:
-            if num_blocks == [2, 2, 2, 2]:
-                weights_path = None
-            elif num_blocks == [3, 4, 6, 3]:
-                weights_path = None
-        else:
-            if num_blocks == [2, 2, 2, 2]:
-                weights_path = None
-            elif num_blocks == [3, 4, 6, 3]:
-                weights_path = None
-                
-        if weights_path is not None:
-            model.load_weights(weights_path)
-            
-    elif weights is not None:
-        model.load_weights(weights)
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def ResNetB(num_blocks,
-            include_top=True, 
-            weights='imagenet',
-            input_tensor=None, 
-            input_shape=None,
-            pooling=None,
-            final_activation="softmax",
-            classes=1000):
-  
-    if weights not in {'imagenet', None}:
-        raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization) or `imagenet` '
-                         '(pre-training on ImageNet).')
+def ResNet_backbone(
+    filters,
+    block,
+    num_blocks,
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-        
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
 
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
+    return create_model_backbone(
+        model_fn=ResNet,
+        custom_layers=custom_layers,
+        filters=filters,
+        block=block,
+        num_blocks=num_blocks,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
-    # Block conv1
-    x = ZeroPadding2D(padding=(3, 3), name='initial_block_zeropadding')(img_input)
-    x = Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), name='initial_block_conv')(x)
-    x = get_normalizer_from_name('batch-norm', name='initial_block_batchnorm')(x)
-    x = get_activation_from_name('relu', name='initial_block_activation')(x)
-    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='initial_block_maxpool')(x)
 
-    # Block conv2_x
-    for i in range(num_blocks[0]):
-        downsaple = True if i == 0 else False
-        x = Bottleneck(x, [64, 64, 256], 3, downsaple, stage='a', block=i+1)
+def ResNet18(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    # Block conv3_x
-    for i in range(num_blocks[1]):
-        downsaple = True if i == 0 else False
-        x = Bottleneck(x, [128, 128, 512], 3, downsaple, stage='b', block=i+1)
-
-    # Block conv4_x
-    for i in range(num_blocks[2]):
-        downsaple = True if i == 0 else False
-        x = Bottleneck(x, [256, 256, 1024], 3, downsaple, stage='c', block=i+1)
-
-    # Block conv5_x
-    for i in range(num_blocks[3]):
-        downsaple = True if i == 0 else False
-        x = Bottleneck(x, [512, 512, 2048], 3, downsaple, stage='d', block=i+1)
-    
-    outputs = AveragePooling2D(pool_size=(7, 7), name='avg_pool')(x)
-
-    # Final Block
-    if include_top:
-        outputs = Flatten(name='flatten')(outputs)
-        outputs = Dense(1 if classes == 2 else classes, name='predictions')(outputs)
-        outputs = get_activation_from_name(final_activation)(outputs)
-    else:
-        if pooling == 'avg':
-            outputs = GlobalAveragePooling2D(name='global_avgpool')(outputs)
-        elif pooling == 'max':
-            outputs = GlobalMaxPooling2D(name='global_maxpool')(outputs)
-            
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-    
-    # Create model.
-    if num_blocks == [3, 4, 6, 3]:
-        model = Model(inputs, outputs, name='ResNet-50')
-    elif num_blocks == [3, 4, 23, 3]:
-        model = Model(inputs, outputs, name='ResNet-101')
-    elif num_blocks == [3, 8, 36, 3]:
-        model = Model(inputs, outputs, name='ResNet-152')
-    else:
-        model = Model(inputs, outputs, name='ResNet-B')
-    
-    # Load weights.
-    if weights == 'imagenet':
-        if include_top:
-            if num_blocks == [3, 4, 6, 3]:
-                weights_path = get_file('resnet50_weights_tf_dim_ordering_tf_kernels.h5',
-                                    RESNET50_WEIGHTS_PATH,
-                                    cache_subdir='models',
-                                    md5_hash='a7b3fe01876f51b976af0dea6bc144eb')
-            elif num_blocks == [3, 4, 23, 3]:
-                weights_path = None
-            elif num_blocks == [3, 8, 36, 3]:
-                weights_path = None
-        else:
-            if num_blocks == [3, 4, 6, 3]:
-                weights_path = get_file('resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5',
-                                    RESNET50_WEIGHTS_PATH_NO_TOP,
-                                    cache_subdir='models',
-                                    md5_hash='a268eb855778b3df3c7506639542a6af')
-            elif num_blocks == [3, 4, 23, 3]:
-                weights_path = None
-            elif num_blocks == [3, 8, 36, 3]:
-                weights_path = None
-                
-        if weights_path is not None:
-            model.load_weights(weights_path)
-            
-    elif weights is not None:
-        model.load_weights(weights)
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
-
+    model = ResNet(
+        filters=64,
+        block=basic_block,
+        num_blocks=[3, 2, 2, 2],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ResNet18(include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000) -> Model:
+def ResNet18_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
+
+    return create_model_backbone(
+        model_fn=ResNet18,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+
+def ResNet34(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = ResNetA(num_blocks=[2, 2, 2, 2],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
+    model = ResNet(
+        filters=64,
+        block=basic_block,
+        num_blocks=[4, 4, 6, 3],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ResNet18_backbone(input_shape=(224, 224, 3),
-                      include_top=False, 
-                      weights='imagenet', 
-                      input_tensor=None, 
-                      pooling=None, 
-                      final_activation="softmax",
-                      classes=1000,
-                      custom_layers=None) -> Model:
+def ResNet34_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    model = ResNet18(include_top=include_top,
-                     weights=weights,
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape,
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
 
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ResNet18_backbone')
-
-    else:
-        y_2 = model.get_layer("initial_block_maxpool").output
-        y_4 = model.get_layer("residual_block_a2_final").output
-        y_8 = model.get_layer("residual_block_b2_final").output
-        y_16 = model.get_layer("residual_block_c2_final").output
-        y_32 = model.get_layer("residual_block_d2_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='ResNet18_backbone')
+    return create_model_backbone(
+        model_fn=ResNet34,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
-def ResNet34(include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000) -> Model:
+def ResNet50(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = ResNetA(num_blocks=[3, 4, 6, 3],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
+    model = ResNet(
+        filters=64,
+        block=bottle_neck,
+        num_blocks=[4, 4, 6, 3],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ResNet34_backbone(input_shape=(224, 224, 3),
-                      include_top=False, 
-                      weights='imagenet', 
-                      input_tensor=None, 
-                      pooling=None, 
-                      final_activation="softmax",
-                      classes=1000,
-                      custom_layers=None) -> Model:
+def ResNet50_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    model = ResNet34(include_top=include_top,
-                     weights=weights,
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape,
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
 
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ResNet34_backbone')
-
-    else:
-        y_2 = model.get_layer("initial_block_maxpool").output
-        y_4 = model.get_layer("residual_block_a3_final").output
-        y_8 = model.get_layer("residual_block_b4_final").output
-        y_16 = model.get_layer("residual_block_c6_final").output
-        y_32 = model.get_layer("residual_block_d3_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='ResNet34_backbone')
+    return create_model_backbone(
+        model_fn=ResNet50,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
-def ResNet50(include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000) -> Model:
+def ResNet101(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = ResNetB(num_blocks=[3, 4, 6, 3],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
+    model = ResNet(
+        filters=64,
+        block=bottle_neck,
+        num_blocks=[4, 4, 23, 3],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ResNet50_backbone(input_shape=(224, 224, 3),
-                      include_top=False, 
-                      weights='imagenet', 
-                      input_tensor=None, 
-                      pooling=None, 
-                      final_activation="softmax",
-                      classes=1000,
-                      custom_layers=None) -> Model:
+def ResNet101_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    model = ResNet50(include_top=include_top,
-                     weights=weights,
-                     input_tensor=input_tensor, 
-                     input_shape=input_shape,
-                     pooling=pooling, 
-                     final_activation=final_activation,
-                     classes=classes)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
 
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ResNet50_backbone')
-
-    else:
-        y_2 = model.get_layer("initial_block_maxpool").output
-        y_4 = model.get_layer("residual_block_a3_final").output
-        y_8 = model.get_layer("residual_block_b4_final").output
-        y_16 = model.get_layer("residual_block_c6_final").output
-        y_32 = model.get_layer("residual_block_d3_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='ResNet50_backbone')
+    return create_model_backbone(
+        model_fn=ResNet101,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
-def ResNet101(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000) -> Model:
+def ResNet152(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
     
-    model = ResNetB(num_blocks=[3, 4, 23, 3],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
+    model = ResNet(
+        filters=64,
+        block=bottle_neck,
+        num_blocks=[4, 8, 36, 3],
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ResNet101_backbone(input_shape=(224, 224, 3),
-                       include_top=False, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       custom_layers=None) -> Model:
+def ResNet152_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
 
-    model = ResNet101(include_top=include_top,
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes)
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.add",
+        "stage2.add",
+        "stage4.block8.add",
+    ]
 
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ResNet101_backbone')
-
-    else:
-        y_2 = model.get_layer("initial_block_maxpool").output
-        y_4 = model.get_layer("residual_block_a3_final").output
-        y_8 = model.get_layer("residual_block_b4_final").output
-        y_16 = model.get_layer("residual_block_c23_final").output
-        y_32 = model.get_layer("residual_block_d3_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='ResNet101_backbone')
-
-
-def ResNet152(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000) -> Model:
+    return create_model_backbone(
+        model_fn=ResNet152,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
     
-    model = ResNetB(num_blocks=[3, 8, 36, 3],
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes)
-    return model
-
-
-def ResNet152_backbone(input_shape=(224, 224, 3),
-                       include_top=False, 
-                       weights='imagenet', 
-                       input_tensor=None, 
-                       pooling=None, 
-                       final_activation="softmax",
-                       classes=1000,
-                       custom_layers=None) -> Model:
-
-    model = ResNet152(include_top=include_top,
-                      weights=weights,
-                      input_tensor=input_tensor, 
-                      input_shape=input_shape,
-                      pooling=pooling, 
-                      final_activation=final_activation,
-                      classes=classes)
-
-    for l in model.layers:
-        l.trainable = True
-
-    if custom_layers is not None:
-        y_i = []
-        for layer in custom_layers:
-            y_i.append(model.get_layer(layer).output)
-        return Model(inputs=model.inputs, outputs=y_i, name='ResNet152_backbone')
-
-    else:
-        y_2 = model.get_layer("initial_block_maxpool").output
-        y_4 = model.get_layer("residual_block_a3_final").output
-        y_8 = model.get_layer("residual_block_b8_final").output
-        y_16 = model.get_layer("residual_block_c36_final").output
-        y_32 = model.get_layer("residual_block_d3_final").output
-        y_final = model.get_layer(model.layers[-1].name).output
-        return Model(inputs=model.inputs, outputs=[y_2, y_4, y_8, y_16, y_32, y_final], name='ResNet152_backbone')

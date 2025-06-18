@@ -1,8 +1,50 @@
 """
-  # Description:
-    - The following table comparing the params of the gMLP in Tensorflow on 
-    size 224 x 224 x 3:
-      
+    gMLP: MLP-based Backbone with Gated Channel-Spatial Modulation
+    
+    Overview:
+        Gated MLP (gMLP) is a novel neural architecture that removes self-attention
+        and convolutions, using only Multi-Layer Perceptrons (MLPs) enhanced by spatial
+        gating units. It achieves competitive performance in vision tasks through 
+        lightweight computation and strong inductive bias via gating.
+    
+        gMLP serves as an alternative backbone to transformers and CNNs, showing that
+        pure MLPs, when properly structured, can encode spatial interactions effectively.
+    
+        Key innovations include:
+            - Spatial Gating Unit (SGU): Enables spatial mixing across tokens
+            - Linear-Only Blocks: Fully connected layers for both token and channel mixing
+            - Lightweight and Parallelizable: Efficient for large-scale training
+    
+    Key Components:
+        • Patch Embedding:
+            - Input image is divided into non-overlapping patches (e.g., 16×16), then flattened.
+            - A linear projection embeds each patch to a fixed-dimensional token vector.
+    
+        • gMLP Block:
+            - Core building block composed of:
+                1. **Linear Layer** (Channel Projection): Expands channel width (token-wise MLP)
+                2. **GELU Activation**
+                3. **Spatial Gating Unit (SGU)**:
+                    • Splits the feature along channels into two halves:  
+                      - One half is left as is  
+                      - The other half is passed through a depthwise linear layer (across tokens)
+                    • The two halves are multiplied elementwise → enables spatial interactions
+                4. **Final Linear Layer** (Channel Mixing)
+    
+        • Residual Connection:
+            - Each gMLP block uses a residual connection:  
+              `Output = Input + gMLPBlock(Input)`
+    
+        • Model Structure:
+            - gMLP is built by stacking multiple identical gMLP blocks.
+            - No convolutions or attention modules are used.
+            - Final classification is done via global average pooling and MLP head.
+
+        • Scalability:
+            - Works well when scaled (e.g., gMLP-S, gMLP-B, gMLP-XL).
+            - Parallelizable and efficient for large datasets.
+
+    Model Parameter Comparison:
        -----------------------------------------
       |       Model Name      |    Params       |
       |-----------------------------------------|
@@ -12,243 +54,325 @@
       |-----------------------------------------|
       |      gMLP-base-16     |    73,075,392   |
        -----------------------------------------
-       
-  # Reference:
-    - [Pay Attention to MLPs](https://arxiv.org/pdf/2105.08050.pdf)
-    - Source: https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/mlp_family/gated_mlp.py
+
+    References:
+        - Paper: “Pay Attention to MLPs”  
+          https://arxiv.org/abs/2105.08050
+    
+        - Official implementation (Google Research):  
+          https://github.com/google-research/gmlp
+
+        - TensorFlow/Keras implementation:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/mlp_family/gated_mlp.py
+          
+        - PyTorch implementation:  
+          https://github.com/rishikksh20/gMLP-pytorch
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling1D
-from tensorflow.keras.layers import GlobalAveragePooling1D
-from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import Permute
-from tensorflow.keras.layers import add, multiply
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.utils import get_source_inputs, get_file
-from models.layers import SplitWrapper, get_activation_from_name, get_normalizer_from_name, SAMModel
-from utils.model_processing import _obtain_input_shape
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Dense, Dropout,
+    Reshape, Permute, GlobalAveragePooling1D,
+    add, multiply,
+)
+
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    SplitWrapper,
+)
+from utils.model_processing import process_model_input, check_regularizer
 
 
-def spatial_gating_block(inputs, normalizer='layer-norm', name=None):
-    xx, yy = SplitWrapper(num_or_size_splits=2, axis=-1)(inputs)
+
+def spatial_gating_block(
+    inputs,
+    activation=None,
+    normalizer="layer-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"spatial_gating_block_{K.get_uid('spatial_gating_block')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
+
+    xx, yy = SplitWrapper(num_or_size_splits=2, axis=-1, name=f"{name}.split")(inputs)
     
-    yy = get_normalizer_from_name(normalizer, name=name and name + "yy_ln")(yy)
-    yy = Permute((2, 1), name=name and name + "permute_1")(yy)
-    ww_init = tf.initializers.truncated_normal(stddev=1e-6)
-    yy = Dense(yy.shape[-1], kernel_initializer=ww_init, bias_initializer="ones", name=name and name + "yy_dense")(yy)
-    yy = Permute((2, 1), name=name and name + "permute_2")(yy)
-    gated_out = multiply([xx, yy])
+    yy = Sequential([
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Permute(dims=(2, 1)),
+        Dense(
+            units=yy.shape[1],
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        Permute(dims=(2, 1)),
+    ], name=f"{name}.yy")(yy)
+
+    gated_out = multiply([xx, yy], name=f"{name}.multiply")
     return gated_out
 
 
-def res_gated_mlp_block(inputs, channels_mlp_dim, drop_rate=0, activation="gelu", normalizer='layer-norm', name=None):
-    x = get_normalizer_from_name(normalizer, name=name + "pre_ln")(inputs)
-    x = Dense(channels_mlp_dim, name=name + "pre_dense")(x)
-    x = get_activation_from_name(activation)(x)
-    x = spatial_gating_block(x, normalizer=normalizer, name=name)
-    x = Dense(inputs.shape[-1], name=name + "gated_dense")(x)
+def res_gated_mlp_block(
+    inputs,
+    channels_mlp_dim,
+    activation="gelu",
+    normalizer="layer-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.,
+    name=None
+):
+    if name is None:
+        name = f"res_gated_mlp_block_{K.get_uid('res_gated_mlp_block')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
+
+    x = Sequential([
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        Dense(
+            units=channels_mlp_dim,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_activation_from_name(activation),
+    ], name=f"{name}.project")(inputs)
+
+    x = spatial_gating_block(
+        inputs=x,
+        activation=None,
+        normalizer=normalizer,
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        regularizer_decay=5e-4,
+        norm_eps=1e-6,
+        name=f"{name}.gating_block"
+    )
+    
+    x = Dense(
+        units=inputs.shape[-1],
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=regularizer_decay,
+        name=f"{name}.dense2"
+    )(x)
 
     if drop_rate > 0:
-        x = Dropout(drop_rate, noise_shape=(None, 1, 1), name=name + "drop")(x)
-    return add([x, inputs])
+        x = Dropout(drop_rate, noise_shape=(None, 1, 1), name=f"{name}.dropout")(x)
+        
+    return add([x, inputs], name=f"{name}.add")
 
     
-def gMLP(stem_width,
-         patch_size,
-         num_blocks,
-         channels_mlp_dim,
-         include_top=True,
-         weights='imagenet',
-         input_tensor=None,
-         input_shape=None,
-         pooling=None,
-         final_activation="softmax",
-         classes=1000,
-         sam_rho=0.0,
-         drop_rate=0.,
-         drop_connect_rate=0.):
-        
-    if weights not in {'imagenet', None}:
+def gMLP(
+    stem_width,
+    patch_size,
+    num_blocks,
+    channels_mlp_dim,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.,
+    drop_rate=0.1
+):
+
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
+    
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-    x = Conv2D(filters=stem_width, 
-               kernel_size=patch_size, 
-               strides=patch_size, 
-               padding="valid", 
-               name="stem")(img_input)
-    x = Reshape(target_shape=(-1, stem_width))(x)
+    x = Sequential([
+        Conv2D(
+            filters=stem_width,
+            kernel_size=patch_size,
+            strides=patch_size,
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        Reshape(target_shape=(-1, stem_width)),
+    ], name="stem")(inputs)
 
     drop_connect_s, drop_connect_e = drop_connect_rate if isinstance(drop_rate, (list, tuple)) else [drop_rate, drop_rate]
-    
-    for ii in range(num_blocks):
-        block_name = "{}_{}_".format("gmlp", str(ii + 1))
-        block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * ii / num_blocks
-        x = res_gated_mlp_block(x, channels_mlp_dim=channels_mlp_dim, drop_rate=block_drop_rate, activation='gelu', name=block_name)
+
+    for i in range(num_blocks):
+        block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * i / num_blocks
         
-    x = get_normalizer_from_name('layer-norm', name="pre_head_norm")(x)
+        x = res_gated_mlp_block(
+            inputs=x,
+            channels_mlp_dim=channels_mlp_dim,
+            **layer_constant_dict,
+            drop_rate=block_drop_rate,
+            name=f"stage{i + 1}"
+        )
+    
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"stage{i + 1}.final_norm")(x)
              
-    if include_top:
-        x = GlobalAveragePooling1D()(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling1D()(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling1D()(x)
-
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, x, name=name + '_SAM')
-        else:
-            return Model(inputs, x, name=name)
-            
-    # Create model.
-    if stem_width == 128:
-        model = __build_model(inputs, x, sam_rho, name=f'gMLP-T{patch_size}')
-    elif stem_width == 256:
-        model = __build_model(inputs, x, sam_rho, name=f'gMLP-S{patch_size}')
-    elif stem_width == 512:
-        model = __build_model(inputs, x, sam_rho, name=f'gMLP-B{patch_size}')
-    else:
-        model = __build_model(inputs, x, sam_rho, name=f'gMLP-{patch_size}')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
-    return model
-
-
-def gMLP_T16(include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             sam_rho=0.0,
-             drop_rate=0.1,
-             drop_connect_rate=0.1) -> Model:
-    
-    model = gMLP(stem_width=128,
-                 patch_size=16,
-                 num_blocks=30,
-                 channels_mlp_dim=128*6,
-                 include_top=include_top,
-                 weights=weights, 
-                 input_tensor=input_tensor, 
-                 input_shape=input_shape, 
-                 pooling=pooling, 
-                 final_activation=final_activation,
-                 classes=classes,
-                 sam_rho=sam_rho,
-                 drop_rate=drop_rate,
-                 drop_connect_rate=drop_connect_rate)
-    return model
-
-
-def gMLP_S16(include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             sam_rho=0.0,
-             drop_rate=0.1,
-             drop_connect_rate=0.1) -> Model:
+    if include_head:
+        x = Sequential([
+            GlobalAveragePooling1D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
         
-    model = gMLP(stem_width=256,
-                 patch_size=16,
-                 num_blocks=30,
-                 channels_mlp_dim=256*6,
-                 include_top=include_top,
-                 weights=weights, 
-                 input_tensor=input_tensor, 
-                 input_shape=input_shape, 
-                 pooling=pooling, 
-                 final_activation=final_activation,
-                 classes=classes,
-                 sam_rho=sam_rho,
-                 drop_rate=drop_rate,
-                 drop_connect_rate=drop_connect_rate)
-    return model
-
-
-def gMLP_B16(include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             final_activation="softmax",
-             classes=1000,
-             sam_rho=0.0,
-             drop_rate=0.1,
-             drop_connect_rate=0.1) -> Model:
+    model_name = "gMLP"
+    if stem_width == 128:
+        model_name += "-tiny"
+    elif stem_width == 256:
+        model_name += "-small"
+    elif stem_width == 512:
+        model_name += "-base"
+    model_name += f"-{patch_size}"
     
-    model = gMLP(stem_width=512,
-                 patch_size=16,
-                 num_blocks=30,
-                 channels_mlp_dim=512*6,
-                 include_top=include_top,
-                 weights=weights, 
-                 input_tensor=input_tensor, 
-                 input_shape=input_shape, 
-                 pooling=pooling, 
-                 final_activation=final_activation,
-                 classes=classes,
-                 sam_rho=sam_rho,
-                 drop_rate=drop_rate,
-                 drop_connect_rate=drop_connect_rate)
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
+
+
+def gMLP_T16(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
+
+    model = gMLP(
+        stem_width=128,
+        patch_size=16,
+        num_blocks=30,
+        channels_mlp_dim=128*6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_connect_rate=drop_connect_rate,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def gMLP_S16(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
+        
+    model = gMLP(
+        stem_width=256,
+        patch_size=16,
+        num_blocks=30,
+        channels_mlp_dim=256*6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_connect_rate=drop_connect_rate,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def gMLP_B16(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
+    
+    model = gMLP(
+        stem_width=512,
+        patch_size=16,
+        num_blocks=30,
+        channels_mlp_dim=512*6,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_connect_rate=drop_connect_rate,
+        drop_rate=drop_rate
+    )
+    return model
+    

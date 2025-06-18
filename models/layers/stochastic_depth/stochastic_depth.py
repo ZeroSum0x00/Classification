@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Dropout
 
 
-class StochasticDepth(tf.keras.layers.Layer):
+class StochasticDepthV1(tf.keras.layers.Layer):
     """Stochastic Depth layer.
     Implements Stochastic Depth as described in
     [Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382), to randomly drop residual branches
@@ -41,65 +41,66 @@ class StochasticDepth(tf.keras.layers.Layer):
         super().__init__(*args, **kwargs)
         self.survival_probability = survival_probability
 
-    def call(self, x, training=None):
-        if not isinstance(x, list) or len(x) != 2:
-            raise ValueError("input must be a list of length 2.")
+    def call(self, inputs, training=None):
+        if not isinstance(inputs, list) or len(inputs) != 2:
+            raise ValueError("Input must be a list of length 2: [shortcut, residual]")
 
-        shortcut, residual = x
+        shortcut, residual = inputs
         # Random bernoulli variable indicating whether the branch should be kept or not or not
         b_l = tf.keras.backend.random_bernoulli(
-            [], p=self.survival_probability, dtype=self._compute_dtype_object
+            [], p=self.survival_probability, dtype=tf.float32
         )
 
-        def _call_train():
+        if training:
             return shortcut + b_l * residual
-
-        def _call_test():
+        else:
             return shortcut + self.survival_probability * residual
 
-        return tf.keras.backend.in_train_phase(
-            _call_train, _call_test, training=training
-        )
-
     def compute_output_shape(self, input_shape):
         return input_shape[0]
 
     def get_config(self):
-        base_config = super().get_config()
-        config = {"survival_probability": self.survival_probability}
-        return {**base_config, **config}
+        config = super().get_config()
+        config.update({
+            "survival_probability": self.survival_probability
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
-class StochasticDepth2(tf.keras.layers.Layer):
-  
-    def __init__(self, survival_probability: float=0.5, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class StochasticDepthV2(tf.keras.layers.Layer):
+    def __init__(self, survival_probability: float = 0.5, **kwargs):
+        super().__init__(**kwargs)
         self.survival_probability = survival_probability
-    
-    def __drop_block(self, inputs, drop_rate=0):
-        """ Stochastic Depth block by Dropout, arxiv: https://arxiv.org/abs/1603.09382 """
-        if drop_rate > 0:
-            noise_shape = [None] + [1] * (len(inputs.shape) - 1)  # [None, 1, 1, 1]
-            return Dropout(drop_rate, noise_shape=noise_shape)(inputs)
+
+    def call(self, inputs, training=None):
+        if not isinstance(inputs, list) or len(inputs) != 2:
+            raise ValueError("Input must be a list of length 2: [shortcut, residual]")
+            
+        shortcut, residual = inputs
+
+        if training:
+            batch_size = tf.shape(residual)[0]
+            shape = (batch_size,) + (1,) * (len(residual.shape) - 1)
+            random_tensor = self.survival_probability + tf.random.uniform(shape, dtype=residual.dtype)
+            binary_tensor = tf.floor(random_tensor)
+            residual = residual / self.survival_probability * binary_tensor
         else:
-            return inputs
+            residual = residual  # or optionally: residual *= self.survival_probability
 
-    @tf.autograph.experimental.do_not_convert
-    def call(self, x, training=None):
-        if not isinstance(x, list) or len(x) != 2:
-            raise ValueError("input must be a list of length 2.")
-
-        shortcut, residual = x
-        x = shortcut + self.__drop_block(residual, self.survival_probability)
-        return x
-
-    def compute_output_shape(self, input_shape):
-        return input_shape[0]
+        return shortcut + residual
 
     def get_config(self):
-        base_config = super().get_config()
+        config = super().get_config()
+        config.update({
+            "survival_probability": self.survival_probability
+        })
+        return config
 
-        config = {"survival_probability": self.survival_probability}
-
-        return {**base_config, **config}
-    
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+        

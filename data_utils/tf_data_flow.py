@@ -21,6 +21,7 @@ class TFDataPipeline:
         normalizer="divide",
         mean_norm=None,
         std_norm=None,
+        sampler=None,
         interpolation="BILINEAR",
         phase="train",
         num_workers=1,
@@ -50,13 +51,16 @@ class TFDataPipeline:
             interpolation=interpolation,
         )
 
-        all_labels = [sample['label'] for sample in self.dataset]
-        class_weights = compute_class_weight(
-            class_weight='balanced',
-            classes=np.unique(all_labels),
-            y=all_labels,
-        )
-        self.class_weights = dict(enumerate(class_weights))
+        if sampler and sampler.lower() in ["balance", "balanced"]:
+            all_labels = [sample['label'] for sample in self.dataset]
+            class_weights = compute_class_weight(
+                class_weight='balanced',
+                classes=np.unique(all_labels),
+                y=all_labels,
+            )
+            self.class_weights = dict(enumerate(class_weights))
+        else:
+            self.class_weights = None
 
     def load_data(self, sample):
         sample_image = sample.get("image")
@@ -80,30 +84,39 @@ class TFDataPipeline:
         return image, sample_label
 
     def data_generator(self):
-        # batch_count = 0
         batch_images = []
         batch_labels = []
+        batch_weights = []
 
         for idx, sample in enumerate(self.dataset):
             image, label = self.load_data(sample)
             batch_images.append(image)
             batch_labels.append(label)
 
-            if len(batch_images) == self.batch_size or idx == self.N - 1:
-                # batch_count += 1
-                current_batch_size = len(batch_images)
+            if self.class_weights:
+                weight = self.class_weights.get(label, 1.0)
+            else:
+                weight = 1.0
                 
-                # tf.print(f"Batch {batch_count}: {current_batch_size} samples")
-                yield np.array(batch_images), np.array(batch_labels)
+            batch_weights.append(weight)
+        
+            if len(batch_images) == self.batch_size or idx == self.N - 1:
+                yield (
+                    np.array(batch_images, dtype=np.float32),
+                    np.array(batch_labels, dtype=np.int32),
+                    np.array(batch_weights, dtype=np.float32),
+                )
                 batch_images = []
                 batch_labels = []
+                batch_weights = []
 
     def get_dataset(self):
         dataset = tf.data.Dataset.from_generator(
             self.data_generator,
             output_signature=(
                 tf.TensorSpec(shape=(None, *self.target_size), dtype=tf.float32),
-                tf.TensorSpec(shape=(None,), dtype=tf.int32)
+                tf.TensorSpec(shape=(None,), dtype=tf.int32),
+                tf.TensorSpec(shape=(None,), dtype=tf.float32),
             )
         )
         dataset = dataset.prefetch(tf.data.AUTOTUNE)

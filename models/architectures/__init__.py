@@ -5,7 +5,6 @@ from .inception import *
 from .mobilenet import *
 from .densenet import *
 from .efficientnet import *
-from .ddrnet import *
 from .darknet import *
 from .convnext import *
 

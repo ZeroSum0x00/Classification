@@ -96,6 +96,7 @@ def build_models(config):
     weight_path = config.pop("weight_path", None)
     classes = config.pop("classes")
     use_ema = config.pop("use_ema", False)
+    sam_rho = config.pop("sam_rho", 0.0)
     model_clip_gradient = config.pop("model_clip_gradient", 5.)
     gradient_accumulation_steps = config.pop("gradient_accumulation_steps", 1)
     
@@ -191,6 +192,7 @@ def build_models(config):
         "classes": classes,
         "inputs": inputs,
         "use_ema": use_ema,
+        "sam_rho": sam_rho,
         "model_clip_gradient": model_clip_gradient,
         "gradient_accumulation_steps": gradient_accumulation_steps,
         "name": architecture_name

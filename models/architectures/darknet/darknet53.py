@@ -1,101 +1,88 @@
 """
-  # Description:
-    - The following table comparing the params of the DarkNet 53 (YOLOv3 backbone) in Tensorflow on 
-    image size 416 x 416 x 3:
+    Overview:
+        DarkNet-53 is a convolutional neural network architecture introduced as 
+        the backbone for YOLOv3, designed for object detection tasks. It is a deeper, 
+        more accurate, and more efficient successor to DarkNet-19 used in YOLOv2.
 
-       -----------------------------------------
-      |      Model Name      |     Params       |
-      |-----------------------------------------|
-      |      DarkNet53       |    41,645,640    |
-       -----------------------------------------
+        The architecture combines successive 3x3 and 1x1 convolutional layers with 
+        residual connections, inspired by ResNet, to ease training and enable deeper networks.
 
-  # Reference:
-    - Source: https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3
+    Key Characteristics:
+        - 53 convolutional layers
+        - Residual (shortcut) connections to improve gradient flow
+        - Batch normalization after each convolution
+        - Leaky ReLU activation
+        - No fully connected layers
+        - Designed for real-time object detection with high accuracy
 
+    General Model Architecture:
+         --------------------------------------------------------------------------------
+        | Stage                  | Layer                       | Output Shape            |
+        |------------------------+-----------------------------+-------------------------|
+        | Input                  | input_layer                 | (None, 416, 416, 3)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stem                   | ConvolutionBlock (3x3, s=1) | (None, 416, 416, C)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 1                | ConvolutionBlock (3x3, s=2) | (None, 208, 208, 2C)    |
+        |                        | ResidualBlock (1x)          | (None, 208, 208, 2C)    |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 2                | ConvolutionBlock (3x3, s=2) | (None, 104, 104, 4C)    |
+        |                        | ResidualBlock (1x)          | (None, 104, 104, 4C)    |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 3                | ConvolutionBlock (3x3, s=2) | (None, 52, 52, 8C)      |
+        |                        | ResidualBlock (1x)          | (None, 52, 52, 8C)      |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 4                | ConvolutionBlock (3x3, s=2) | (None, 26, 26, 16C)     |
+        |                        | ResidualBlock (1x)          | (None, 26, 26, 16C)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 5                | ConvolutionBlock (3x3, s=2) | (None, 13, 13, 32C*S)   |
+        |                        | ResidualBlock (1x)          | (None, 13, 13, 32C*S)   |
+        |                        | pyramid_poolings (*)        | (None, 13, 13, 32C*S)   |
+        |------------------------+-----------------------------+-------------------------|
+        | CLS Logics             | GlobalAveragePooling        | (None, 32C*S)           |
+        |                        | fc (Logics)                 | (None, 1000)            |
+         --------------------------------------------------------------------------------
+        (*) Note: While the original architecture does not include a Pyramid Pooling layer, 
+        it can be optionally incorporated to enhance feature aggregation and create an extended variant of the model.
+
+    Model Parameter Comparison:
+         -----------------------------------------
+        |      Model Name      |     Params       |
+        |----------------------+------------------|
+        |      DarkNet53       |    41,645,640    |
+         -----------------------------------------
+
+    References:
+        - Paper: "YOLOv3: An Incremental Improvement"
+          https://arxiv.org/abs/1804.02767
+
+        - Official implementation:
+          https://github.com/pjreddie/darknet
+
+        - PyTorch implementation:
+          https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3
 """
+
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    ZeroPadding2D, Conv2D, Dense, Dropout,
-    GlobalMaxPooling2D, GlobalAveragePooling2D, add
+    ZeroPadding2D, Conv2D, Dense,
+    Dropout, GlobalAveragePooling2D,
+    add,
 )
-from tensorflow.keras.layers import add
-from tensorflow.keras.regularizers import l2
 
+from .darknet19 import ConvolutionBlock
 from models.layers import get_activation_from_name, get_normalizer_from_name, LinearLayer
-from utils.model_processing import process_model_input, create_layer_instance
+from utils.model_processing import (
+    process_model_input, create_model_backbone,
+    create_layer_instance, check_regularizer, validate_conv_arg,
+)
 
-
-class ConvolutionBlock(tf.keras.layers.Layer):
-    def __init__(
-        self,
-        filters,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        dilation_rate=(1, 1),
-        groups=1,
-        activation="leaky-relu",
-        normalizer="batch-norm",
-        kernel_initializer="he_normal",
-        bias_initializer="zeros",
-        regularizer_decay=5e-4,
-        norm_eps=1e-6,
-        *args, **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self.filters = filters
-        self.kernel_size = kernel_size
-        self.strides = strides if isinstance(strides, (list, tuple)) else (strides, strides)
-        self.dilation_rate = dilation_rate
-        self.groups = groups
-        self.activation = activation
-        self.normalizer = normalizer
-        self.kernel_initializer = kernel_initializer
-        self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
-        self.norm_eps = norm_eps
-        
-        if self.strides[0] > 1 or self.strides[1] > 1:
-            self.padding = "valid"
-        else:
-            self.padding = "same"
-
-    def build(self, input_shape):
-        if self.padding == "valid":
-            self.padding_layer = ZeroPadding2D(((1, 0), (1, 0)))
-        
-        self.conv = Conv2D(
-            filters=self.filters,
-            kernel_size=self.kernel_size,
-            strides=self.strides,
-            padding=self.padding,
-            dilation_rate=self.dilation_rate,
-            groups=self.groups,
-            use_bias=not self.normalizer,
-            kernel_initializer=self.kernel_initializer,
-            bias_initializer=self.bias_initializer,
-            kernel_regularizer=l2(self.regularizer_decay),
-        )
-        
-        self.normalizer = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
-        self.activation = get_activation_from_name(self.activation)
-
-    def call(self, inputs, training=False):
-        if hasattr(self, "padding_layer"):
-            inputs = self.padding_layer(inputs)
-
-        x = self.conv(inputs, training=training)
-        if self.normalizer:
-            x = self.normalizer(x, training=training)
-            
-        if self.activation:
-            x = self.activation(x)
-            
-        return x
 
 
 class ResidualBlock(tf.keras.layers.Layer):
+    
     def __init__(
         self,
         filters,
@@ -113,7 +100,7 @@ class ResidualBlock(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
@@ -151,7 +138,24 @@ class ResidualBlock(tf.keras.layers.Layer):
         x = self.conv2(x, training=training)
         return add([inputs, x])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+    
 def DarkNet53(
     feature_extractor,
     fusion_layer,
@@ -160,10 +164,9 @@ def DarkNet53(
     num_blocks,
     channel_scale=2,
     final_channel_scale=1,
-    inputs=[640, 640, 3],
+    inputs=[416, 416, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="leaky-relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -192,6 +195,7 @@ def DarkNet53(
     # if pyramid_pooling and pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
     #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -204,7 +208,7 @@ def DarkNet53(
     inputs = process_model_input(
         inputs,
         include_head=include_head,
-        default_size=640,
+        default_size=[416, 512, 608],
         min_size=32,
         weights=weights
     )
@@ -235,38 +239,53 @@ def DarkNet53(
             name=f"stem.block{i + 1}"
         )(x)
 
-    for i in range(len(num_blocks) - 1):
+    last_stage_idx = len(num_blocks) - 2
+    final_filters = None
+    for i, num_block in enumerate(num_blocks[1:]):
+        is_last_stage = (i == last_stage_idx)
+        block_name_prefix = f"stage{i + 1}"
+
         f1 = filters[i + 1]
         f2 = [filters[i], filters[i + 1]]
-        
-        
-        x = create_layer_instance(
-            extractor_block1 if i == 0 else extractor_block2,
-            filters=int(f1 * final_channel_scale) if i == len(num_blocks) - 2 else f1,
-            kernel_size=(3, 3),
-            strides=(2, 2),
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block1"
-        )(x)
-    
-        for j in range(num_blocks[i + 1]):
-            x = create_layer_instance(
-                fusion_block1 if i == 0 else fusion_block2,
-                filters=[int(f * final_channel_scale) for f in f2] if i == len(num_blocks) - 2 else f2,
-                **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 2}"
-            )(x)
 
+        if is_last_stage:
+            f1 = int(f1 * final_channel_scale)
+            f2 = [int(f * final_channel_scale) for f in f2]
+            final_filters = f1
+        
+        for b in range(num_block):
+            if b == 0:
+                x = create_layer_instance(
+                    extractor_block1 if i == 0 else extractor_block2,
+                    filters=f1,
+                    kernel_size=(3, 3),
+                    strides=(2, 2),
+                    **layer_constant_dict,
+                    name=f"{block_name_prefix}.block1"
+                )(x)
+            else:
+                x = create_layer_instance(
+                    fusion_block1 if i == 0 else fusion_block2,
+                    filters=f2,
+                    **layer_constant_dict,
+                    name=f"{block_name_prefix}.block{b + 2}"
+                )(x)
+                
+    block_name_prefix = f"stage{len(num_blocks) - 1}"
+    
+    if final_filters is None:
+        final_filters = int(filters[-1] * final_channel_scale)
+        
     if pyramid_pooling:
-        for k, pooling in enumerate(pyramid_pooling):
+        for p, pooling in enumerate(pyramid_pooling):
             x = create_layer_instance(
                 pooling,
-                filters=int(filters[-1] * final_channel_scale),
+                filters=final_filters,
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + k + 3}"
+                name=f"{block_name_prefix}.block{b + p + 3}"
             )(x)
     else:
-        x = LinearLayer(name=f"stage{i + 1}.block{j + 3}")(x)
+        x = LinearLayer(name=f"{block_name_prefix}.block{b + 3}")(x)
         
     if include_head:
         x = Sequential([
@@ -275,17 +294,12 @@ def DarkNet53(
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
 
-    if filters == [32, 64, 128, 256, 512, 1024] and num_blocks == [1, 1, 2, 8, 8, 4]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-53-Base")
-    else:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-53")
-        
+    model_name = "DarkNet-53"
+    if filters == [32, 64, 128, 256, 512, 1024] and num_blocks == [1, 2, 3, 9, 9, 5]:
+        model_name += "-base"
+
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -297,14 +311,18 @@ def DarkNet53_backbone(
     num_blocks,
     channel_scale=2,
     final_channel_scale=1,
-    inputs=[640, 640, 3],
+    inputs=[416, 416, 3],
     weights="imagenet",
     activation="leaky-relu",
     normalizer="batch-norm",
     custom_layers=[]
 ) -> Model:
 
-    model = DarkNet53(
+    custom_layers = custom_layers or [f"stage{i + 1}.block{j + 1}" for i, j in enumerate(num_blocks[1:-1])]
+
+    return create_model_backbone(
+        model_fn=DarkNet53,
+        custom_layers=custom_layers,
         feature_extractor=feature_extractor,
         fusion_layer=fusion_layer,
         pyramid_pooling=pyramid_pooling,
@@ -313,24 +331,16 @@ def DarkNet53_backbone(
         channel_scale=channel_scale,
         final_channel_scale=final_channel_scale,
         inputs=inputs,
-        include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer,
+        normalizer=normalizer
     )
-
-    custom_layers = custom_layers or [f"stage{i + 1}.block{j + 1}" for i, j in enumerate(num_blocks[1:-1])]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 def DarkNet53_base(
-    inputs=[640, 640, 3],
+    inputs=[416, 416, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="leaky-relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -346,13 +356,12 @@ def DarkNet53_base(
         fusion_layer=ResidualBlock,
         pyramid_pooling=None,
         filters=32,
-        num_blocks=[1, 1, 2, 8, 8, 4],
+        num_blocks=[1, 2, 3, 9, 9, 5],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -366,7 +375,7 @@ def DarkNet53_base(
 
 
 def DarkNet53_base_backbone(
-    inputs=[640, 640, 3],
+    inputs=[416, 416, 3],
     weights="imagenet",
     activation="leaky-relu",
     normalizer="batch-norm",
@@ -379,14 +388,6 @@ def DarkNet53_base_backbone(
         - Reference:
             https://github.com/pythonlessons/TensorFlow-2.x-YOLOv3/blob/master/yolov3/yolov3.py
     """
-    
-    model = DarkNet53_base(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stage1.block2",
@@ -395,6 +396,12 @@ def DarkNet53_base_backbone(
         "stage4.block9",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNet53_base,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+    

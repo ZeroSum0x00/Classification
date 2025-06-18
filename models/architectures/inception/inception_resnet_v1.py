@@ -1,17 +1,90 @@
 """
-  # Description:
-    - The following table comparing the params of the Inception Resnet v1 in Tensorflow on 
-    size 299 x 299 x 3:
+    Inception ResNet V1: Residual Multi-Branch Backbone Combining Inception and ResNet
+    
+    Overview:
+        Inception-ResNet-v1 is a hybrid architecture that combines the multi-branch
+        feature extraction capability of Inception modules with the fast convergence
+        and training stability of residual connections from ResNet.
+    
+        This network inherits the modular structure of Inception-v3 while integrating
+        shortcut (residual) paths in each block. It achieves high accuracy with efficient
+        training speed and is widely used in tasks like face recognition and transfer learning.
+    
+        Key innovations include:
+            - Residual Inception Modules: Fused Inception blocks with identity shortcuts
+            - Scalable Architecture: Repeated residual blocks with clear stage boundaries
+            - Fast Convergence: Enabled by ResNet-style residual learning
+    
+    Key Components:
+        • Stem Block:
+            - Input processing block that downsamples and expands early features.
+            - Uses 3x3 convolutions and multi-branch conv/max-pool paths.
+            - Produces rich low-level features and reduces resolution.
+    
+        • Inception-ResNet Blocks:
+            - All blocks follow:  
+              **Branching paths (Inception-style) → Concatenate → 1×1 Conv → Residual Add**
+            - Types of blocks:
+                - **Block35 (Inception-ResNet-A)** for 35×35 resolution
+                    • Uses 1x1 and 3x3 conv branches, plus 3x3 → 3x3 stacked convs
+                - **Block17 (Inception-ResNet-B)** for 17×17 resolution
+                    • Uses asymmetric convolutions (1x7, 7x1)
+                - **Block8 (Inception-ResNet-C)** for 8×8 resolution
+                    • Includes 1x1 and 3x3 convs
+            - Each block ends with 1×1 conv for dimensionality adjustment before residual addition.
+    
+        • Scaling of Residuals:
+            - A small scaling factor (e.g., 0.1) is applied to the residual before addition.
+            - This stabilizes training when combining high-dimensional inception outputs with residuals.
+    
+        • Reduction Blocks:
+            - **Reduction-A**: Reduces from 35×35 to 17×17 using stride-2 convs and pooling.
+            - **Reduction-B**: Reduces from 17×17 to 8×8 using deeper conv branches.
+            - Similar to grid reduction in Inception-v3/v4.
+    
+        • Global Average Pooling and Classifier:
+            - After residual blocks, global average pooling reduces spatial size.
+            - Followed by dropout and final fully connected layer for classification.
+    
+    General Model Architecture:
+         --------------------------------------------------------------------------------
+        | Stage                  | Layer                       | Output Shape            |
+        |------------------------+-----------------------------+-------------------------|
+        | Input                  | input_layer                 | (None, 299, 299, 3)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stem                   | ConvolutionBlock (3x3, s=2) | (None, 149, 149, 32)    |
+        |                        | ConvolutionBlock (3x3, s=1) | (None, 147, 147, 32)    |
+        |                        | ConvolutionBlock (3x3, s=1) | (None, 145, 145, 64)    |
+        |                        | MaxPooling2D (3x3, s=2)     | (None, 72, 72, 64)      |
+        |                        | ConvolutionBlock (3x3, s=1) | (None, 72, 72, 80)      |
+        |                        | ConvolutionBlock (3x3, s=1) | (None, 70, 70, 192)     |
+        |                        | ConvolutionBlock (3x3, s=2) | (None, 35, 35, 256)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 1                | inception_resnet_A (5x)     | (None, 35, 35, 256)     |
+        |                        | reduction_A                 | (None, 17, 17, 896)     |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 2                | inception_resnet_B (10x)    | (None, 17, 17, 896)     |
+        |                        | reduction_B                 | (None, 8, 8, 1792)      |
+        |------------------------+-----------------------------+-------------------------|
+        | Stage 3                | inception_resnet_C (5x)     | (None, 8, 8, 1792)      |
+        |------------------------+-----------------------------+-------------------------|
+        | CLS Logics             | AveragePooling2D (8x8, s=1) | (None, 1, 1, 1792)      |
+        |                        | Flatten                     | (None, 1792)            |
+        |                        | fc (Logics)                 | (None, 1000)            |
+         --------------------------------------------------------------------------------
+         
+         ---------------------------------------------
+        |         Model Name        |     Params      |
+        |---------------------------------------------|
+        |    Inception Resnet v1    |    21,684,184   |
+         ---------------------------------------------
 
-       ---------------------------------------------
-      |         Model Name        |     Params      |
-      |---------------------------------------------|
-      |    Inception Resnet v1    |   136,038,104   |
-       ---------------------------------------------
-
-  # Reference:
-    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/pdf/1602.07261.pdf)
-    - Source: https://github.com/titu1994/Inception-v4/blob/master/inception_resnet_v2.py
+    References:
+        - Paper: “Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning”  
+          https://arxiv.org/abs/1602.07261
+    
+        - TensorFlow/Keras implementation:
+          https://github.com/titu1994/Inception-v4/blob/master/inception_resnet_v2.py
 
 """
 
@@ -20,21 +93,22 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv2D, Lambda, Flatten, Dense, Dropout,
-    MaxPooling2D, AveragePooling2D,
-    GlobalMaxPooling2D, GlobalAveragePooling2D,
-    concatenate, add
+    MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D,
+    concatenate, add,
 )
-from tensorflow.keras.regularizers import l2
 
 from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import process_model_input
+from utils.model_processing import (
+    process_model_input, validate_conv_arg,
+    check_regularizer, create_model_backbone,
+)
 
 
 
 def convolution_block(
     inputs,
     filters,
-    kernel_size,
+    kernel_size=(3, 3),
     strides=(1, 1),
     padding="same",
     activation="relu",
@@ -46,6 +120,10 @@ def convolution_block(
     if name is None:
         name = f"convolution_block_{K.get_uid('convolution_block')}"
 
+    kernel_size = validate_conv_arg(kernel_size)
+    strides = validate_conv_arg(strides)
+    regularizer_decay = check_regularizer(regularizer_decay)
+
     return Sequential([
         Conv2D(
             filters=filters,
@@ -54,10 +132,10 @@ def convolution_block(
             padding=padding,
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
-            kernel_regularizer=l2(regularizer_decay),
+            kernel_regularizer=regularizer_decay,
         ),
         get_activation_from_name(activation),
-    ])(inputs)
+    ], name=f"{name}.conv_block")(inputs)
 
 
 def stem_block(
@@ -74,6 +152,8 @@ def stem_block(
     if name is None:
         name = f"stem_block_{K.get_uid('stem_block')}"
 
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     x = convolution_block(
         inputs=inputs,
         filters=filters,
@@ -103,18 +183,14 @@ def stem_block(
         filters=filters * 2,
         kernel_size=(3, 3),
         strides=(1, 1),
+        padding="valid",
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         name=f"{name}.conv3"
     )
     
-    x = MaxPooling2D(
-        pool_size=(3, 3),
-        strides=(2, 2),
-        padding="valid",
-        name=f"{name}.pool"
-    )(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name=f"{name}.pool")(x)
     
     x = convolution_block(
         inputs=x,
@@ -132,6 +208,7 @@ def stem_block(
         filters=filters * 6,
         kernel_size=(3, 3),
         strides=(1, 1),
+        padding="valid",
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
@@ -168,7 +245,9 @@ def inception_resnet_A(
 ):
     if name is None:
         name = f"inception_resnet_a_{K.get_uid('inception_resnet_a')}"
-        
+
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     shortcut = inputs
 
     # branch1
@@ -287,6 +366,8 @@ def reduction_A(
 ):
     if name is None:
         name = f"reduction_a_{K.get_uid('reduction_a')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     # branch1
     branch1 = MaxPooling2D(
@@ -369,6 +450,8 @@ def inception_resnet_B(
 ):
     if name is None:
         name = f"inception_resnet_b_{K.get_uid('inception_resnet_b')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     shortcut = inputs
 
@@ -460,6 +543,8 @@ def reduction_B(
 ):
     if name is None:
         name = f"reduction_b_{K.get_uid('reduction_b')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     # branch1
     branch1 = MaxPooling2D(
@@ -483,7 +568,7 @@ def reduction_B(
     )
     
     branch2 = convolution_block(
-        inputs=inputs,
+        inputs=branch2,
         filters=int(filters * 3/2),
         kernel_size=(3, 3),
         strides=(2, 2),
@@ -537,7 +622,7 @@ def reduction_B(
     branch4 = convolution_block(
         inputs=branch4,
         filters=filters,
-        kernel_size=(1, 1),
+        kernel_size=(3, 3),
         strides=(1, 1),
         activation=activation,
         kernel_initializer=kernel_initializer,
@@ -580,6 +665,8 @@ def inception_resnet_C(
 ):
     if name is None:
         name = f"inception_resnet_c_{K.get_uid('inception_resnet_c')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
         
     shortcut = inputs
     
@@ -665,7 +752,6 @@ def Inception_Resnet_v1(
     inputs=[299, 299, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -685,6 +771,7 @@ def Inception_Resnet_v1(
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -761,20 +848,20 @@ def Inception_Resnet_v1(
 
     if include_head:
         x = Sequential([
-            AveragePooling2D(pool_size=(8, 8), strides=(1, 1), padding="same"),
+            AveragePooling2D(pool_size=(8, 8), strides=(1, 1)),
             Dropout(rate=drop_rate),
             Flatten(),
             Dropout(rate=drop_rate),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="global_avg_pooling")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="global_max_pooling")(x)
 
-    model = Model(inputs=inputs, outputs=x, name="Inception-Resnet-v1")
+    if filters == 32 and num_blocks == [5, 10, 5] and scale_residual:
+        model_name = "Inception-Resnet-base-v1"
+    else:
+        model_name = "Inception-Resnet-v1"
+        
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -789,34 +876,29 @@ def Inception_Resnet_v1_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = Inception_Resnet_v1(
+    custom_layers = custom_layers or [
+        "stem.conv5.conv_block",
+        f"stage1.block{num_blocks[0] + 1}.branch3.step2.conv_block",
+        f"stage2.block{num_blocks[1] + 1}.branch4.step2.conv_block",
+    ]
+    
+    return create_model_backbone(
+        model_fn=Inception_Resnet_v1,
+        custom_layers=custom_layers,
         filters=filters,
         num_blocks=num_blocks,
         scale_residual=scale_residual,
         inputs=inputs,
-        include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer,
+        normalizer=normalizer
     )
-
-    custom_layers = custom_layers or [
-        "stem.conv3.activ",
-        "stem.conv5.activ",
-        f"stage1.block{num_blocks[0] + 1}.branch3.step2.activ",
-        f"stage2.block{num_blocks[1] + 1}.branch4.step2.activ",
-    ]
-    
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 def Inception_Resnet_base_v1(
     inputs=[299, 299, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -834,7 +916,6 @@ def Inception_Resnet_base_v1(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -855,21 +936,17 @@ def Inception_Resnet_base_v1_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = Inception_Resnet_base_v1(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
-
     custom_layers = custom_layers or [
-        "stem.conv3.activ",
-        "stem.conv5.activ",
-        "stage1.block6.branch3.step2.activ",
-        "stage2.block11.branch4.step2.activ",
+        "stem.conv5.conv_block",
+        "stage1.block6.branch3.step2.conv_block",
+        "stage2.block11.branch4.step2.conv_block",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=Inception_Resnet_base_v1,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )

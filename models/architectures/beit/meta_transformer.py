@@ -1,51 +1,67 @@
 """
-  # Description:
-    - The following table comparing the params of the Explore the limits of Meta-Transformer, base BEiT block
-    in Tensorflow on in Tensorflow on size 224 x 224 x 3 for 'Base' variant and 336 x 336 x 3 for 'Large' variant:
+    Overview:
+        This file summarizes parameter configurations and key details for 
+        the Meta-Transformer architecture: a **unified Transformer framework** 
+        for **multimodal learning** (vision, language, audio, video, etc.).
+    
+        Unlike conventional modality-specific models, Meta-Transformer enables 
+        a shared representation space and architectural backbone, unifying multiple modalities 
+        via a modality-agnostic encoder-decoder structure.
+    
+    Key Features:
+        - Unified architecture for vision, language, audio, video, and multimodal tasks.
+        - Works across tasks: classification, captioning, retrieval, QA, VQA, etc.
+        - Modularity: Plug-and-play encoders/decoders for different modalities.
+        - Uses a shared latent representation for all inputs and outputs.
+        - Efficient training and inference across tasks and domains.
+    
+    Model Parameter Comparison:
+         --------------------------------------------------
+        |           Model Name           |      Params     |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-tiny-14    |     5,645,224   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-tiny-16    |     5,679,784   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-small-14   |    21,906,280   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-small-16   |    21,975,400   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-base-14    |    86,278,888   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-base-16    |    86,417,128   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-large-14   |   303,941,608   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-large-16   |   451,164,232   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-huge-14    |   599,870,344   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-huge-16    |   909,332,968   |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-gaint-14   |       -         |
+        |--------------------------------+-----------------|
+        |     MetaTransformer-gaint-16   |       -         |
+         --------------------------------------------------
 
-       --------------------------------------------------
-      |           Model Name           |      Params     |
-      |--------------------------------------------------|
-      |     MetaTransformer-Tiny-14    |     5,645,224   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Tiny-16    |     5,679,784   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Small-14   |    21,906,280   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Small-16   |    21,975,400   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Base-14    |    86,278,888   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Base-16    |    86,417,128   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Large-14   |   303,941,608   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Large-16   |   451,164,232   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Huge-14    |   599,870,344   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Huge-16    |   909,332,968   |
-      |--------------------------------------------------|
-      |     MetaTransformer-Gaint-14   |       -         |
-      |--------------------------------------------------|
-      |     MetaTransformer-Gaint-16   |       -         |
-       --------------------------------------------------
-
-  # Reference:
-    - [Meta-Transformer: A Unified Framework for Multimodal Learning](https://arxiv.org/pdf/2307.10802.pdf)
-
+    References:
+        - Paper: "Meta-Transformer: A Unified Framework for Multimodal Learning"
+          https://arxiv.org/pdf/2307.10802
+          
+        - PyTorch repository (not official):
+          https://github.com/OpenGVLab/MetaTransformer (community implementation)
+          
+        - TensorFlow/Keras port by leondgarse:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/beit/meta_transformer.py
 """
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.layers import (
-    Dense, GlobalMaxPooling2D, GlobalAveragePooling2D
-)
-from tensorflow.keras.regularizers import l2
+from tensorflow.keras.layers import Dense, Dropout
 
 from .beit import BEiT
-from models.layers import get_activation_from_name, SAMModel
-from utils.model_processing import process_model_input
+from models.layers import get_activation_from_name
+from utils.model_processing import process_model_input, check_regularizer
 
 
 
@@ -57,15 +73,14 @@ def MetaTransformer(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
                  
@@ -78,6 +93,8 @@ def MetaTransformer(
         raise ValueError('If using `weights` as imagenet with `include_head`'
                          ' as true, `num_classes` should be 1000')
 
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
     inputs = process_model_input(
         inputs,
         include_head=include_head,
@@ -113,59 +130,36 @@ def MetaTransformer(
         text_positional_dropout=0,
         text_use_positional_embedding=True,
         inputs=inputs,
-        include_head=False,
-        weights=None,
-        pooling=pooling,
+        include_head=include_head,
+        num_classes=num_classes,
+        weights=weights,
         activation=activation,
         normalizer=normalizer,
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
-    
-    x = backbone.output
 
-    if include_head:
-        x = Sequential([
-            Dropout(drop_rate),
-            Dense(
-                units=1 if num_classes == 2 else num_classes,
-                kernel_initializer=kernel_initializer,
-                bias_initializer=bias_initializer,
-                kernel_regularizer=l2(regularizer_decay),
-            ),
-            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
-        ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D(name="global_avgpool")(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D(name="global_maxpool")(x)
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, outputs, name=name + "_SAM")
-        else:
-            return Model(inputs=inputs, outputs=outputs, name=name)
-            
+    model_name = "MetaTransformer"
     if num_layers == 12:
         if num_heads < 5:
-            model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Tiny-{patch_size}")
+            model_name += "-tiny"
         elif num_heads < 8:
-            model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Small-{patch_size}")
+            model_name += "-small"
         else:
-            model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Base-{patch_size}")
+            model_name += "-base"
     elif num_layers == 24:
-        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Large-{patch_size}")
+        model_name += "-large"
     elif num_layers == 32:
-        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Huge-{patch_size}")
+        model_name += "-huge"
     elif num_layers == 40:
-        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-Gaint-{patch_size}")
-    else:
-        model = __build_model(inputs, x, sam_rho, name=f"Meta-Transformer-{patch_size}")
-    
+        model_name += "-gaint"
+    model_name += f"-{patch_size}"
+
+    model = Model(inputs=inputs, outputs=backbone.outputs, name=model_name)
     return model
 
 
@@ -173,7 +167,6 @@ def MetaTransformer_T14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -182,6 +175,7 @@ def MetaTransformer_T14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -193,7 +187,6 @@ def MetaTransformer_T14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -202,6 +195,7 @@ def MetaTransformer_T14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -211,7 +205,6 @@ def MetaTransformer_T16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -220,6 +213,7 @@ def MetaTransformer_T16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -231,7 +225,6 @@ def MetaTransformer_T16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -240,6 +233,7 @@ def MetaTransformer_T16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -249,7 +243,6 @@ def MetaTransformer_S14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -258,6 +251,7 @@ def MetaTransformer_S14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -269,7 +263,6 @@ def MetaTransformer_S14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -278,6 +271,7 @@ def MetaTransformer_S14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -287,7 +281,6 @@ def MetaTransformer_S16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -296,6 +289,7 @@ def MetaTransformer_S16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -307,7 +301,6 @@ def MetaTransformer_S16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -316,6 +309,7 @@ def MetaTransformer_S16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -325,7 +319,6 @@ def MetaTransformer_B14(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -334,6 +327,7 @@ def MetaTransformer_B14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -345,7 +339,6 @@ def MetaTransformer_B14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -354,6 +347,7 @@ def MetaTransformer_B14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -363,7 +357,6 @@ def MetaTransformer_B16(
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -372,6 +365,7 @@ def MetaTransformer_B16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -383,7 +377,6 @@ def MetaTransformer_B16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -392,6 +385,7 @@ def MetaTransformer_B16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -401,7 +395,6 @@ def MetaTransformer_L14(
     inputs=[336, 336, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -410,6 +403,7 @@ def MetaTransformer_L14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -421,7 +415,6 @@ def MetaTransformer_L14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -430,6 +423,7 @@ def MetaTransformer_L14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -439,7 +433,6 @@ def MetaTransformer_L16(
     inputs=[336, 336, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -448,6 +441,7 @@ def MetaTransformer_L16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -459,7 +453,6 @@ def MetaTransformer_L16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -468,6 +461,7 @@ def MetaTransformer_L16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -477,7 +471,6 @@ def MetaTransformer_H14(
     inputs=[336, 336, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -486,6 +479,7 @@ def MetaTransformer_H14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -497,7 +491,6 @@ def MetaTransformer_H14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -506,6 +499,7 @@ def MetaTransformer_H14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -515,7 +509,6 @@ def MetaTransformer_H16(
     inputs=[336, 336, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -524,6 +517,7 @@ def MetaTransformer_H16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -535,7 +529,6 @@ def MetaTransformer_H16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -544,6 +537,7 @@ def MetaTransformer_H16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -553,7 +547,6 @@ def MetaTransformer_G14(
     inputs=[336, 336, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -562,6 +555,7 @@ def MetaTransformer_G14(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -573,7 +567,6 @@ def MetaTransformer_G14(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -582,6 +575,7 @@ def MetaTransformer_G14(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model
@@ -591,7 +585,6 @@ def MetaTransformer_G16(
     inputs=[336, 336, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="gelu",
     normalizer="layer-norm",
     num_classes=1000,
@@ -600,6 +593,7 @@ def MetaTransformer_G16(
     regularizer_decay=5e-4,
     sam_rho=0.0,
     norm_eps=1e-6,
+    drop_path_rate=0.1,
     drop_rate=0.1
 ):
 
@@ -611,7 +605,6 @@ def MetaTransformer_G16(
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -620,6 +613,7 @@ def MetaTransformer_G16(
         regularizer_decay=regularizer_decay,
         sam_rho=sam_rho,
         norm_eps=norm_eps,
+        drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
     )
     return model

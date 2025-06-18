@@ -1,245 +1,448 @@
 """
-  # Description:
-    - The following table comparing the params of the MobileNet v2 in Tensorflow on 
-    size 224 x 224 x 3:
+    MobileNetV2: Lightweight Backbone with Inverted Residuals and Linear Bottlenecks
+    
+    Overview:
+        MobileNetV2 improves upon MobileNetV1 by introducing two key ideas to enhance
+        efficiency and representational power:
+            - **Inverted Residual Blocks** with linear bottlenecks
+            - **Shortcuts (Residual connections)** for better gradient flow
+        
+        It is designed for high performance on mobile and edge devices, balancing
+        accuracy and computational cost.
+    
+        Key innovations include:
+            - Inverted Residual Structure: Expands → Depthwise → Project (compress)
+            - Linear Bottleneck: Avoids non-linearity after compression to preserve features
+            - Lightweight yet expressive thanks to depthwise separable convs and skip connections
+    
+    Key Components:
+        • Inverted Residual Block:
+            - Core unit of MobileNetV2 with the following structure:
+            - **Expansion Layer**: Projects input to higher dimension (t× input channels)
+            - **Depthwise Convolution**: Applies spatial filtering per channel
+            - **Projection Layer**: Compresses back to output dimension (no ReLU)
+            - **Residual Connection**: Added when input and output shapes match
+    
+        • Linear Bottleneck:
+            - The final 1×1 conv (projection layer) has no activation (linear)
+            - Prevents information loss when compressing back to low dimensions
 
-       --------------------------------------------
-      |         Model Name       |    Params       |
-      |--------------------------------------------|
-      |     0.35 MobileNetV2     |    1,529,768    |
-      |--------------------------------------------|
-      |     0.5 MobileNetV2      |    1,987,224    |
-      |--------------------------------------------|
-      |     0.75 MobileNetV2     |    2,663,064    |
-      |--------------------------------------------|
-      |     1.0 MobileNetV2      |    3,538,984    |
-      |--------------------------------------------|
-      |     1.3 MobileNetV2      |    5,431,116    |
-      |--------------------------------------------|
-      |     1.4 MobileNetV2      |    6,156,440    |
-       --------------------------------------------
+        • Width Multiplier (α):
+            - Controls the number of channels throughout the network
+            - Allows model size to scale smoothly (α = 1.0, 0.75, 0.5, etc.)
+    
+        • Stride & Downsampling:
+            - Downsampling is performed in selected bottleneck blocks via stride = 2
+            - Ensures efficient spatial reduction
 
-  # Reference:
-    - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/pdf/1801.04381.pdf)
-    - Source: https://github.com/keras-team/keras-applications/blob/master/keras_applications/mobilenet_v2.py
+    General Model Architecture:
+         ------------------------------------------------------------------------------------
+        | Stage                  | Layer                           | Output Shape            |
+        |------------------------+---------------------------------+-------------------------|
+        | Input                  | input_layer                     | (None, 224, 224, 3)     |
+        |------------------------+---------------------------------+-------------------------|
+        | Stem                   | ZeroPadding2D (1x1)             | (None, 225, 225, 3)     |
+        |                        | ConvolutionBlock (3x3, s=2)     | (None, 112, 112, 32)    |
+        |------------------------+---------------------------------+-------------------------|
+        | Stage 1                | inverted_residual_block         | (None, 112, 112, 16)    |
+        |                        | inverted_residual_block (s=2)   | (None, 56, 56, 24)      |
+        |                        | inverted_residual_block         | (None, 56, 56, 24)      |
+        |------------------------+---------------------------------+-------------------------|
+        | Stage 2                | inverted_residual_block (s=2)   | (None, 28, 28, 32)      |
+        |                        | inverted_residual_block         | (None, 28, 28, 32)      |
+        |                        | inverted_residual_block         | (None, 28, 28, 32)      |
+        |------------------------+---------------------------------+-------------------------|
+        | Stage 3                | inverted_residual_block (s=2)   | (None, 14, 14, 64)      |
+        |                        | inverted_residual_block (x3)    | (None, 14, 14, 64)      |
+        |                        | inverted_residual_block (x3)    | (None, 14, 14, 96)      |
+        |------------------------+---------------------------------+-------------------------|
+        | Stage 4                | inverted_residual_block (s=2)   | (None, 7, 7, 160)       |
+        |                        | inverted_residual_block (x2)    | (None, 7, 7, 160)       |
+        |                        | inverted_residual_block         | (None, 7, 7, 320)       |
+        |                        | ConvolutionBlock (1x1, s=1)     | (None, 7, 7, 1280)      |
+        |------------------------+---------------------------------+-------------------------|
+        | CLS Logics             | GlobalAveragePooling2D          | (None, 1280)            |
+        |                        | fc (Logics)                     | (None, 1000)            |
+         ------------------------------------------------------------------------------------
+         
+    Model Parameter Comparison:
+         --------------------------------------------
+        |         Model Name       |    Params       |
+        |--------------------------------------------|
+        |     0.35 MobileNetV2     |    1,529,768    |
+        |--------------------------------------------|
+        |     0.5 MobileNetV2      |    1,987,224    |
+        |--------------------------------------------|
+        |     0.75 MobileNetV2     |    2,663,064    |
+        |--------------------------------------------|
+        |     1.0 MobileNetV2      |    3,538,984    |
+        |--------------------------------------------|
+        |     1.3 MobileNetV2      |    5,431,116    |
+        |--------------------------------------------|
+        |     1.4 MobileNetV2      |    6,156,440    |
+         --------------------------------------------
+
+    References:
+        - Paper: “MobileNetV2: Inverted Residuals and Linear Bottlenecks”  
+          https://arxiv.org/abs/1801.04381
+    
+        - TensorFlow/Keras implementation:
+          https://github.com/keras-team/keras-applications/blob/master/keras_applications/mobilenet_v2.py
+    
+        - PyTorch implementation:
+          https://github.com/pytorch/vision/blob/main/torchvision/models/mobilenetv2.py
+          https://github.com/tonylins/pytorch-mobilenet-v2
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import DepthwiseConv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    ZeroPadding2D, Conv2D, DepthwiseConv2D,
+    Reshape, Dense, Dropout, GlobalAveragePooling2D,
+    add, multiply, concatenate,
+)
 
-from models.layers import get_activation_from_name, get_normalizer_from_name
-from utils.model_processing import _obtain_input_shape, correct_pad
+from .mobilenet_v1 import stem_block
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    MLPBlock, DropPathV1, DropPathV2, LinearLayer,
+    OperatorWrapper, UnstackWrapper,
+)
+from utils.model_processing import (
+    process_model_input, correct_pad, create_layer_instance,
+    validate_conv_arg, check_regularizer, create_model_backbone,
+)
 from utils.auxiliary_processing import make_divisible
 
 
-def stem_block(inputs, filters, kernel_size=(3, 3), strides=(1, 1), alpha=1, activation="relu6", normalizer='batch-norm'):
-    filters = int(filters * alpha)
-    x = ZeroPadding2D(padding=correct_pad(inputs, 3), name='stem_pad')(inputs)
-    x = Conv2D(filters=filters, 
-               kernel_size=kernel_size,
-               strides=strides,
-               padding='valid',
-               use_bias=False,
-               name='stem_conv')(x)
-    x = get_normalizer_from_name(normalizer, name='stem_bn')(x)
-    x = get_activation_from_name(activation, name='stem_relu')(x)
-    return x
 
-
-def inverted_residual_block(inputs, out_dim, strides=(1, 1), expansion=1, alpha=1, activation="relu6", normalizer='batch-norm', block_id=0):
-    bs, h, w, c = inputs.shape
-    pointwise_filters = make_divisible(int(out_dim * alpha), 8)
+def inverted_residual_block(
+    inputs,
+    filters,
+    strides=(1, 1),
+    expansion=1,
+    alpha=1.,
+    depth_multiplier=1,
+    activation="relu6",
+    normalizer="batch-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    name=None
+):
+    if name is None:
+        name = f"inverted_residual_block_{K.get_uid('inverted_residual_block')}"
+        
+    c = inputs.shape[-1]
+    pointwise_filters = make_divisible(int(filters * alpha), 8)
+    strides = validate_conv_arg(strides)
+    regularizer_decay = check_regularizer(regularizer_decay)
 
     x = inputs
 
-    if block_id:
-        prefix = f'block{block_id}_'
-        x = Conv2D(expansion * c,
-                   kernel_size=(1, 1),
-                   strides=(1, 1),
-                   padding='same',
-                   use_bias=False,
-                   activation=None,
-                   name=prefix + 'expand')(x)
-        x = get_normalizer_from_name(normalizer, 
-                                    epsilon=1e-3,
-                                    momentum=0.999,
-                                    name=prefix + 'expand_bn')(x)
-        x = get_activation_from_name(activation, name=prefix + 'expand_activ')(x)
-    else:
-        prefix = 'expanded_conv_'
+    if expansion > 1:
+        x = Sequential([
+            Conv2D(
+                filters=expansion * c,
+                kernel_size=(1, 1),
+                strides=(1, 1),
+                padding='same',
+                use_bias=False,
+            ),
+            get_normalizer_from_name(normalizer, epsilon=norm_eps),
+            get_activation_from_name(activation),
+        ], name=f"{name}.expand")(x)
 
     if strides == (2, 2):
-        x = ZeroPadding2D(padding=correct_pad(x, 3), name=prefix + 'pad')(x)
+        x = ZeroPadding2D(padding=correct_pad(x, 3), name=f"{name}.padding")(x)
 
-    x = DepthwiseConv2D(kernel_size=(3, 3),
-                        strides=strides,
-                        activation=None,
-                        use_bias=False,
-                        padding='same' if strides == (1, 1) else 'valid',
-                        name=prefix + 'depthwise')(x)
-    x = get_normalizer_from_name(normalizer, 
-                                epsilon=1e-3,
-                                momentum=0.999,
-                                name=prefix + 'depthwise_BN')(x)
-    x = get_activation_from_name(activation, name=prefix + 'depthwise_relu')(x)
+    x = Sequential([
+        DepthwiseConv2D(
+            kernel_size=(3, 3),
+            strides=strides,
+            padding='same' if strides == (1, 1) else 'valid',
+            depth_multiplier=depth_multiplier,
+            use_bias=False,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Conv2D(
+            filters=pointwise_filters,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding='same',
+            use_bias=False,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name=f"{name}.depthwise_conv")(x)
 
-    # Project
-    x = Conv2D(pointwise_filters,
-                      kernel_size=1,
-                      padding='same',
-                      use_bias=False,
-                      activation=None,
-                      name=prefix + 'project')(x)
-    x = get_normalizer_from_name(normalizer, 
-                                epsilon=1e-3,
-                                momentum=0.999,
-                                name=prefix + 'project_BN')(x)
-    
     if c == pointwise_filters and strides == (1, 1):
-        return add([inputs, x])
-        
-    return x
+        return add([inputs, x], name=f"{name}.final")
+    else:
+        return LinearLayer(name=f"{name}.final")(x)
     
 
-def MobileNet_v2(alpha=1,
-                 include_top=True, 
-                 weights='imagenet',
-                 input_tensor=None, 
-                 input_shape=None,
-                 pooling=None,
-                 final_activation='softmax',
-                 classes=1000,
-                 drop_rate=1e-3):
+def MobileNet_v2(
+    filters,
+    alpha,
+    depth_multiplier,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu6",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
                   
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
         
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=299,
-                                      min_size=75,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
+    if isinstance(inputs, (tuple, list)):
+        if len(inputs) == 3:
+            height, width, _ = inputs
+        elif len(inputs) == 4:
+            _, height, width, _ = inputs
         else:
-            img_input = input_tensor
+            raise ValueError("Invalid input shape tuple/list: expected 3 or 4 elements.")
+    else:
+        shape = inputs.shape
+        if len(shape) != 4:
+            raise ValueError("Input tensor must have rank 4: (batch, height, width, channels)")
+        height, width = shape[1], shape[2]
 
-    bs, h, w, c = img_input.shape
     if weights == 'imagenet':
         if alpha not in [0.25, 0.50, 0.75, 1.0]:
             raise ValueError('If imagenet weights are being loaded, '
                              'alpha can be one of'
                              '`0.25`, `0.50`, `0.75` or `1.0` only.')
             
-        if h != w and h not in [128, 160, 192, 224]:
+        if height != width and height not in [128, 160, 192, 224]:
             raise ValueError('If imagenet weights are being loaded, '
                              'alpha can be one of'
                              '128, 160, 192 or 224 only.')
             
-    x = stem_block(img_input, 32, (3, 3), (2, 2), alpha)
-
-    x = inverted_residual_block(x, out_dim=16, strides=(1, 1), expansion=1, alpha=alpha, block_id=0)
-
-    x = inverted_residual_block(x, out_dim=24, strides=(2, 2), expansion=6, alpha=alpha, block_id=1)
-    x = inverted_residual_block(x, out_dim=24, strides=(1, 1), expansion=6, alpha=alpha, block_id=2)
-
-    x = inverted_residual_block(x, out_dim=32, strides=(2, 2), expansion=6, alpha=alpha, block_id=3)
-    x = inverted_residual_block(x, out_dim=32, strides=(1, 1), expansion=6, alpha=alpha, block_id=4)
-    x = inverted_residual_block(x, out_dim=32, strides=(1, 1), expansion=6, alpha=alpha, block_id=5)
-
-    x = inverted_residual_block(x, out_dim=64, strides=(2, 2), expansion=6, alpha=alpha, block_id=6)
-    x = inverted_residual_block(x, out_dim=64, strides=(1, 1), expansion=6, alpha=alpha, block_id=7)
-    x = inverted_residual_block(x, out_dim=64, strides=(1, 1), expansion=6, alpha=alpha, block_id=8)
-    x = inverted_residual_block(x, out_dim=64, strides=(1, 1), expansion=6, alpha=alpha, block_id=9)
-
-    x = inverted_residual_block(x, out_dim=96, strides=(1, 1), expansion=6, alpha=alpha, block_id=10)
-    x = inverted_residual_block(x, out_dim=96, strides=(1, 1), expansion=6, alpha=alpha, block_id=11)
-    x = inverted_residual_block(x, out_dim=96, strides=(1, 1), expansion=6, alpha=alpha, block_id=12)
-
-    x = inverted_residual_block(x, out_dim=160, strides=(2, 2), expansion=6, alpha=alpha, block_id=13)
-    x = inverted_residual_block(x, out_dim=160, strides=(1, 1), expansion=6, alpha=alpha, block_id=14)
-    x = inverted_residual_block(x, out_dim=160, strides=(1, 1), expansion=6, alpha=alpha, block_id=15)
-                  
-    x = inverted_residual_block(x, out_dim=320, strides=(1, 1), expansion=6, alpha=alpha, block_id=16)
-                  
-    # no alpha applied to last conv as stated in the paper:
-    # if the width multiplier is greater than 1 we
-    # increase the number of output channels
-    if alpha > 1.0:
-        last_block_filters = make_divisible(1280 * alpha, 8)
-    else:
-        last_block_filters = 1280
-
-    x = Conv2D(last_block_filters,
-               kernel_size=(1, 1),
-               strides=(1, 1),
-               use_bias=False,
-               name='conv1')(x)
-    x = get_normalizer_from_name('batch-norm', 
-                                epsilon=1e-3,
-                                momentum=0.999,
-                                name='Conv_1_bn')(x)
-    x = get_activation_from_name('relu6', name='out_relu')(x)
-                     
-    if include_top:
-        # Classification block
-        x = GlobalAveragePooling2D(name='global_avg_pooling')(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D(name='global_avg_pooling')(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D(name='global_max_pooling')(x)
-
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "alpha": alpha,
+        "depth_multiplier": depth_multiplier,
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
     
-    # Create model.
-    model = Model(inputs, x, name=f'{float(alpha)}-MobileNetV2-{h}')
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
+    
+    # Stage 0:
+    x = create_layer_instance(
+        stem_block,
+        inputs=inputs,
+        filters=filters,
+        kernel_size=(3, 3),
+        strides=(2, 2),
+        **layer_constant_dict,
+        name="stem"
+    )
 
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+    # Stage 1:
+    for i in range(3):
+        x = create_layer_instance(
+            inverted_residual_block,
+            inputs=x,
+            filters=int(filters * 3/4) if i != 0 else int(filters * 1/2),
+            strides=(2, 2) if i == 0 else (1, 1),
+            expansion=1 if i == 0 else 6,
+            **layer_constant_dict,
+            name=f"stage1.block{i + 2}"
+        )
+    
+    # Stage 2:
+    for i in range(3):
+        x = create_layer_instance(
+            inverted_residual_block,
+            inputs=x,
+            filters=filters,
+            strides=(2, 2) if i == 0 else (1, 1),
+            expansion=6,
+            **layer_constant_dict,
+            name=f"stage2.block{i + 1}"
+        )
+
+    # Stage 3:
+    for i in range(4):
+        x = create_layer_instance(
+            inverted_residual_block,
+            inputs=x,
+            filters=filters * 2,
+            strides=(2, 2) if i == 0 else (1, 1),
+            expansion=6,
+            **layer_constant_dict,
+            name=f"stage3.block{i + 1}"
+        )
+
+    for i in range(3):
+        x = create_layer_instance(
+            inverted_residual_block,
+            inputs=x,
+            filters=filters * 3,
+            strides=(1, 1),
+            expansion=6,
+            **layer_constant_dict,
+            name=f"stage3.block{i + 5}"
+        )
+
+    # Stage 4:
+    for i in range(3):
+        x = create_layer_instance(
+            inverted_residual_block,
+            inputs=x,
+            filters=filters * 5,
+            strides=(2, 2) if i == 0 else (1, 1),
+            expansion=6,
+            **layer_constant_dict,
+            name=f"stage4.block{i + 1}"
+        )
+
+    x = create_layer_instance(
+        inverted_residual_block,
+        inputs=x,
+        filters=filters * 10,
+        strides=(1, 1),
+        expansion=6,
+        **layer_constant_dict,
+        name=f"stage4.block{i + 2}"
+    )
+
+    x = Sequential([
+        Conv2D(
+            filters=make_divisible(filters * 40 * alpha, 8) if alpha > 1.0 else filters * 40,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=False,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"stage4.block{i + 3}")(x)
+
+    if include_head:
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
+
+    model = Model(inputs, x, name=f'{float(alpha)}-MobileNetV2-{height}')
     return model
+
+
+def MobileNet_v2_backbone(
+    filters,
+    alpha,
+    depth_multiplier,
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu6",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.final",
+        "stage2.block3.final",
+        "stage3.block7.final",
+    ]
+
+    return create_model_backbone(
+        model_fn=MobileNet_v2,
+        custom_layers=custom_layers,
+        filters=filters,
+        alpha=alpha,
+        depth_multiplier=depth_multiplier,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+
+    
+def MobileNet_base_v2(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="relu6",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+) -> Model:
+    
+    model = MobileNet_v2(
+        filters=32,
+        alpha=1.,
+        depth_multiplier=1,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def MobileNet_base_v2_backbone(
+    inputs=[224, 224, 3],
+    weights="imagenet",
+    activation="relu6",
+    normalizer="batch-norm",
+    custom_layers=[]
+) -> Model:
+
+    custom_layers = custom_layers or [
+        "stem",
+        "stage1.block4.final",
+        "stage2.block3.final",
+        "stage3.block7.final",
+    ]
+
+    return create_model_backbone(
+        model_fn=MobileNet_base_v2,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
+    

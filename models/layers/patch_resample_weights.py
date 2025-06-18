@@ -34,18 +34,21 @@ class PatchConv2DWithResampleWeights(tf.keras.layers.Conv2D):
         for idx in range(source_shape[0] * source_shape[1]):
             basis_vec = np.zeros(source_shape).astype("float32")
             basis_vec[np.unravel_index(idx, source_shape)] = 1.0
-            vec = np.expand_dims(basis_vec, -1 if image_data_format() == "channels_last" else 0)
-            vec = tf.resize(vec, target_shape, method=method)
-            vec = vec.detach() if hasattr(vec, "detach") else vec
-            vec = vec.numpy() if hasattr(vec, "numpy") else np.array(vec)
+            vec = np.expand_dims(basis_vec, axis=-1)
+            vec = tf.image.resize(vec, target_shape, method=method)
+            vec = vec.numpy()
             mat.append(vec.reshape(-1))
+            
         resize_mat_pinv = np.linalg.pinv(np.stack(mat))
 
         # v_resample_kernel = jax.vmap(jax.vmap(lambda kernel: (resize_mat_pinv @ kernel.reshape(-1)).reshape(new_hw), 2, 2), 3, 3)
         # cc = v_resample_kernel(old)
         # As it's only one weight, just using two loop here, instead of `jax.vmap`
-        target_weights = np.stack([[(resize_mat_pinv @ jj.reshape(-1)).reshape(target_shape) for jj in ii] for ii in source_kernel.transpose([3, 2, 0, 1])])
-        if image_data_format() == "channels_last":
-            target_weights = target_weights.transpose([2, 3, 1, 0])
+        target_weights = np.stack([
+            [(resize_mat_pinv @ jj.reshape(-1)).reshape(target_shape) for jj in ii]
+            for ii in source_kernel.transpose([3, 2, 0, 1])
+        ])
+        
+        target_weights = target_weights.transpose([2, 3, 1, 0])
         self.set_weights([target_weights, source_bias])
         

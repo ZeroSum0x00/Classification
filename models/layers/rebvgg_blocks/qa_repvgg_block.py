@@ -6,8 +6,8 @@ from tensorflow.keras.layers import (
 )
 from tensorflow.keras.regularizers import l2
 
-from . import get_activation_from_name, get_normalizer_from_name
 from models.architectures.vgg.repvgg import RepVGGBlock
+from models.layers import get_activation_from_name, get_normalizer_from_name
 
 
 

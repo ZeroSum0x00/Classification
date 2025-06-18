@@ -20,10 +20,10 @@ class BiasLayer(tf.keras.layers.Layer):
                 bb_shape[ii] = input_shape[ii]
                 
         self.bb = self.add_weight(
-            name="bias",
             shape=bb_shape,
             initializer=self.initializer,
             trainable=True,
+            name="bias"
         )
         
         super(BiasLayer, self).build(input_shape)

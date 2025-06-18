@@ -15,7 +15,7 @@ def get_labels(label_object):
     elif os.path.isdir(label_object):
         label_object = f"{label_object}/train/" if os.path.isdir(f"{label_object}/train/") else label_object
         subfolders = [f.path for f in os.scandir(label_object) if f.is_dir() ]
-        subfolders = sorted([x.split("/")[-1] for x in subfolders])
+        subfolders = sorted([os.path.basename(x) for x in subfolders])
         return subfolders, len(subfolders)
 
 

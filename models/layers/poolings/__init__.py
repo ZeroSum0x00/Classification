@@ -1,0 +1,1 @@
+from .adaptive_average_pooling2d import AdaptiveAvgPooling2D

@@ -1,3 +1,15 @@
+# YOLO v1
+from .darknet import (
+    # DarkNet, DarkNet_backbone,
+    DarkNet_base, DarkNet_base_backbone,
+)
+
+# YOLO v2
+from .darknet19 import (
+    DarkNet19, DarkNet19_backbone,
+    DarkNet19_base, DarkNet19_base_backbone,
+)
+
 # YOLO v3
 from .darknet53 import (
     DarkNet53, DarkNet53_backbone,
@@ -23,21 +35,21 @@ from .darknet_c3 import (
 # YOLO v6
 from .efficient_rep import (
     EfficientLite, EfficientLite_backbone,
+    EfficientRep, EfficientRep_backbone,
     EfficientLite_small, EfficientLite_small_backbone,
     EfficientLite_medium, EfficientLite_medium_backbone,
     EfficientLite_large, EfficientLite_large_backbone,
-    EfficientRep, EfficientRep_backbone,
     EfficientRep_nano, EfficientRep_nano_backbone,
     EfficientRep6_nano, EfficientRep6_nano_backbone,
+    EfficientMBLA_small, EfficientMBLA_small_backbone,
     EfficientRep_small, EfficientRep_small_backbone,
     EfficientRep6_small, EfficientRep6_small_backbone,
+    EfficientMBLA_medium, EfficientMBLA_medium_backbone,
     EfficientRep_medium, EfficientRep_medium_backbone,
     EfficientRep6_medium, EfficientRep6_medium_backbone,
+    EfficientMBLA_large, EfficientMBLA_large_backbone,
     EfficientRep_large, EfficientRep_large_backbone,
     EfficientRep6_large, EfficientRep6_large_backbone,
-    EfficientMBLA_small, EfficientMBLA_small_backbone,
-    EfficientMBLA_medium, EfficientMBLA_medium_backbone,
-    EfficientMBLA_large, EfficientMBLA_large_backbone,
     EfficientMBLA_xlarge, EfficientMBLA_xlarge_backbone,
 )
 
@@ -47,7 +59,6 @@ from .darknet_elan import (
     DarkNetELAN_B, DarkNetELAN_B_backbone,
     DarkNetELAN_C, DarkNetELAN_C_backbone,
     DarkNetELAN_D, DarkNetELAN_D_backbone,
-    DarkNetELAN_E, DarkNetELAN_E_backbone,
     DarkNetELAN_tiny, DarkNetELAN_tiny_backbone,
     DarkNetELAN_nano, DarkNetELAN_nano_backbone,
     DarkNetELAN_small, DarkNetELAN_small_backbone,
@@ -79,8 +90,7 @@ from .darknet_elan4 import (
 
 # YOLO v10
 from .darknet_cib import (
-    DarkNetCIB_A, DarkNetCIB_A_backbone,
-    DarkNetCIB_B, DarkNetCIB_B_backbone,
+    DarkNetCIB, DarkNetCIB_backbone,
     DarkNetCIB_nano, DarkNetCIB_nano_backbone,
     DarkNetCIB_small, DarkNetCIB_small_backbone,
     DarkNetCIB_medium, DarkNetCIB_medium_backbone,

@@ -1,49 +1,191 @@
 """
-  # Description:
-    - The following table comparing the params of the DarkNet ELAN (YOLOv7 backbone) in Tensorflow on 
-    image size 640 x 640 x 3:
+    DarknetELAN: YOLOv7 Backbone with ELAN, TransitionBlock, and ScaleUpConcatBlock
+    
+    Overview:
+        DarknetELAN implements the backbone and neck architecture used in YOLOv7, 
+        designed for high-performance object detection with efficiency and scalability. 
+        It introduces modular components that enhance gradient flow, reuse features,
+        and support multi-scale feature aggregation.
+    
+    General Model Architecture:
+        - Darknet ELAN A (tiny):
+             --------------------------------------------------------------------------------
+            | Stage                  | Layer                       | Output Shape            |
+            |------------------------+-----------------------------+-------------------------|
+            | Input                  | input_layer                 | (None, 640, 640, 3)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stem                   | ConvolutionBlock (3x3, s=2) | (None, 320, 320, C)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 1                | ConvolutionBlock (3x3, s=2) | (None, 160, 160, 2C)    |
+            |                        | ConvolutionBlock (3x3, s=1) | (None, 160, 160, C)     |
+            |                        | ScaleUpConcatBlock          | (None, 160, 160, 2C)    |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 2                | MaxPooling2D                | (None, 80, 80, 2C)      |
+            |                        | ConvolutionBlock (3x3, s=1) | (None, 80, 80, 2C)      |
+            |                        | ScaleUpConcatBlock          | (None, 80, 80, 4C)      |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 3                | MaxPooling2D                | (None, 40, 40, 4C)      |
+            |                        | Conv3 (3x3, s=1)            | (None, 40, 40, 4C)      |
+            |                        | ScaleUpConcatBlock          | (None, 40, 40, 8C)      |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 4                | MaxPooling2D                | (None, 20, 20, 8C)      |
+            |                        | Conv3 (3x3, s=1)            | (None, 20, 20, 8C)      |
+            |                        | ScaleUpConcatBlock          | (None, 20, 20, 16C*S)   |
+            |                        | pyramid_poolings (*)        | (None, 20, 20, 16C*S)   |
+            |------------------------+-----------------------------+-------------------------|
+            | CLS Logics             | GlobalAveragePooling        | (None, 16C*S)           |
+            |                        | fc (Logics)                 | (None, 1000)            |
+             --------------------------------------------------------------------------------
+             
+        - Darknet ELAN B (nano, small):
+             --------------------------------------------------------------------------------
+            | Stage                  | Layer                       | Output Shape            |
+            |------------------------+-----------------------------+-------------------------|
+            | Input                  | input_layer                 | (None, 640, 640, 3)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stem                   | ConvolutionBlock (3x3, s=1) | (None, 640, 640, C)     |
+            |                        | ConvolutionBlock (3x3, s=2) | (None, 320, 320, 2C)    |
+            |                        | ConvolutionBlock (3x3, s=1) | (None, 320, 320, 2C)    |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 1                | ConvolutionBlock (3x3, s=2) | (None, 160, 160, 4C)    |
+            |                        | ScaleUpConcatBlock          | (None, 160, 160, 8C)    |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 2                | TransitionBlock             | (None, 80, 80, 8C)      |
+            |                        | ScaleUpConcatBlock          | (None, 80, 80, 16C)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 3                | TransitionBlock             | (None, 40, 40, 16C)     |
+            |                        | ScaleUpConcatBlock          | (None, 40, 40, 32C)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 4                | TransitionBlock             | (None, 20, 20, 32C*S)   |
+            |                        | ScaleUpConcatBlock          | (None, 20, 20, 32C*S)   |
+            |                        | pyramid_poolings (*)        | (None, 20, 20, 32C*S)   |
+            |------------------------+-----------------------------+-------------------------|
+            | CLS Logics             | GlobalAveragePooling        | (None, 32C*S)           |
+            |                        | fc (Logics)                 | (None, 1000)            |
+             --------------------------------------------------------------------------------
 
-       --------------------------------------------
-      |      Model Name          |    Params       |
-      |--------------------------------------------|
-      |    DarkNetELAN tiny      |    3,071,304    |
-      |--------------------------------------------|
-      |    DarkNetELAN nano      |   14,416,840    |
-      |--------------------------------------------|
-      |    DarkNetELAN small     |   21,582,016    |
-      |--------------------------------------------|
-      |    DarkNetELAN medium    |   37,040,616    |
-      |--------------------------------------------|
-      |    DarkNetELAN large     |   48,830,632    |
-      |--------------------------------------------|
-      |    DarkNetELAN xlarge    |   66,540,136    |
-      |--------------------------------------------|
-      |    DarkNetELAN huge      |   84,323,624    |
-       --------------------------------------------
+        - Darknet ELAN C (medium, large, xlarge):
+             --------------------------------------------------------------------------------
+            | Stage                  | Layer                       | Output Shape            |
+            |---------------------------------------------------------------------------|
+            | Input                  | input_layer                 | (None, 1280, 1280, 3)   |
+            |------------------------+-----------------------------+-------------------------|
+            | Stem                   | ReOrg                       | (None, 640, 640, 12)    |
+            |                        | ConvolutionBlock (3x3, s=1) | (None, 640, 640, C)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 1                | DownC                       | (None, 320, 320, 2C)    |
+            |                        | ScaleUpConcatBlock          | (None, 320, 320, 2C)    |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 2                | DownC                       | (None, 160, 160, 4C)    |
+            |                        | ScaleUpConcatBlock          | (None, 160, 160, 4C)    |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 3                | DownC                       | (None, 80, 80, 8C)      |
+            |                        | ScaleUpConcatBlock          | (None, 80, 80, 8C)      |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 4                | DownC                       | (None, 40, 40, 12C)     |
+            |                        | ScaleUpConcatBlock          | (None, 40, 40, 12C)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 4                | DownC                       | (None, 20, 20, 16C*S)   |
+            |                        | ScaleUpConcatBlock          | (None, 20, 20, 16C*S)   |
+            |                        | pyramid_poolings (*)        | (None, 20, 20, 16C*S)   |
+            |------------------------+-----------------------------+-------------------------|
+            | CLS Logics             | GlobalAveragePooling        | (None, 16C*S)           |
+            |                        | fc (Logics)                 | (None, 1000)            |
+             --------------------------------------------------------------------------------
 
-  # Reference:
-    - Source: https://github.com/WongKinYiu/yolov7
+        - Darknet ELAN D (huge):
+             --------------------------------------------------------------------------------
+            | Stage                  | Layer                       | Output Shape            |
+            |------------------------+-----------------------------+-------------------------|
+            | Input                  | input_layer                 | (None, 1280, 1280, 3)   |
+            |------------------------+-----------------------------+-------------------------|
+            | Stem                   | ReOrg                       | (None, 640, 640, 12)    |
+            |                        | ConvolutionBlock (3x3, s=1) | (None, 640, 640, C)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 1                | DownC                       | (None, 320, 320, 2C)    |
+            |                        | ScaleUpConcatBlock          | (None, 320, 320, 2C)    |
+            |                        | ScaleUpConcatBlock          | (None, 320, 320, 2C)    |
+            |                        | Shortcut                    | (None, 320, 320, 2C)    |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 2                | DownC                       | (None, 160, 160, 4C)    |
+            |                        | ScaleUpConcatBlock          | (None, 160, 160, 4C)    |
+            |                        | ScaleUpConcatBlock          | (None, 160, 160, 4C)    |
+            |                        | Shortcut                    | (None, 160, 160, 4C)    |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 3                | DownC                       | (None, 80, 80, 8C)      |
+            |                        | ScaleUpConcatBlock          | (None, 80, 80, 8C)      |
+            |                        | ScaleUpConcatBlock          | (None, 80, 80, 8C)      |
+            |                        | Shortcut                    | (None, 80, 80, 8C)      |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 4                | DownC                       | (None, 40, 40, 12C)     |
+            |                        | ScaleUpConcatBlock          | (None, 40, 40, 12C)     |
+            |                        | ScaleUpConcatBlock          | (None, 40, 40, 12C)     |
+            |                        | Shortcut                    | (None, 40, 40, 12C)     |
+            |------------------------+-----------------------------+-------------------------|
+            | Stage 5                | DownC                       | (None, 20, 20, 16C*S)   |
+            |                        | ScaleUpConcatBlock          | (None, 20, 20, 16C*S)   |
+            |                        | ScaleUpConcatBlock          | (None, 20, 20, 16C*S)   |
+            |                        | Shortcut                    | (None, 20, 20, 16C*S)   |
+            |                        | pyramid_poolings (*)        | (None, 20, 20, 16C*S)   |
+            |------------------------+-----------------------------+-------------------------|
+            | CLS Logics             | GlobalAveragePooling        | (None, 16C*S)           |
+            |                        | fc (Logics)                 | (None, 1000)            |
+             --------------------------------------------------------------------------------
+        (*) Note: While the original architecture does not include a Pyramid Pooling layer, 
+        it can be optionally incorporated to enhance feature aggregation and create an extended variant of the model.
 
+    Model Parameter Comparison:
+         --------------------------------------------
+        |      Model Name          |    Params       |
+        |--------------------------+-----------------|
+        |    DarkNetELAN tiny      |    3,071,304    |
+        |--------------------------+-----------------|
+        |    DarkNetELAN nano      |   14,416,840    |
+        |--------------------------+-----------------|
+        |    DarkNetELAN small     |   21,582,016    |
+        |--------------------------+-----------------|
+        |    DarkNetELAN medium    |   37,040,616    |
+        |--------------------------+-----------------|
+        |    DarkNetELAN large     |   48,830,632    |
+        |--------------------------+-----------------|
+        |    DarkNetELAN xlarge    |   66,540,136    |
+        |--------------------------+-----------------|
+        |    DarkNetELAN huge      |   84,323,624    |
+         --------------------------------------------
+
+    Reference:
+        - Paper: "YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors"
+          https://arxiv.org/pdf/2207.02696
+          
+        - Original implementation:
+          https://github.com/WongKinYiu/yolov7
 """
 
 import tensorflow as tf
 from tensorflow.keras import Model, Sequential
 from tensorflow.keras.layers import (
-    Conv2D, Conv2DTranspose, Dense, Dropout, MaxPooling2D,
-    GlobalMaxPooling2D, GlobalAveragePooling2D, Concatenate, concatenate, add
+    Conv2D, Conv2DTranspose, Dense,
+    Dropout, MaxPooling2D, GlobalAveragePooling2D,
+    Concatenate, concatenate, add,
 )
-from tensorflow.keras.regularizers import l2
 
-from .darknet53 import ConvolutionBlock
+from .darknet19 import ConvolutionBlock
 from .darknet_c3 import Bottleneck, GhostConv, GhostBottleneck
 from .efficient_rep import CSPSPPF, RepVGGBlock
 
-from models.layers import get_activation_from_name, get_normalizer_from_name, ScaleWeight, LinearLayer
-from utils.model_processing import process_model_input, create_layer_instance
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    ScaleWeight, LinearLayer,
+)
+from utils.model_processing import (
+    process_model_input, create_model_backbone, create_layer_instance,
+    validate_conv_arg, check_regularizer,
+)
 
 
 
 class ReOrg(tf.keras.layers.Layer):
+    
     def __init__(self, axis=-1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.axis = axis
@@ -56,14 +198,25 @@ class ReOrg(tf.keras.layers.Layer):
         x = concatenate([x1, x2, x3, x4], axis=self.axis)        
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "axis": self.axis
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class ChunCat(tf.keras.layers.Layer):
     
     def __init__(self, chun_dim=2, axis=-1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.chun_dim = chun_dim
-        self.axis     = axis
-        self.merger   = Concatenate(axis=self.axis)
+        self.axis = axis
+        self.merger = Concatenate(axis=self.axis)
         
     def call(self, inputs):
         x1 = []
@@ -79,7 +232,19 @@ class ChunCat(tf.keras.layers.Layer):
         x = self.merger(x1 + x2)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "chun_dim": self.chun_dim,
+            "axis": self.axis
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class Shortcut(tf.keras.layers.Layer):
     
     def __init__(self, axis=-1, *args, **kwargs):
@@ -92,13 +257,24 @@ class Shortcut(tf.keras.layers.Layer):
         else:
             return inputs
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "axis": self.axis
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
 
 class FoldCut(tf.keras.layers.Layer):
     
     def __init__(self, fold_dim=2, axis=-1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fold_dim = fold_dim
-        self.axis     = axis
+        self.axis = axis
         
     def call(self, inputs):
         x1, x2 = tf.split(
@@ -108,11 +284,23 @@ class FoldCut(tf.keras.layers.Layer):
         )
         return x1 + x2
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "fold_dim": self.fold_dim,
+            "axis": self.axis
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class ImplicitAdd(tf.keras.layers.Layer):
     def __init__(self, mean=0.0, stddev=0.02, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mean   = mean
+        self.mean = mean
         self.stddev = stddev
                      
     def build(self, input_shape):
@@ -125,23 +313,50 @@ class ImplicitAdd(tf.keras.layers.Layer):
     def call(self, inputs, training=False):
         return inputs + self.implicit
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "mean": self.mean,
+            "stddev": self.stddev
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class ImplicitMul(tf.keras.layers.Layer):
     def __init__(self, mean=1.0, stddev=0.02, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mean   = mean
+        self.mean = mean
         self.stddev = stddev
                      
     def build(self, input_shape):
         init_value = tf.keras.initializers.RandomNormal(mean=self.mean, stddev=self.stddev)
-        self.implicit = tf.Variable(name="implicit",
-                                    initial_value=init_value(shape=(1, 1, 1, input_shape[-1]), dtype=tf.float32),
-                                    trainable=True)
+        
+        self.implicit = tf.Variable(
+            name="implicit",
+            initial_value=init_value(shape=(1, 1, 1, input_shape[-1]), dtype=tf.float32),
+            trainable=True
+        )
 
     def call(self, inputs, training=False):
         return inputs * self.implicit
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "mean": self.mean,
+            "stddev": self.stddev
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RobustConv(tf.keras.layers.Layer):
     
     """
@@ -166,8 +381,8 @@ class RobustConv(tf.keras.layers.Layer):
     ):
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.kernel_size = kernel_size
-        self.strides = strides
+        self.kernel_size = validate_conv_arg(kernel_size)
+        self.strides = validate_conv_arg(strides)
         self.padding = padding
         self.groups = groups
         self.conv_scale_init = conv_scale_init
@@ -175,7 +390,7 @@ class RobustConv(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
     
     def build(self, input_shape):
@@ -191,7 +406,7 @@ class RobustConv(tf.keras.layers.Layer):
                     use_bias=False,
                     kernel_initializer=self.kernel_initializer,
                     bias_initializer=self.bias_initializer,
-                    kernel_regularizer=l2(self.regularizer_decay),
+                    kernel_regularizer=self.regularizer_decay,
                 ),
                 get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps),
                 get_activation_from_name(self.activation)
@@ -205,7 +420,7 @@ class RobustConv(tf.keras.layers.Layer):
             use_bias=True,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
-            kernel_regularizer=l2(self.regularizer_decay),
+            kernel_regularizer=self.regularizer_decay,
         )
         
         if self.conv_scale_init > 0:
@@ -231,7 +446,11 @@ class RobustConv(tf.keras.layers.Layer):
             "groups": self.groups,
             "conv_scale_init": self.conv_scale_init,
             "activation": self.activation,
-            "normalizer": self.normalizer
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
         })
         return config
 
@@ -254,9 +473,14 @@ class RobustConv2(RobustConv):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        kernel_size = validate_conv_arg(kernel_size)
+        strides = validate_conv_arg(strides)
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             kernel_size=kernel_size,
+            strides=strides,
             padding=padding,
             groups=groups,
             conv_scale_init=conv_scale_init,
@@ -280,7 +504,7 @@ class RobustConv2(RobustConv):
             use_bias=True,
             kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer,
-            kernel_regularizer=l2(self.regularizer_decay),
+            kernel_regularizer=self.regularizer_decay,
         )
         
         if self.conv_scale_init > 0:
@@ -307,7 +531,11 @@ class RobustConv2(RobustConv):
             "groups": self.groups,
             "conv_scale_init": self.conv_scale_init,
             "activation": self.activation,
-            "normalizer": self.normalizer
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
         })
         return config
 
@@ -327,12 +555,12 @@ class BasicStem(tf.keras.layers.Layer):
     ):
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.pool_size = pool_size
+        self.pool_size = validate_conv_arg(pool_size)
         self.activation = activation
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
         
     def build(self, input_shape):
@@ -400,7 +628,25 @@ class BasicStem(tf.keras.layers.Layer):
         outputs.append(x)
         return outputs
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "pool_size": self.pool_size,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class GhostStem(BasicStem):
 
     def __init__(
@@ -415,6 +661,9 @@ class GhostStem(BasicStem):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        pool_size = validate_conv_arg(pool_size)
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             pool_size=pool_size,
@@ -478,7 +727,25 @@ class GhostStem(BasicStem):
         
         self.pool  = MaxPooling2D(pool_size=self.pool_size, strides=(2, 2))
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "pool_size": self.pool_size,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class DownC(tf.keras.layers.Layer):
     def __init__(
         self,
@@ -494,12 +761,12 @@ class DownC(tf.keras.layers.Layer):
     ):
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.pool_size = pool_size
+        self.pool_size = validate_conv_arg(pool_size)
         self.activation = activation
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
@@ -528,7 +795,7 @@ class DownC(tf.keras.layers.Layer):
                 use_bias=False,
                 kernel_initializer=self.kernel_initializer,
                 bias_initializer=self.bias_initializer,
-                kernel_regularizer=l2(self.regularizer_decay),
+                kernel_regularizer=self.regularizer_decay,
             ),
             get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps),
             get_activation_from_name(self.activation)
@@ -556,7 +823,25 @@ class DownC(tf.keras.layers.Layer):
         out = concatenate([x, y], axis=-1)
         return out
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "pool_size": self.pool_size,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class ResX(tf.keras.layers.Layer):
     def __init__(
         self,
@@ -581,7 +866,7 @@ class ResX(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
@@ -635,7 +920,27 @@ class ResX(tf.keras.layers.Layer):
             x = add([inputs, x])
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "groups": self.groups,
+            "expansion": self.expansion,
+            "shortcut": self.shortcut,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class CSPSPPC(CSPSPPF):
 
     def __init__(
@@ -651,6 +956,9 @@ class CSPSPPC(CSPSPPF):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        pool_size = validate_conv_arg(pool_size)
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             pool_size=pool_size,
@@ -684,6 +992,9 @@ class GhostCSPSPPC(CSPSPPC):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        pool_size = validate_conv_arg(pool_size)
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             pool_size=pool_size,
@@ -813,7 +1124,7 @@ class BottleneckCSPA(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
 
     def build(self, input_shape):
@@ -880,7 +1191,28 @@ class BottleneckCSPA(tf.keras.layers.Layer):
         x = self.conv3(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "groups": self.groups,
+            "iters": self.iters,
+            "expansion": self.expansion,
+            "shortcut": self.shortcut,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class BottleneckCSPB(BottleneckCSPA):
     def __init__(
         self,
@@ -897,6 +1229,8 @@ class BottleneckCSPB(BottleneckCSPA):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -939,6 +1273,8 @@ class BottleneckCSPC(BottleneckCSPA):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1009,6 +1345,8 @@ class ResCSPA(BottleneckCSPA):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1061,6 +1399,8 @@ class ResXCSPA(BottleneckCSPA):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1113,6 +1453,8 @@ class GhostCSPA(BottleneckCSPA):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1164,6 +1506,8 @@ class ResCSPB(BottleneckCSPB):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1215,6 +1559,8 @@ class ResXCSPB(BottleneckCSPB):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1266,6 +1612,8 @@ class GhostCSPB(BottleneckCSPB):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1316,6 +1664,8 @@ class ResCSPC(BottleneckCSPC):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1367,6 +1717,8 @@ class ResXCSPC(BottleneckCSPC):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1418,6 +1770,8 @@ class GhostCSPC(BottleneckCSPC):
         norm_eps=1e-6,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1469,6 +1823,9 @@ class RepBottleneck(Bottleneck):
         deploy=False,
         *args, **kwargs
     ):
+        strides = validate_conv_arg(strides)
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             strides=strides,
@@ -1500,6 +1857,17 @@ class RepBottleneck(Bottleneck):
             norm_eps=self.norm_eps,
             deploy=self.deploy,
         )
+        
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 class RepBottleneckCSPA(BottleneckCSPA):
@@ -1519,6 +1887,8 @@ class RepBottleneckCSPA(BottleneckCSPA):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1556,7 +1926,18 @@ class RepBottleneckCSPA(BottleneckCSPA):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepBottleneckCSPB(BottleneckCSPB):
     def __init__(
         self,
@@ -1574,6 +1955,8 @@ class RepBottleneckCSPB(BottleneckCSPB):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1611,7 +1994,18 @@ class RepBottleneckCSPB(BottleneckCSPB):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepBottleneckCSPC(BottleneckCSPC):
     def __init__(
         self,
@@ -1629,6 +2023,8 @@ class RepBottleneckCSPC(BottleneckCSPC):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1666,7 +2062,18 @@ class RepBottleneckCSPC(BottleneckCSPC):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepRes(ResX):
     def __init__(
         self,
@@ -1683,6 +2090,8 @@ class RepRes(ResX):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1715,7 +2124,18 @@ class RepRes(ResX):
             deploy=self.deploy,
         )
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepResCSPA(ResCSPA):
     def __init__(
         self,
@@ -1733,6 +2153,8 @@ class RepResCSPA(ResCSPA):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1770,7 +2192,18 @@ class RepResCSPA(ResCSPA):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepResCSPB(ResCSPB):
     def __init__(
         self,
@@ -1788,6 +2221,8 @@ class RepResCSPB(ResCSPB):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1825,7 +2260,18 @@ class RepResCSPB(ResCSPB):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepResCSPC(ResCSPC):
     def __init__(
         self,
@@ -1843,6 +2289,8 @@ class RepResCSPC(ResCSPC):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1880,7 +2328,18 @@ class RepResCSPC(ResCSPC):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepResX(ResX):
     def __init__(
         self,
@@ -1897,6 +2356,8 @@ class RepResX(ResX):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1928,6 +2389,17 @@ class RepResX(ResX):
             norm_eps=self.norm_eps,
             deploy=self.deploy,
         )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 class RepResXCSPA(ResXCSPA):
@@ -1947,6 +2419,8 @@ class RepResXCSPA(ResXCSPA):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -1984,7 +2458,18 @@ class RepResXCSPA(ResXCSPA):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepResXCSPB(ResXCSPB):
     def __init__(
         self,
@@ -2002,6 +2487,8 @@ class RepResXCSPB(ResXCSPB):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -2039,7 +2526,18 @@ class RepResXCSPB(ResXCSPB):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class RepResXCSPC(ResXCSPC):
     def __init__(
         self,
@@ -2057,6 +2555,8 @@ class RepResXCSPC(ResXCSPC):
         deploy=False,
         *args, **kwargs
     ):
+        regularizer_decay = check_regularizer(regularizer_decay)
+        
         super().__init__(
             filters=filters,
             groups=groups,
@@ -2094,7 +2594,18 @@ class RepResXCSPC(ResXCSPC):
             for _ in range(self.iters)
         ])
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "deploy": self.deploy
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class ScaleUpConcatBlock(tf.keras.layers.Layer):
     def __init__(
         self,
@@ -2117,7 +2628,7 @@ class ScaleUpConcatBlock(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
                      
     def build(self, input_shape):
@@ -2185,7 +2696,26 @@ class ScaleUpConcatBlock(tf.keras.layers.Layer):
         x = self.conv3(x, training=training)
         return x
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "iters": self.iters,
+            "id_concat": self.id_concat,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+        
 class TransitionBlock(tf.keras.layers.Layer):
     def __init__(
         self,
@@ -2204,7 +2734,7 @@ class TransitionBlock(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.regularizer_decay = regularizer_decay
+        self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
            
     def build(self, input_shape):
@@ -2255,6 +2785,23 @@ class TransitionBlock(tf.keras.layers.Layer):
 
         x = concatenate([x1, x2], axis=-1)
         return x
+        
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "filters": self.filters,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 def DarkNetELAN_A(
@@ -2269,7 +2816,6 @@ def DarkNetELAN_A(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="leaky-relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -2300,6 +2846,7 @@ def DarkNetELAN_A(
     # if pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
     #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -2312,7 +2859,7 @@ def DarkNetELAN_A(
     inputs = process_model_input(
         inputs,
         include_head=include_head,
-        default_size=640,
+        default_size=[640, 1280],
         min_size=32,
         weights=weights
     )
@@ -2336,124 +2883,82 @@ def DarkNetELAN_A(
     if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
         pyramid_pooling = [pyramid_pooling]
 
+    f0 = f0 if isinstance(f0, (tuple, list)) else [f0 * channel_scale**i for i in range(len(num_blocks))]
+    f1 = f1 if isinstance(f1, (tuple, list)) else [f1 * channel_scale**i for i in range(len(num_blocks))]
     
-    # Stage 0:
-    x = create_layer_instance(
-        extractor_block1,
-        filters=f0,
-        kernel_size=(3, 3),
-        strides=(2, 2),
-        **layer_constant_dict,
-        name="stem"
-    )(inputs)
+    x = inputs
+    for i in range(num_blocks[0]):
+        x = create_layer_instance(
+            extractor_block1,
+            filters=f0[0],
+            kernel_size=(3, 3),
+            strides=(2, 2),
+            **layer_constant_dict,
+            name=f"stem.block{i + 1}"
+        )(x)
 
+    last_stage_idx = len(num_blocks) - 2
+    final_filters = None
+    for i, num_block in enumerate(num_blocks[1:]):
+        is_last_stage = (i == last_stage_idx)
+        block_name_prefix = f"stage{i + 1}"
 
-    # Stage 1:
-    x = create_layer_instance(
-        extractor_block1,
-        filters=f0 * channel_scale,
-        kernel_size=(3, 3),
-        strides=(2, 2),
-        **layer_constant_dict,
-        name="stage1"
-    )(x)
-    
+        fx, fy, fz = f0[i], f0[i + 1], f1[i]
+        
+        if is_last_stage:
+            fx = int(fx * final_channel_scale)
+            fy = int(fy * final_channel_scale)
+            fz = int(fz * final_channel_scale)
+            final_filters = fy
+            
+        if num_block > 0:
+            if i == 0:
+                x = create_layer_instance(
+                    extractor_block1,
+                    filters=fy,
+                    kernel_size=(3, 3),
+                    strides=(2, 2),
+                    **layer_constant_dict,
+                    name=f"{block_name_prefix}.block1"
+                )(x)
+            else:
+                 x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name=f"{block_name_prefix}.block1")(x)
 
-    # Stage 2:
-    x = create_layer_instance(
-        extractor_block2,
-        filters=f0,
-        kernel_size=(1, 1),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stage2.block1"
-    )(x)
-    
-    x = create_layer_instance(
-        fusion_block1,
-        filters=[f1, f0 * channel_scale],
-        iters=num_blocks[0],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage2.block2"
-    )(x)
+        if num_block > 1:
+            x = create_layer_instance(
+                extractor_block2,
+                filters=fx,
+                kernel_size=(1, 1),
+                strides=(1, 1),
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block2"
+            )(x)
 
-    
-    # Stage 3:
-    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name="stage3.block1")(x)
-    
-    x = create_layer_instance(
-        extractor_block2,
-        filters=f0 * channel_scale,
-        kernel_size=(1, 1),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stage3.block2"
-    )(x)
-    
-    x = create_layer_instance(
-        fusion_block2,
-        filters=[f1 * channel_scale, f0 * channel_scale**2],
-        iters=num_blocks[1],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage3.block3"
-    )(x)
+        if num_block > 2:
+            x = create_layer_instance(
+                fusion_block1 if i == 0 else fusion_block2,
+                filters=[fz, fy],
+                iters=num_block - 2,
+                id_concat=id_concat,
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block3"
+            )(x)
 
+    block_name_prefix = f"stage{len(num_blocks) - 1}"
 
-    # Stage 4:
-    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name="stage4.block1")(x)
-    
-    x = create_layer_instance(
-        extractor_block2,
-        filters=f0 * channel_scale**2,
-        kernel_size=(1, 1),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stage4.block2"
-    )(x)
-    
-    x = create_layer_instance(
-        fusion_block2,
-        filters=[f1 * channel_scale**2, f0 * channel_scale**3],
-        iters=num_blocks[2],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage4.block3"
-    )(x)
-
-
-    # Stage 5:
-    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name="stage5.block1")(x)
-    
-    x = create_layer_instance(
-        extractor_block2,
-        filters=int(f0 * channel_scale**3 * final_channel_scale),
-        kernel_size=(1, 1),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stage5.block2"
-    )(x)
-    
-    x = create_layer_instance(
-        fusion_block2,
-        filters=[f1 * channel_scale**3, int(f0 * channel_scale**4 * final_channel_scale)],
-        iters=num_blocks[3],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage5.block3"
-    )(x)
-
+    if final_filters is None:
+        final_filters = int(f0[-1] * final_channel_scale)
+        
     if pyramid_pooling:
-        for i, pooling in enumerate(pyramid_pooling):
+        for p, pooling in enumerate(pyramid_pooling):
             x = create_layer_instance(
                 pooling,
-                filters=int(f0 * channel_scale**4 * final_channel_scale),
+                filters=final_filters,
                 **layer_constant_dict,
-                name=f"stage5.block{i + 4}"
+                name=f"{block_name_prefix}.block{p + 4}"
             )(x)
     else:
-        x = LinearLayer(name="stage5.block4")(x)
+        x = LinearLayer(name=f"{block_name_prefix}.block4")(x)
         
     if include_head:
         x = Sequential([
@@ -2462,17 +2967,14 @@ def DarkNetELAN_A(
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
-
-    if filters == [32, 32] and num_blocks == [2, 2, 2, 2]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-Tiny")
-    else:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-A")
         
+    model_name = "DarkNet-ELAN"
+    if filters == [32, 32] and num_blocks == [1, 4, 4, 4, 4]:
+        model_name += "-tiny"
+    else:
+        model_name += "-A"
+        
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -2492,7 +2994,14 @@ def DarkNetELAN_A_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = DarkNetELAN_A(
+    custom_layers = custom_layers or [
+        f"stem.block{j}" if i == 0 else f"stage{i}.block2"
+        for i, j in enumerate(num_blocks[:-1])
+    ]
+
+    return create_model_backbone(
+        model_fn=DarkNetELAN_A,
+        custom_layers=custom_layers,
         feature_extractor=feature_extractor,
         fusion_layer=fusion_layer,
         pyramid_pooling=pyramid_pooling,
@@ -2502,22 +3011,10 @@ def DarkNetELAN_A_backbone(
         channel_scale=channel_scale,
         final_channel_scale=final_channel_scale,
         inputs=inputs,
-        include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer,
+        normalizer=normalizer
     )
-    
-    custom_layers = custom_layers or [
-        "stem",
-        "stage2.block2",
-        "stage3.block3",
-        "stage4.block3",
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 def DarkNetELAN_B(
@@ -2532,7 +3029,6 @@ def DarkNetELAN_B(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -2563,6 +3059,7 @@ def DarkNetELAN_B(
     # if pyramid_pooling and pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
     #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -2575,7 +3072,7 @@ def DarkNetELAN_B(
     inputs = process_model_input(
         inputs,
         include_head=include_head,
-        default_size=640,
+        default_size=[640, 1280],
         min_size=32,
         weights=weights
     )
@@ -2599,125 +3096,70 @@ def DarkNetELAN_B(
     if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
         pyramid_pooling = [pyramid_pooling]
 
+    f0 = [f0 * channel_scale**i for i in range(len(num_blocks) + 1)]
+    f1 = [f1 * channel_scale**i for i in range(len(num_blocks) - 1)]
+    
+    x = inputs
+    for i in range(num_blocks[0]):
+        x = create_layer_instance(
+            extractor_block1,
+            filters=f0[0] if i == 0 else f0[1],
+            kernel_size=(3, 3),
+            strides=(2, 2) if i == 1 else (1, 1),
+            **layer_constant_dict,
+            name=f"stem.block{i + 1}"
+        )(x)
+
+    last_stage_idx = len(num_blocks) - 2
+    final_filters = None
+    for i, num_block in enumerate(num_blocks[1:]):
+        is_last_stage = (i == last_stage_idx)
+        block_name_prefix = f"stage{i + 1}"
+
+        fx = f0[i + 2] if i == 0 else f0[i + 1]
         
-    # Stage 0:
-    x = create_layer_instance(
-        extractor_block1,
-        filters=f0,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stem.block1"
-    )(inputs)
-    
-    x = create_layer_instance(
-        extractor_block1,
-        filters=f0 * channel_scale,
-        kernel_size=(3, 3),
-        strides=(2, 2),
-        **layer_constant_dict,
-        name="stem.block2"
-    )(x)
-    
-    x = create_layer_instance(
-        extractor_block1,
-        filters=f0 * channel_scale,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stem.block3"
-    )(x)
-    
+        if is_last_stage:
+            fx = int(fx * final_channel_scale)
+            fy = [f1[i - 1], int(f0[i + 2] * final_channel_scale)]
+            final_filters = fx
+        else:
+            fy = [f1[i], f0[i + 3]]
 
-    # Stage 1:
-    x = create_layer_instance(
-        extractor_block1,
-        filters=f0 * channel_scale**2,
-        kernel_size=(3, 3),
-        strides=(2, 2),
-        **layer_constant_dict,
-        name="stage1.block1"
-    )(x)
-    
-    x = create_layer_instance(
-        fusion_block1,
-        filters=[f1, f0 * channel_scale**3],
-        iters=num_blocks[0],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage1.block2"
-    )(x)
-    
+        if num_block > 0:
+            x = create_layer_instance(
+                extractor_block1 if i == 0 else extractor_block2,
+                filters=fx,
+                kernel_size=(3, 3),
+                strides=(2, 2),
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block1"
+            )(x)
 
-    # Stage 2:
-    x = create_layer_instance(
-        extractor_block2,
-        filters=f0 * channel_scale**2,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stage2.block1"
-    )(x)
-    
-    x = create_layer_instance(
-        fusion_block2,
-        filters=[f1 * channel_scale, f0 * channel_scale**4],
-        iters=num_blocks[1],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage2.block2"
-    )(x)
-    
+        if num_block > 1:
+            x = create_layer_instance(
+                fusion_block1 if i == 0 else fusion_block2,
+                filters=fy,
+                iters=num_block - 1,
+                id_concat=id_concat,
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block2"
+            )(x)
 
-    # Stage 3:
-    x = create_layer_instance(
-        extractor_block2,
-        filters=f0 * channel_scale**3,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stage3.block1"
-    )(x)
+    block_name_prefix = f"stage{len(num_blocks) - 1}"
     
-    x = create_layer_instance(
-        fusion_block2,
-        filters=[f1 * channel_scale**2, f0 * channel_scale**5],
-        iters=num_blocks[2],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage3.block2"
-    )(x)
-
-    
-    # Stage 4:
-    x = create_layer_instance(
-        extractor_block2,
-        filters=int(f0 * channel_scale**4 * final_channel_scale),
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stage4.block1"
-    )(x)
-    
-    x = create_layer_instance(
-        fusion_block2,
-        filters=[f1 * channel_scale**2, int(f0 * channel_scale**5 * final_channel_scale)],
-        iters=num_blocks[3],
-        id_concat=id_concat,
-        **layer_constant_dict,
-        name="stage4.block2"
-    )(x)
-
+    if final_filters is None:
+        final_filters = int(filters[-1] * final_channel_scale)
+        
     if pyramid_pooling:
-        for i, pooling in enumerate(pyramid_pooling):
+        for p, pooling in enumerate(pyramid_pooling):
             x = create_layer_instance(
                 pooling,
-                filters=int(f0 * channel_scale**5 * final_channel_scale),
+                filters=final_filters,
                 **layer_constant_dict,
-                name=f"stage4.block{i + 3}"
+                name=f"{block_name_prefix}.block{p + 3}"
             )(x)
     else:
-        x = LinearLayer(name="stage4.block3")(x)
+        x = LinearLayer(name=f"{block_name_prefix}.block3")(x)
         
     if include_head:
         x = Sequential([
@@ -2726,19 +3168,16 @@ def DarkNetELAN_B(
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
-
-    if filters == [32, 64] and num_blocks == [4, 4, 4, 4]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-Nano")
-    elif filters == [40, 64] and num_blocks == [6, 6, 6, 6]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-Small")
-    else:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-B")
         
+    model_name = "DarkNet-ELAN"
+    if filters == [32, 64] and num_blocks == [3, 5, 5, 5, 5]:
+        model_name += "-nano"
+    elif filters == [40, 64] and num_blocks == [3, 7, 7, 7, 7]:
+        model_name += "-small"
+    else:
+        model_name += "-B"
+        
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -2758,7 +3197,14 @@ def DarkNetELAN_B_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = DarkNetELAN_B(
+    custom_layers = custom_layers or [
+        f"stem.block{j}" if i == 0 else f"stage{i}.block2"
+        for i, j in enumerate(num_blocks[:-1])
+    ]
+    
+    return create_model_backbone(
+        model_fn=DarkNetELAN_B,
+        custom_layers=custom_layers,
         feature_extractor=feature_extractor,
         fusion_layer=fusion_layer,
         pyramid_pooling=pyramid_pooling,
@@ -2768,22 +3214,10 @@ def DarkNetELAN_B_backbone(
         channel_scale=channel_scale,
         final_channel_scale=final_channel_scale,
         inputs=inputs,
-        include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer,
+        normalizer=normalizer
     )
-    
-    custom_layers = custom_layers or [
-        "stem.block3",
-        "stage1.block2",
-        "stage2.block2",
-        "stage3.block2",
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 def DarkNetELAN_C(
@@ -2798,7 +3232,6 @@ def DarkNetELAN_C(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -2806,7 +3239,7 @@ def DarkNetELAN_C(
     bias_initializer="zeros",
     regularizer_decay=5e-4,
     norm_eps=1e-6,
-    drop_rate=0.1,
+    drop_rate=0.1
 ):
 
     if weights not in {"imagenet", None}:
@@ -2821,14 +3254,15 @@ def DarkNetELAN_C(
     # if feature_extractor.__name__ not in ["Focus", "ConvolutionBlock", "GhostConv"]:
     #     raise ValueError(f"Invalid feature_extractor: {feature_extractor}. Expected one of [Focus, ConvolutionBlock, GhostConv].")
 
-    # if fusion_layer and fusion_layer.__name__ not in ["C3", "C3x", "C3SPP", "C3SPPF", "C3Ghost", "C3Trans", "BottleneckCSP",
+    # if fusion_layer.__name__ not in ["C3", "C3x", "C3SPP", "C3SPPF", "C3Ghost", "C3Trans", "BottleneckCSP",
     #                                  "HGBlock", "C1", "C2", "C2f", "C3Rep"]:
     #     raise ValueError(f"Invalid fusion_layer: {fusion_layer}. Expected one of [C3, C3x, C3SPP, C3SPPF, C3Ghost, C3Trans, BottleneckCSP, \
     #                                                                               HGBlock, C1, C2, C2f, C3Rep].")
 
-    # if pyramid_pooling and pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
+    # if pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
     #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -2841,7 +3275,7 @@ def DarkNetELAN_C(
     inputs = process_model_input(
         inputs,
         include_head=include_head,
-        default_size=640,
+        default_size=[640, 1280],
         min_size=32,
         weights=weights
     )
@@ -2851,7 +3285,7 @@ def DarkNetELAN_C(
     else:
         f0 = filters
         f1 = filters * 2
-
+        
     if isinstance(feature_extractor, (tuple, list)):
        extractor_block1, extractor_block2 = feature_extractor
     else:
@@ -2865,59 +3299,79 @@ def DarkNetELAN_C(
     if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
         pyramid_pooling = [pyramid_pooling]
 
-    scale = [
-        i for i in [
-            channel_scale,
-            channel_scale**2,
-            channel_scale**3,
-            channel_scale**4 - channel_scale**2,
-            int(channel_scale**4 * final_channel_scale),
-        ]
-    ]
-    scale_f0 = [f0 * i for i in scale]
-    scale_f1 = [f1 * (i // 2) for i in scale]
+    f0 = f0 if isinstance(f0, (tuple, list)) else [f0 * channel_scale**i for i in range(len(num_blocks))]
+    f1 = f1 if isinstance(f1, (tuple, list)) else [f1 * channel_scale**i for i in range(len(num_blocks) - 1)]
 
-    x = ReOrg(name="stem.block1")(inputs)
+    x = inputs
+    for i in range(num_blocks[0]):
+        if i == 0:
+            x = ReOrg(name=f"stem.block{i + 1}")(x)
+        else:
+            x = ConvolutionBlock(
+                filters=f0[0],
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                **layer_constant_dict,
+                name=f"stem.block{i + 1}"
+            )(x)
     
-    x = create_layer_instance(
-        extractor_block1,
-        filters=f0,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stem.block2"
-    )(x)
+    last_stage_idx = len(num_blocks) - 2
+    final_filters = None
+    for i, num_block in enumerate(num_blocks[1:]):
+        is_last_stage = (i == last_stage_idx)
+        block_name_prefix = f"stage{i + 1}"
 
-    for i, (s_f0, s_f1) in enumerate(zip(scale_f0, scale_f1)):
-        x = create_layer_instance(
-            extractor_block1 if i < 1 else extractor_block2,
-            filters=s_f0,
-            kernel_size=(3, 3),
-            strides=(2, 2),
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block1"
-        )(x)
+        fx = f0[i + 1]
+        fy = f1[i]
         
-        x = create_layer_instance(
-            fusion_block1 if i < 1 else fusion_block2,
-            filters=[s_f1, s_f0],
-            iters=num_blocks[i],
-            id_concat=id_concat,
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block2"
-        )(x)
+        if is_last_stage:
+            fx -= f0[i]
+            fy -= f1[i - 1]
+
+            fx = int(fx * final_channel_scale)
+            fy = int(fy * final_channel_scale)
+            final_filters = fx
+        elif i == len(num_blocks[1:]) - 2:
+            fx -= f0[i - 1]
+            fy -= f1[i - 2]
+
+        if num_block > 0:
+            x = create_layer_instance(
+                extractor_block1 if i < 1 else extractor_block2,
+                filters=fx,
+                kernel_size=(3, 3),
+                strides=(2, 2),
+                pool_size=(2, 2),
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block1"
+            )(x)
+
+        if num_block > 1:
+            x = create_layer_instance(
+                fusion_block1 if i < 1 else fusion_block2,
+                filters=[fy, fx],
+                iters=num_block - 1,
+                id_concat=id_concat,
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block2"
+            )(x)
+            
+    block_name_prefix = f"stage{len(num_blocks) - 1}"
+
+    if final_filters is None:
+        final_filters = int((f0[-1] - f0[-2]) * final_channel_scale)
         
     if pyramid_pooling:
-        for j, pooling in enumerate(pyramid_pooling):
+        for p, pooling in enumerate(pyramid_pooling):
             x = create_layer_instance(
                 pooling,
-                filters=scale_f0[-1],
+                filters=final_filters,
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}"
+                name=f"{block_name_prefix}.block{p + 3}"
             )(x)
     else:
-        x = LinearLayer(name=f"stage{i + 1}.block3")(x)
-
+        x = LinearLayer(name=f"{block_name_prefix}.block3")(x)
+        
     if include_head:
         x = Sequential([
             GlobalAveragePooling2D(),
@@ -2925,17 +3379,18 @@ def DarkNetELAN_C(
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
 
-    if filters == [64, 64] and num_blocks == [4, 4, 4, 4, 4]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-Medium")
+    model_name = "DarkNet-ELAN"
+    if filters == [64, 64] and num_blocks == [2, 5, 5, 5, 5, 5]:
+        model_name += "-medium"
+    elif filters == [80, 64] and num_blocks == [2, 7, 7, 7, 7, 7]:
+        model_name += "-large"
+    elif filters == [96, 64] and num_blocks == [2, 9, 9, 9, 9, 9]:
+        model_name += "-xlarge"
     else:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-C")
+        model_name += "-C"
         
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
@@ -2955,7 +3410,14 @@ def DarkNetELAN_C_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = DarkNetELAN_C(
+    custom_layers = custom_layers or [
+        f"stem.block{j}" if i == 0 else f"stage{i}.block2"
+        for i, j in enumerate(num_blocks[:-1])
+    ]
+
+    return create_model_backbone(
+        model_fn=DarkNetELAN_C,
+        custom_layers=custom_layers,
         feature_extractor=feature_extractor,
         fusion_layer=fusion_layer,
         pyramid_pooling=pyramid_pooling,
@@ -2965,26 +3427,12 @@ def DarkNetELAN_C_backbone(
         channel_scale=channel_scale,
         final_channel_scale=final_channel_scale,
         inputs=inputs,
-        include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer,
+        normalizer=normalizer
     )
-    
-    custom_layers = custom_layers or [
-        "stem.block2",
-        "stage1.block2",
-        "stage2.block2",
-        "stage3.block2",
-        "stage4.block2",
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
-    
 def DarkNetELAN_D(
     feature_extractor,
     fusion_layer,
@@ -2997,207 +3445,6 @@ def DarkNetELAN_D(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
-    activation="silu",
-    normalizer="batch-norm",
-    num_classes=1000,
-    kernel_initializer="he_normal",
-    bias_initializer="zeros",
-    regularizer_decay=5e-4,
-    norm_eps=1e-6,
-    drop_rate=0.1
-):
-
-    if weights not in {"imagenet", None}:
-        raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization) or `imagenet` '
-                         '(pre-training on ImageNet).')
-
-    if weights == "imagenet" and include_head and num_classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_head`'
-                         ' as true, `num_classes` should be 1000')
-
-    # if feature_extractor.__name__ not in ["Focus", "ConvolutionBlock", "GhostConv"]:
-    #     raise ValueError(f"Invalid feature_extractor: {feature_extractor}. Expected one of [Focus, ConvolutionBlock, GhostConv].")
-
-    # if fusion_layer.__name__ not in ["C3", "C3x", "C3SPP", "C3SPPF", "C3Ghost", "C3Trans", "BottleneckCSP",
-    #                                  "HGBlock", "C1", "C2", "C2f", "C3Rep"]:
-    #     raise ValueError(f"Invalid fusion_layer: {fusion_layer}. Expected one of [C3, C3x, C3SPP, C3SPPF, C3Ghost, C3Trans, BottleneckCSP, \
-    #                                                                               HGBlock, C1, C2, C2f, C3Rep].")
-
-    # if pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
-    #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
-
-    layer_constant_dict = {
-        "activation": activation,
-        "normalizer": normalizer,
-        "kernel_initializer": kernel_initializer,
-        "bias_initializer": bias_initializer,
-        "regularizer_decay": regularizer_decay,
-        "norm_eps": norm_eps,
-    }
-    
-    inputs = process_model_input(
-        inputs,
-        include_head=include_head,
-        default_size=640,
-        min_size=32,
-        weights=weights
-    )
-
-    if isinstance(filters, (tuple, list)):
-        f0, f1 = filters
-    else:
-        f0 = filters
-        f1 = filters * 2
-        
-    if isinstance(feature_extractor, (tuple, list)):
-       extractor_block1, extractor_block2 = feature_extractor
-    else:
-        extractor_block1 = extractor_block2 = feature_extractor
-
-    if isinstance(fusion_layer, (list, tuple)):
-        fusion_block1, fusion_block2 = fusion_layer
-    else:
-        fusion_block1 = fusion_block2 = fusion_layer
-
-    if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
-        pyramid_pooling = [pyramid_pooling]
-
-
-    scale = [
-        i for i in [
-            channel_scale,
-            channel_scale**2,
-            channel_scale**3,
-            channel_scale**4 - channel_scale**2,
-            int(channel_scale**4 * final_channel_scale),
-        ]
-    ]
-    scale_f0 = [f0 * i for i in scale]
-    scale_f1 = [f1 * (i // 2) for i in scale]
-
-    x = ReOrg(name="stem.block1")(inputs)
-    
-    x = ConvolutionBlock(
-        filters=f0,
-        kernel_size=(3, 3),
-        strides=(1, 1),
-        **layer_constant_dict,
-        name="stem.block2"
-    )(x)
-
-    for i, (s_f0, s_f1) in enumerate(zip(scale_f0, scale_f1)):
-        x = create_layer_instance(
-            extractor_block1 if i < 1 else extractor_block2,
-            filters=s_f0,
-            pool_size=(2, 2),
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block1"
-        )(x)
-        
-        x = create_layer_instance(
-            fusion_block1 if i < 1 else fusion_block2,
-            filters=[s_f1, s_f0],
-            iters=num_blocks[i],
-            id_concat=id_concat,
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block2"
-        )(x)
-
-    if pyramid_pooling:
-        for j, pooling in enumerate(pyramid_pooling):
-            x = create_layer_instance(
-                pooling,
-                filters=scale_f0[-1],
-                **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 3}"
-            )(x)
-    else:
-        x = LinearLayer(name=f"stage{i + 1}.block3")(x)
-        
-    if include_head:
-        x = Sequential([
-            GlobalAveragePooling2D(),
-            Dropout(rate=drop_rate),
-            Dense(units=1 if num_classes == 2 else num_classes),
-            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
-        ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
-
-    if filters == [80, 64] and num_blocks == [6, 6, 6, 6, 6]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-Large")
-    elif filters == [96, 64] and num_blocks == [8, 8, 8, 8, 8]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-XLarge")
-    else:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-D")
-        
-    return model
-
-
-def DarkNetELAN_D_backbone(
-    feature_extractor,
-    fusion_layer,
-    pyramid_pooling,
-    filters,
-    num_blocks,
-    id_concat,
-    channel_scale=2,
-    final_channel_scale=1,
-    inputs=[640, 640, 3],
-    weights="imagenet",
-    activation="silu",
-    normalizer="batch-norm",
-    custom_layers=[]
-) -> Model:
-
-    model = DarkNetELAN_D(
-        feature_extractor=feature_extractor,
-        fusion_layer=fusion_layer,
-        pyramid_pooling=pyramid_pooling,
-        filters=filters,
-        num_blocks=num_blocks,
-        id_concat=id_concat,
-        channel_scale=channel_scale,
-        final_channel_scale=final_channel_scale,
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
-    
-    custom_layers = custom_layers or [
-        "stem.block2",
-        "stage1.block2",
-        "stage2.block2",
-        "stage3.block2",
-        "stage4.block2",
-        "stage5.block3",
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
-
-
-def DarkNetELAN_E(
-    feature_extractor,
-    fusion_layer,
-    pyramid_pooling,
-    filters,
-    num_blocks,
-    id_concat,
-    channel_scale=2,
-    final_channel_scale=1,
-    inputs=[640, 640, 3],
-    include_head=True,
-    weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3228,6 +3475,7 @@ def DarkNetELAN_E(
     # if pyramid_pooling.__name__ not in ["SPP", "SPPF"]:
     #     raise ValueError(f"Invalid pyramid_pooling: {pyramid_pooling}. Expected one of [SPP, SPPF].")
 
+    regularizer_decay = check_regularizer(regularizer_decay)
     layer_constant_dict = {
         "activation": activation,
         "normalizer": normalizer,
@@ -3240,7 +3488,7 @@ def DarkNetELAN_E(
     inputs = process_model_input(
         inputs,
         include_head=include_head,
-        default_size=640,
+        default_size=[640, 1280],
         min_size=32,
         weights=weights
     )
@@ -3264,66 +3512,89 @@ def DarkNetELAN_E(
     if pyramid_pooling and not isinstance(pyramid_pooling, (list, tuple)):
         pyramid_pooling = [pyramid_pooling]
 
-    scale = [
-        i for i in [
-            channel_scale,
-            channel_scale**2,
-            channel_scale**3,
-            channel_scale**4 - channel_scale**2,
-            int(channel_scale**4 * final_channel_scale),
-        ]
-    ]
-    scale_f0 = [f0 * i for i in scale]
-    scale_f1 = [f1 * (i // 2) for i in scale]
+    f0 = f0 if isinstance(f0, (tuple, list)) else [f0 * channel_scale**i for i in range(len(num_blocks))]
+    f1 = f1 if isinstance(f1, (tuple, list)) else [f1 * channel_scale**i for i in range(len(num_blocks) - 1)]
 
-    x = ReOrg(name="stem.block1")(inputs)
+    x = inputs
+    for i in range(num_blocks[0]):
+        if i == 0:
+            x = ReOrg(name=f"stem.block{i + 1}")(x)
+        else:
+            x = ConvolutionBlock(
+                filters=f0[0],
+                kernel_size=(3, 3),
+                strides=(1, 1),
+                **layer_constant_dict,
+                name=f"stem.block{i + 1}"
+            )(x)
+
+    last_stage_idx = len(num_blocks) - 2
+    final_filters = None
+    for i, num_block in enumerate(num_blocks[1:]):
+        is_last_stage = (i == last_stage_idx)
+        block_name_prefix = f"stage{i + 1}"
+
+        fx = f0[i + 1]
+        fy = f1[i]
+        
+        if is_last_stage:
+            fx -= f0[i]
+            fy -= f1[i - 1]
+
+            fx = int(fx * final_channel_scale)
+            fy = int(fy * final_channel_scale)
+            final_filters = fx
+        elif i == len(num_blocks[1:]) - 2:
+            fx -= f0[i - 1]
+            fy -= f1[i - 2]
+
+        if num_block > 0:
+            x = create_layer_instance(
+                extractor_block1 if i < 1 else extractor_block2,
+                filters=fx,
+                kernel_size=(3, 3),
+                strides=(2, 2),
+                pool_size=(2, 2),
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block1"
+            )(x)
+            
+        if num_block > 1:
+            x1 = create_layer_instance(
+                fusion_block1 if i < 1 else fusion_block2,
+                filters=[fy, fx],
+                iters=num_block - 1,
+                id_concat=id_concat,
+                **layer_constant_dict,
+                name=f"{block_name_prefix}.block2.branch1"
+            )(x)
+
+            x2 = create_layer_instance(
+                fusion_block1 if i < 1 else fusion_block2,
+                filters=[fy, fx],
+                iters=num_block - 1,
+                id_concat=id_concat,
+                **layer_constant_dict,
+                name=f"stage{i + 1}.block2.branch2"
+            )(x1)
+            
+            x = Shortcut(name=f"stage{i + 1}.block2.merger")(x1, x2)
+
+    block_name_prefix = f"stage{len(num_blocks) - 1}"
     
-    x = ConvolutionBlock(
-        filters=f0,
-        kernel_size=(3, 3),
-        **layer_constant_dict,
-        name="stem.block2"
-    )(x)
-
-    for i, (s_f0, s_f1) in enumerate(zip(scale_f0, scale_f1)):
-        x = create_layer_instance(
-            extractor_block1 if i < 1 else extractor_block2,
-            filters=s_f0,
-            pool_size=(2, 2),
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block1"
-        )(x)
+    if final_filters is None:
+        final_filters = int(filters[-1] * final_channel_scale)
         
-        x1 = create_layer_instance(
-            fusion_block1 if i < 1 else fusion_block2,
-            filters=[s_f1, s_f0],
-            iters=num_blocks[i],
-            id_concat=id_concat,
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block2"
-        )(x)
-        
-        x2 = create_layer_instance(
-            fusion_block1 if i < 1 else fusion_block2,
-            filters=[s_f1, s_f0],
-            iters=num_blocks[i],
-            id_concat=id_concat,
-            **layer_constant_dict,
-            name=f"stage{i + 1}.block3"
-        )(x1)
-        
-        x = Shortcut(name=f"stage{i + 1}.block4")(x1, x2)
-
     if pyramid_pooling:
-        for j, pooling in enumerate(pyramid_pooling):
+        for p, pooling in enumerate(pyramid_pooling):
             x = create_layer_instance(
                 pooling,
-                filters=scale_f0[-1],
+                filters=final_filters,
                 **layer_constant_dict,
-                name=f"stage{i + 1}.block{j + 6}"
+                name=f"{block_name_prefix}.block{p + 3}"
             )(x)
     else:
-        x = LinearLayer(name=f"stage{i + 1}.block5")(x)
+        x = LinearLayer(name=f"{block_name_prefix}.block3")(x)
         
     if include_head:
         x = Sequential([
@@ -3332,21 +3603,18 @@ def DarkNetELAN_E(
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
-    else:
-        if pooling == "avg":
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == "max":
-            x = GlobalMaxPooling2D()(x)
-
-    if filters == [80, 64] and num_blocks == [6, 6, 6, 6, 6]:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-Huge")
-    else:
-        model = Model(inputs=inputs, outputs=x, name="DarkNet-ELAN-E")
         
+    model_name = "DarkNet-ELAN"
+    if filters == [80, 64] and num_blocks == [2, 7, 7, 7, 7, 7]:
+        model_name += "-huge"
+    else:
+        model_name += "-D"
+        
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def DarkNetELAN_E_backbone(
+def DarkNetELAN_D_backbone(
     feature_extractor,
     fusion_layer,
     pyramid_pooling,
@@ -3362,7 +3630,14 @@ def DarkNetELAN_E_backbone(
     custom_layers=[]
 ) -> Model:
 
-    model = DarkNetELAN_E(
+    custom_layers = custom_layers or [
+        f"stem.block{j}" if i == 0 else f"stage{i}.block2.merger"
+        for i, j in enumerate(num_blocks[:-1])
+    ]
+    
+    return create_model_backbone(
+        model_fn=DarkNetELAN_D,
+        custom_layers=custom_layers,
         feature_extractor=feature_extractor,
         fusion_layer=fusion_layer,
         pyramid_pooling=pyramid_pooling,
@@ -3372,30 +3647,16 @@ def DarkNetELAN_E_backbone(
         channel_scale=channel_scale,
         final_channel_scale=final_channel_scale,
         inputs=inputs,
-        include_head=False,
         weights=weights,
         activation=activation,
-        normalizer=normalizer,
+        normalizer=normalizer
     )
-    
-    custom_layers = custom_layers or [
-        "stem.block2",
-        "stage1.block4",
-        "stage2.block4",
-        "stage3.block4",
-        "stage4.block4",
-    ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
 
 
 def DarkNetELAN_tiny(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="leaky-relu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3411,14 +3672,13 @@ def DarkNetELAN_tiny(
         fusion_layer=ScaleUpConcatBlock,
         pyramid_pooling=None,
         filters=[32, 32],
-        num_blocks=[2, 2, 2, 2],
+        num_blocks=[1, 4, 4, 4, 4],
         id_concat=[-1, -2, -3, -4],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -3445,14 +3705,6 @@ def DarkNetELAN_tiny_backbone(
         - Reference:
             https://github.com/WongKinYiu/yolov7/blob/main/cfg/training/yolov7-tiny.yaml
     """
-    
-    model = DarkNetELAN_tiny(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem",
@@ -3461,16 +3713,20 @@ def DarkNetELAN_tiny_backbone(
         "stage4.block3",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetELAN_tiny,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetELAN_nano(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3486,14 +3742,13 @@ def DarkNetELAN_nano(
         fusion_layer=ScaleUpConcatBlock,
         pyramid_pooling=None,
         filters=[32, 64],
-        num_blocks=[4, 4, 4, 4],
+        num_blocks=[3, 5, 5, 5, 5],
         id_concat=[-1, -3, -5, -6],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -3520,14 +3775,6 @@ def DarkNetELAN_nano_backbone(
         - Reference:
             https://github.com/WongKinYiu/yolov7/blob/main/cfg/training/yolov7.yaml
     """
-    
-    model = DarkNetELAN_nano(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block3",
@@ -3536,16 +3783,20 @@ def DarkNetELAN_nano_backbone(
         "stage3.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetELAN_nano,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetELAN_small(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3561,14 +3812,13 @@ def DarkNetELAN_small(
         fusion_layer=ScaleUpConcatBlock,
         pyramid_pooling=None,
         filters=[40, 64],
-        num_blocks=[6, 6, 6, 6],
+        num_blocks=[3, 7, 7, 7, 7],
         id_concat=[-1, -3, -5, -7, -8],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -3595,14 +3845,6 @@ def DarkNetELAN_small_backbone(
         - Reference:
             https://github.com/WongKinYiu/yolov7/blob/main/cfg/deploy/yolov7x.yaml
     """
-    
-    model = DarkNetELAN_small(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block3",
@@ -3610,17 +3852,21 @@ def DarkNetELAN_small_backbone(
         "stage2.block2",
         "stage3.block2",
     ]
-
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    
+    return create_model_backbone(
+        model_fn=DarkNetELAN_small,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetELAN_medium(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3636,14 +3882,13 @@ def DarkNetELAN_medium(
         fusion_layer=ScaleUpConcatBlock,
         pyramid_pooling=None,
         filters=[64, 64],
-        num_blocks=[4, 4, 4, 4, 4],
+        num_blocks=[2, 5, 5, 5, 5, 5],
         id_concat=[-1, -3, -5, -6],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -3670,14 +3915,6 @@ def DarkNetELAN_medium_backbone(
         - Reference:
             https://github.com/WongKinYiu/yolov7/blob/main/cfg/deploy/yolov7-w6.yaml
     """
-    
-    model = DarkNetELAN_medium(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block2",
@@ -3687,16 +3924,20 @@ def DarkNetELAN_medium_backbone(
         "stage4.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetELAN_medium,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetELAN_large(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3707,19 +3948,18 @@ def DarkNetELAN_large(
     drop_rate=0.1
 ) -> Model:
     
-    model = DarkNetELAN_D(
+    model = DarkNetELAN_C(
         feature_extractor=DownC,
         fusion_layer=ScaleUpConcatBlock,
         pyramid_pooling=None,
         filters=[80, 64],
-        num_blocks=[6, 6, 6, 6, 6],
+        num_blocks=[2, 7, 7, 7, 7, 7],
         id_concat=[-1, -3, -5, -7, -8],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -3746,14 +3986,6 @@ def DarkNetELAN_large_backbone(
         - Reference:
             https://github.com/WongKinYiu/yolov7/blob/main/cfg/training/yolov7-e6.yaml
     """
-    
-    model = DarkNetELAN_large(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block2",
@@ -3763,16 +3995,20 @@ def DarkNetELAN_large_backbone(
         "stage4.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetELAN_large,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetELAN_xlarge(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3783,19 +4019,18 @@ def DarkNetELAN_xlarge(
     drop_rate=0.1
 ) -> Model:
     
-    model = DarkNetELAN_D(
+    model = DarkNetELAN_C(
         feature_extractor=DownC,
         fusion_layer=ScaleUpConcatBlock,
         pyramid_pooling=None,
         filters=[96, 64],
-        num_blocks=[8, 8, 8, 8, 8],
+        num_blocks=[2, 9, 9, 9, 9, 9],
         id_concat=[-1, -3, -5, -7, -9, -10],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -3822,14 +4057,6 @@ def DarkNetELAN_xlarge_backbone(
         - Reference:
             https://github.com/WongKinYiu/yolov7/blob/main/cfg/deploy/yolov7-d6.yaml
     """
-    
-    model = DarkNetELAN_xlarge(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block2",
@@ -3839,16 +4066,20 @@ def DarkNetELAN_xlarge_backbone(
         "stage4.block2",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetELAN_xlarge,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )
 
 
 def DarkNetELAN_huge(
     inputs=[640, 640, 3],
     include_head=True,
     weights="imagenet",
-    pooling=None,
     activation="silu",
     normalizer="batch-norm",
     num_classes=1000,
@@ -3859,19 +4090,18 @@ def DarkNetELAN_huge(
     drop_rate=0.1
 ) -> Model:
     
-    model = DarkNetELAN_E(
+    model = DarkNetELAN_D(
         feature_extractor=DownC,
         fusion_layer=ScaleUpConcatBlock,
         pyramid_pooling=None,
         filters=[80, 64],
-        num_blocks=[6, 6, 6, 6, 6],
+        num_blocks=[2, 7, 7, 7, 7, 7],
         id_concat=[-1, -3, -5, -7, -8],
         channel_scale=2,
         final_channel_scale=1,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
-        pooling=pooling,
         activation=activation,
         normalizer=normalizer,
         num_classes=num_classes,
@@ -3898,23 +4128,20 @@ def DarkNetELAN_huge_backbone(
         - Reference:
             https://github.com/WongKinYiu/yolov7/blob/main/cfg/deploy/yolov7-e6e.yaml
     """
-    
-    model = DarkNetELAN_huge(
-        inputs=inputs,
-        include_head=False,
-        weights=weights,
-        activation=activation,
-        normalizer=normalizer,
-    )
 
     custom_layers = custom_layers or [
         "stem.block2",
-        "stage1.block4",
-        "stage2.block4",
-        "stage3.block4",
-        "stage4.block4",
+        "stage1.block2.merger",
+        "stage2.block2.merger",
+        "stage3.block2.merger",
+        "stage4.block2.merger",
     ]
 
-    outputs = [model.get_layer(layer).output for layer in custom_layers]
-    final_output = model.get_layer(model.layers[-1].name).output
-    return Model(inputs=model.inputs, outputs=[*outputs, final_output], name=f"{model.name}_backbone")
+    return create_model_backbone(
+        model_fn=DarkNetELAN_huge,
+        custom_layers=custom_layers,
+        inputs=inputs,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer
+    )

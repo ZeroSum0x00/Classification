@@ -1,8 +1,49 @@
 """
-  # Description:
-    - The following table comparing the params of the gMLP in Tensorflow on 
-    size 224 x 224 x 3:
-      
+    ResMLP: Residual MLP-Only Backbone with Linear Token Mixing
+    
+    Overview:
+        ResMLP is a pure MLP-based vision backbone that introduces simple residual
+        connections and linear token mixing to build a deep network without convolutions
+        or attention. It separates spatial and feature mixing through linear layers,
+        relying on large-scale data and architectural simplicity to achieve strong results.
+    
+        Key innovations include:
+            - Linear Token Mixing: Projects and mixes token (patch) information linearly
+            - Channel-wise MLP: Processes each patch independently in feature space
+            - Residual Pre-activation and LayerNorm: Stabilize training and deep stacking
+    
+    Key Components:
+        • Patch Embedding:
+            - The image is divided into fixed-size patches (e.g., 16×16).
+            - Each patch is flattened and projected using a linear layer to a fixed dimension `d`.
+            - Output shape: `[B, N, d]` where `N = num_patches`, `d = embedding_dim`.
+    
+        • ResMLP Block:
+            - Consists of two main sub-layers applied with residual connections:
+            
+              1. **Token Mixing Linear Layer**:
+                  - Transpose input to shape `[B, d, N]`
+                  - Apply a fully-connected linear layer along token dimension (N)
+                  - Mixes spatial relationships between patches
+                  - Transpose back to `[B, N, d]`
+    
+              2. **Channel MLP**:
+                  - Two-layer MLP with GELU activation
+                  - Applies independently to each patch vector `[d]`
+                  - Form: `MLP(x) = Linear → GELU → Linear`
+    
+            - Each sub-layer is followed by:
+                - LayerNorm (pre-activation)
+                - Residual connection
+
+        • Training Stability:
+            - Uses **pre-norm** (LayerNorm before each layer) and **deep residuals**
+            - Easy to scale to dozens of layers
+    
+        • No attention, no convolutions:
+            - Enables fully linear models suitable for hardware optimization
+
+    Model Parameter Comparison:
        ---------------------------------------------
       |        Model Name         |    Params       |
       |---------------------------------------------|
@@ -14,269 +55,333 @@
       |---------------------------------------------|
       |      ResMLP-base-24       |   115,736,776   |
        ---------------------------------------------
-       
-  # Reference:
-    - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/pdf/2105.03404.pdf)
-    - Source: https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/mlp_family/res_mlp.py
 
+    References:
+        - Paper: “ResMLP: Feedforward networks for image classification with data-efficient training”  
+          https://arxiv.org/abs/2105.03404
+    
+        - Official code (Facebook Research):  
+          https://github.com/facebookresearch/deit
+
+        - TensorFlow/Keras implementation:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/mlp_family/res_mlp.py
+          
+        - PyTorch implementation:  
+          https://github.com/rishikksh20/ResMLP-pytorch
+          
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import Permute
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import GlobalMaxPooling1D
-from tensorflow.keras.layers import GlobalAveragePooling1D
-from tensorflow.keras.layers import add
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Conv2D, Reshape, Permute,
+    Dense, Dropout, GlobalAveragePooling1D,
+    add,
+)
 
-from models.layers import ChannelAffine, SAMModel, get_activation_from_name
-from utils.model_processing import _obtain_input_shape
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    ChannelAffine,
+)
+from utils.model_processing import process_model_input, check_regularizer
 
 
-
-def res_mlp_block(inputs, channels_mlp_dim, drop_rate=0, activation="gelu", name=None):
-    nn = ChannelAffine(use_bias=True, axis=-1, name=name + "norm_1")(inputs)
-    nn = Permute((2, 1), name=name + "permute_1")(nn)
-    nn = Dense(nn.shape[-1], name=name + "token_mixing")(nn)
-    nn = Permute((2, 1), name=name + "permute_2")(nn)
-    nn = ChannelAffine(use_bias=False, axis=-1, name=name + "gamma_1")(nn)
-    
-    if drop_rate > 0:
-        nn = Dropout(drop_rate, noise_shape=(None, 1, 1), name=name + "token_drop")(nn)
-    token_out = add([inputs, nn])
-
-    nn = ChannelAffine(use_bias=True, axis=-1, name=name + "norm_2")(token_out)
-    nn = Dense(channels_mlp_dim, name=name + "channel_mixing_1")(nn)
-    nn = get_activation_from_name(activation, name=name + activation)(nn)
-    nn = Dense(inputs.shape[-1], name=name + "channel_mixing_2")(nn)
-    channel_out = ChannelAffine(use_bias=False, axis=-1, name=name + "gamma_2")(nn)
-    
-    if drop_rate > 0:
-        channel_out = Dropout(drop_rate, noise_shape=(None, 1, 1), name=name + "channel_drop")(channel_out)
+def res_mlp_block(
+    inputs,
+    channels_dim,
+    activation="gelu",
+    normalizer=None,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1,
+    name=None
+):
+    if name is None:
+        name = f"res_mlp_block_{K.get_uid('res_mlp_block')}"
         
-    nn = add([channel_out, token_out])
-    return nn
+    regularizer_decay = check_regularizer(regularizer_decay)
+    
+    x = Sequential([
+        ChannelAffine(use_bias=True, weight_init_value=-1, axis=-1),
+        Permute(dims=(2, 1)),
+        Dense(
+            units=nn.shape[-1],
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        Permute(dims=(2, 1)),
+        ChannelAffine(use_bias=False, weight_init_value=-1, axis=-1),
+        Dropout(
+            rate=drop_rate,
+            noise_shape=(None, 1, 1),
+        ),
+    ], name=f"{name}.token_mixing")(inputs)
+
+    token_out = add([inputs, x], name=f"{name}.merge_token_mixing")
+
+    x = Sequential([
+        ChannelAffine(use_bias=True, weight_init_value=-1, axis=-1),
+        Dense(
+            units=channels_dim,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+        Dense(
+            units=inputs.shape[-1],
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        ChannelAffine(use_bias=False, weight_init_value=-1, axis=-1),
+        Dropout(
+            rate=drop_rate,
+            noise_shape=(None, 1, 1),
+        ),
+    ], name=f"{name}.channel_mixing")(token_out)
+    
+    out = add([x, token_out], name=f"{name}.merge_channel_mixing")
+    return out
 
     
-def ResMLP(stem_width,
-           patch_size,
-           num_blocks,
-           channels_mlp_dim,
-           include_top=True,
-           weights='imagenet',
-           input_tensor=None,
-           input_shape=None,
-           pooling=None,
-           final_activation="softmax",
-           classes=1000,
-           sam_rho=0.0,
-           drop_rate=0.,
-           drop_connect_rate=0.):
-        
-    if weights not in {'imagenet', None}:
+def ResMLP(
+    stem_width,
+    patch_size,
+    num_blocks,
+    channels_dim,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer=None,
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.,
+    drop_rate=0.1
+):
+
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+    }
+    
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-    x = Conv2D(filters=stem_width, 
-               kernel_size=patch_size, 
-               strides=patch_size, 
-               padding="valid", name="stem")(img_input)
-    x = Reshape(target_shape=(-1, stem_width))(x)
+    x = Sequential([
+        Conv2D(
+            filters=stem_width,
+            kernel_size=patch_size,
+            strides=patch_size,
+            padding="valid",
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        Reshape(target_shape=(-1, stem_width)),
+    ], name="stem")(inputs)
 
     drop_connect_s, drop_connect_e = drop_connect_rate if isinstance(drop_rate, (list, tuple)) else [drop_rate, drop_rate]
     
-    for ii in range(num_blocks):
-        name = "{}_{}_".format("res_block", str(ii + 1))
-        block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * ii / num_blocks
-        x = res_mlp_block(x, channels_mlp_dim=channels_mlp_dim, drop_rate=block_drop_rate, activation='gelu', name=name)
+    for i in range(num_blocks):
+        block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * i / num_blocks
+        x = res_mlp_block(
+            inputs=x,
+            channels_dim=channels_dim,
+            **layer_constant_dict,
+            drop_rate=block_drop_rate,
+            name=f"stage{i + 1}"
+        )
         
-    x = ChannelAffine(axis=-1, name="pre_head_norm")(x)
+    x = ChannelAffine(weight_init_value=-1, axis=-1, name=f"stage{i + 1}.channel_affine")(x)
     
     if include_top:
-        x = GlobalAveragePooling1D()(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling1D()(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling1D()(x)
+        x = Sequential([
+            GlobalAveragePooling1D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, x, name=name + '_SAM')
-        else:
-            return Model(inputs, x, name=name)
-
-    # Create model.
+    model_name = "ResMLP"
     if stem_width == 384:
-        model = __build_model(inputs, x, sam_rho, name=f'ResMLP-S{num_blocks}')
+        model_name += "-S"
     elif stem_width == 768:
-        model = __build_model(inputs, x, sam_rho, name=f'ResMLP-B{num_blocks}')
-    else:
-        model = __build_model(inputs, x, sam_rho, name=f'ResMLP-{num_blocks}')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
-    return model
-
-
-def ResMLP_S12(include_top=True,
-               weights='imagenet',
-               input_tensor=None,
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               drop_rate=0.1,
-               drop_connect_rate=0.1) -> Model:
+        model_name += "-B"
+    model_name += f"-{num_blocks}"
     
-    model = ResMLP(stem_width=384,
-                   patch_size=16,
-                   num_blocks=12,
-                   channels_mlp_dim=384 * 4,
-                   include_top=include_top,
-                   weights=weights, 
-                   input_tensor=input_tensor, 
-                   input_shape=input_shape, 
-                   pooling=pooling, 
-                   final_activation=final_activation,
-                   classes=classes,
-                   sam_rho=sam_rho,
-                   drop_rate=drop_rate,
-                   drop_connect_rate=drop_connect_rate)
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def ResMLP_S24(include_top=True,
-               weights='imagenet',
-               input_tensor=None,
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               drop_rate=0.1,
-               drop_connect_rate=0.1) -> Model:
+def ResMLP_S12(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
+    
+    model = ResMLP(
+        stem_width=384,
+        patch_size=16,
+        num_blocks=12,
+        channels_mlp_dim=384 * 4,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_connect_rate=drop_connect_rate,
+        drop_rate=drop_rate
+    )
+    return model
+
+
+def ResMLP_S24(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
         
-    model = ResMLP(stem_width=384,
-                   patch_size=16,
-                   num_blocks=24,
-                   channels_mlp_dim=384 * 4,
-                   include_top=include_top,
-                   weights=weights, 
-                   input_tensor=input_tensor, 
-                   input_shape=input_shape, 
-                   pooling=pooling, 
-                   final_activation=final_activation,
-                   classes=classes,
-                   sam_rho=sam_rho,
-                   drop_rate=drop_rate,
-                   drop_connect_rate=drop_connect_rate)
+    model = ResMLP(
+        stem_width=384,
+        patch_size=16,
+        num_blocks=24,
+        channels_mlp_dim=384 * 4,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_connect_rate=drop_connect_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ResMLP_S36(include_top=True,
-               weights='imagenet',
-               input_tensor=None,
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               drop_rate=0.1,
-               drop_connect_rate=0.1) -> Model:
+def ResMLP_S36(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
     
-    model = ResMLP(stem_width=384,
-                   patch_size=16,
-                   num_blocks=36,
-                   channels_mlp_dim=384 * 4,
-                   include_top=include_top,
-                   weights=weights, 
-                   input_tensor=input_tensor, 
-                   input_shape=input_shape, 
-                   pooling=pooling, 
-                   final_activation=final_activation,
-                   classes=classes,
-                   sam_rho=sam_rho,
-                   drop_rate=drop_rate,
-                   drop_connect_rate=drop_connect_rate)
+    model = ResMLP(
+        stem_width=384,
+        patch_size=16,
+        num_blocks=36,
+        channels_mlp_dim=384 * 4,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_connect_rate=drop_connect_rate,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def ResMLP_B24(include_top=True,
-               weights='imagenet',
-               input_tensor=None,
-               input_shape=None,
-               pooling=None,
-               final_activation="softmax",
-               classes=1000,
-               sam_rho=0.0,
-               drop_rate=0.1,
-               drop_connect_rate=0.1) -> Model:
+def ResMLP_B24(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
     
-    model = ResMLP(stem_width=768,
-                   patch_size=8,
-                   num_blocks=24,
-                   channels_mlp_dim=768 * 4,
-                   include_top=include_top,
-                   weights=weights, 
-                   input_tensor=input_tensor, 
-                   input_shape=input_shape, 
-                   pooling=pooling, 
-                   final_activation=final_activation,
-                   classes=classes,
-                   sam_rho=sam_rho,
-                   drop_rate=drop_rate,
-                   drop_connect_rate=drop_connect_rate)
+    model = ResMLP(
+        stem_width=768,
+        patch_size=8,
+        num_blocks=24,
+        channels_mlp_dim=768 * 4,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_connect_rate=drop_connect_rate,
+        drop_rate=drop_rate
+    )
     return model
+    

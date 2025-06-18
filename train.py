@@ -62,11 +62,11 @@ def train(engine_file_config, model_file_config):
             normalizer=data_config["data_normalizer"].get("norm_type", "divide"),
             mean_norm=data_config["data_normalizer"].get("norm_mean"),
             std_norm=data_config["data_normalizer"].get("norm_std"),
+            sampler=data_config.get("sampler"),
             interpolation=data_config["data_normalizer"].get("interpolation", "BILINEAR"),
             data_type=data_config["data_info"]["data_type"],
             check_data=data_config["data_info"].get("check_data", False),
             load_memory=data_config["data_info"].get("load_memory", False),
-            class_weight=train_config.get("class_weight", None),
             dataloader_mode=data_config.get("dataloader_mode", "tf"),
             get_data_mode=data_config.get("get_data_mode", 2),
             num_workers=train_config.get("num_workers", 1),
@@ -75,7 +75,7 @@ def train(engine_file_config, model_file_config):
         train_generator = data_generator_instance["train_generator"]
         valid_generator = data_generator_instance.get("valid_generator", None)
         test_generator = data_generator_instance.get("test_generator", None)
-        class_weights = data_generator_instance.get("class_weights", None)
+        # class_weights = data_generator_instance.get("class_weights", None)
         
         train_step = int(np.ceil(train_generator.N / batch_size))
         train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
@@ -127,7 +127,7 @@ def train(engine_file_config, model_file_config):
                 validation_steps=valid_step,
                 epochs=train_config["epoch"]["end"],
                 initial_epoch=initial_epoch,
-                class_weight=class_weights,
+                # class_weight=class_weights,
                 callbacks=callbacks,
             )
         else:
@@ -136,7 +136,7 @@ def train(engine_file_config, model_file_config):
                 steps_per_epoch=train_step,
                 epochs=train_config["epoch"]["end"],
                 initial_epoch=initial_epoch,
-                class_weight=class_weights,
+                # class_weight=class_weights,
                 callbacks=callbacks,
             )
 

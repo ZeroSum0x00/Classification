@@ -1,395 +1,573 @@
 """
-  # Description:
-    - The following table comparing the params of the WaveMLP in Tensorflow on 
-    size 224 x 224 x 3:
-      
+    WaveMLP: MLP-Based Backbone with Large Receptive Field via Wave Aggregation
+    
+    Overview:
+        WaveMLP is a novel MLP-based vision backbone that enhances spatial modeling
+        using **Wave Aggregation**, a structured spatial mixing mechanism that allows
+        MLPs to model long-range dependencies like convolutions with large kernels.
+        
+        It introduces a **Wave Block** that uses depth-wise and channel-wise MLPs in 
+        combination with learnable spatial aggregation masks to effectively capture 
+        both local and global context in images.
+    
+        Key innovations include:
+            - Wave Aggregation: Expands receptive field using structured token mixing
+            - Shifted Token Grouping: Improves spatial generalization
+            - Pure MLP Architecture with Conv-like locality
+    
+    Key Components:
+        • Patch Embedding:
+            - Input image is divided into non-overlapping patches (e.g., 16×16).
+            - Each patch is linearly projected into an embedding dimension `C`.
+            - Output shape: `[B, H×W, C]` or `[B, C, H, W]` (if 2D layout is preserved)
+    
+        • Wave Block:
+            - Main building block of WaveMLP backbone, consisting of:
+              
+              1. **Channel MLP**:
+                  - Applies a feedforward MLP to each patch independently (per-token MLP).
+                  - Structure: `Linear → GELU → Linear` with residual connection.
+    
+              2. **Wave Aggregation MLP**:
+                  - Performs structured token mixing using spatial MLPs.
+                  - Token groups are shifted and aggregated via **Wave Operator** (e.g., wave mask convolution).
+                  - Captures global spatial relationships while preserving inductive bias.
+              
+              3. **Shifted Token Grouping**:
+                  - Applies spatial shifting before aggregation (e.g., shift-left, shift-up).
+                  - Inspired by Swin Transformer’s shifted window mechanism.
+    
+            - Both sublayers include **LayerNorm**, residual connections, and optional dropout.
+
+        • Large Receptive Field:
+            - Achieved via **Wave Aggregation MLP**, not convolutions
+            - Enables spatial generalization even on low-resolution patches
+    
+        • No Convolution, No Attention:
+            - Efficient pure-MLP model with large spatial context
+            
+    Model Parameter Comparison:
        -----------------------------------------
       |       Model Name      |    Params       |
       |-----------------------------------------|
-      |      WaveMLP-tiny     |    17,217,736   |
+      |      WaveMLP-tiny     |    17,217,992   |
       |-----------------------------------------|
-      |      WaveMLP-small    |    30,729,032   |
+      |      WaveMLP-small    |    30,708,168   |
       |-----------------------------------------|
-      |      WaveMLP-medium   |    44,088,632   |
+      |      WaveMLP-medium   |    44,058,808   |
       |-----------------------------------------|
-      |      WaveMLP-base     |    63,622,456   |
+      |      WaveMLP-base     |    63,589,432   |
        -----------------------------------------
-       
-  # Reference:
-    - [An Image Patch is a Wave: Phase-Aware Vision MLP](https://arxiv.org/pdf/2111.12294.pdf)
-    - Source: https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/mlp_family/wave_mlp.py
+    
+    References:
+        - Paper: “An Image Patch is a Wave: Phase-Aware Vision MLP”  
+          https://arxiv.org/abs/2111.12294
+    
+        - Official PyTorch implementation:  
+          https://github.com/huawei-noah/Efficient-AI-Backbones/tree/master/wavemlp_pytorch
+
+        - TensorFlow/Keras implementation:
+          https://github.com/leondgarse/keras_cv_attention_models/blob/main/keras_cv_attention_models/mlp_family/wave_mlp.py
 
 """
 
-from __future__ import print_function
-from __future__ import absolute_import
-
-import warnings
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import ZeroPadding2D
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import Softmax
-from tensorflow.keras.layers import GlobalMaxPooling1D
-from tensorflow.keras.layers import GlobalAveragePooling1D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from tensorflow.keras.layers import add
-from tensorflow.keras.layers import multiply
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.utils import get_source_inputs, get_file
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    ZeroPadding2D, Conv2D,
+    Reshape, Dense, Dropout, GlobalAveragePooling2D,
+    add, multiply, concatenate,
+)
 
-from models.layers import (OperatorWrapper, UnstackWrapper, DropPath,
-                           MLPBlock, SAMModel,
-                           get_activation_from_name, get_normalizer_from_name)
-from utils.model_processing import _obtain_input_shape
+from models.layers import (
+    get_activation_from_name, get_normalizer_from_name,
+    MLPBlock, DropPathV1, DropPathV2,
+    OperatorWrapper, UnstackWrapper,
+)
+from utils.model_processing import process_model_input, check_regularizer
 
 
-def phase_aware_token_mixing(inputs, out_dim=-1, qkv_bias=False, output_dropout=0, activation="gelu", name=None):
+def phase_aware_token_mixing(
+    inputs,
+    out_dim=-1,
+    qkv_bias=False,
+    activation="gelu",
+    normalizer="batch-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.,
+    name=None
+):
+    if name is None:
+        name = f"phase_aware_token_mixing_{K.get_uid('phase_aware_token_mixing')}"
+        
     out_dim = out_dim if out_dim > 0 else inputs.shape[-1]
-    theta_h = Conv2D(filters=out_dim,
-                     kernel_size=(1, 1),
-                     strides=(1, 1),
-                     padding="valid",
-                     use_bias=True,
-                     name=name and name + "theta_h_")(inputs)
-    theta_h = get_normalizer_from_name('batch-norm')(theta_h)
-    theta_h = get_activation_from_name('relu')(theta_h)
-    height = Conv2D(filters=out_dim,
-                    kernel_size=(1, 1),
-                    strides=(1, 1),
-                    padding="valid",
-                    use_bias=qkv_bias,
-                    name=name and name + "height_")(inputs)
+    regularizer_decay = check_regularizer(regularizer_decay)
+
+    # height feature
+    theta_h = Sequential([
+        Conv2D(
+            filters=out_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            padding="valid",
+            use_bias=True,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"{name}.theta_h")(inputs)
+
+    height = Conv2D(
+        filters=out_dim,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        padding="valid",
+        use_bias=qkv_bias,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=regularizer_decay,
+        name=f"{name}.height"
+    )(inputs)
 
     theta_cos  = OperatorWrapper(operator="cos")(theta_h)
     height_cos = multiply([height, theta_cos])
+
     theta_sin  = OperatorWrapper(operator="sin")(theta_h)
     height_sin = multiply([height, theta_sin])
+    
     height = concatenate([height_cos, height_sin], axis=-1)
-    height = Conv2D(filters=out_dim,
-                    kernel_size=(1, 7),
-                    strides=(1, 1),
-                    padding="same",
-                    groups=out_dim,
-                    use_bias=False,
-                    name=name and name + "height_down_")(height)
+    height = Conv2D(
+        filters=out_dim,
+        kernel_size=(1, 7),
+        strides=(1, 1),
+        padding="same",
+        groups=out_dim,
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=regularizer_decay,
+    )(height)
 
-    theta_w = Conv2D(filters=out_dim,
-                     kernel_size=(1, 1),
-                     strides=(1, 1),
-                     use_bias=True,
-                     name=name and name + "theta_w_")(inputs)
-    theta_w = get_normalizer_from_name('batch-norm')(theta_w)
-    theta_w = get_activation_from_name('relu')(theta_w)
+    # width feature
+    theta_w = Sequential([
+        Conv2D(
+            filters=out_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=True,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+        get_activation_from_name(activation),
+    ], name=f"{name}.theta_w")(inputs)
 
-    width = Conv2D(filters=out_dim,
-                   kernel_size=(1, 1),
-                   strides=(1, 1),
-                   use_bias=qkv_bias,
-                   name=name and name + "width_")(inputs)
+    width = Conv2D(
+        filters=out_dim,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        use_bias=qkv_bias,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=regularizer_decay,
+        name=f"{name}.width"
+    )(inputs)
 
     theta_cos = OperatorWrapper(operator="cos")(theta_w)
     width_cos = multiply([width, theta_cos])
+    
     theta_sin = OperatorWrapper(operator="sin")(theta_w)
     width_sin = multiply([width, theta_sin])
 
     width = concatenate([width_cos, width_sin], axis=-1)
-    width = Conv2D(filters=out_dim,
-                   kernel_size=(7, 1),
-                   strides=(1, 1),
-                   padding="same",
-                   groups=out_dim,
-                   use_bias=False,
-                   name=name and name + "width_down_")(width)
+    width = Conv2D(
+        filters=out_dim,
+        kernel_size=(7, 1),
+        strides=(1, 1),
+        padding="same",
+        groups=out_dim,
+        use_bias=False,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=regularizer_decay,
+    )(width)
 
-    channel = Conv2D(filters=out_dim,
-                     kernel_size=(1, 1),
-                     strides=(1, 1),
-                     use_bias=qkv_bias,
-                     name=name and name + "channel_")(inputs)
+    # channel feature
+    channel = Conv2D(
+        filters=out_dim,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        use_bias=qkv_bias,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        kernel_regularizer=regularizer_decay,
+        name=f"{name}.channel"
+    )(inputs)
 
-    nn = add([height, width, channel])
-    nn = GlobalAveragePooling2D(keepdims=True)(nn)
-    nn = MLPBlock(out_dim // 4, 
-                  out_dim=out_dim * 3, 
-                  use_conv=True, 
-                  activation=activation, 
-                  name=name and name + "reweight_")(nn)
-    nn = Reshape([1, 1, out_dim, 3])(nn)
-    nn = Softmax(axis=-1, name=name and name + "attention_scores")(nn)
-    
-    attn_height, attn_width, attn_channel = UnstackWrapper(axis=-1)(nn)
+    x = add([height, width, channel])
+    x = Sequential([
+        GlobalAveragePooling2D(keepdims=True),
+        MLPBlock(
+            mlp_dim=out_dim // 4, 
+            out_dim=out_dim * 3, 
+            use_conv=True,
+            use_bias=True,
+            use_gated=False,
+            activation=activation,
+            normalizer=None,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            regularizer_decay=regularizer_decay,
+            norm_eps=norm_eps,
+            drop_rate=drop_rate
+        ),
+        Reshape([1, 1, out_dim, 3]),
+        get_activation_from_name("softmax")
+    ], name=f"{name}.reweight")(x)
+
+    attn_height, attn_width, attn_channel = UnstackWrapper(axis=-1)(x)
     attn_height = multiply([height, attn_height])
     attn_width = multiply([width, attn_width])
     attn_channel = multiply([channel, attn_channel])
     attn = add([attn_height, attn_width, attn_channel])
 
-    out = Conv2D(filters=out_dim,
-                   kernel_size=(1, 1),
-                   strides=(1, 1),
-                   use_bias=True,
-                   name=name and name + "out_")(attn)
-    
-    if output_dropout > 0:
-        out = Dropout(output_dropout, name=name and name + "out_drop")(out)
+    out = Sequential([
+        Conv2D(
+            filters=out_dim,
+            kernel_size=(1, 1),
+            strides=(1, 1),
+            use_bias=True,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        Dropout(rate=drop_rate),
+    ], name=f"{name}.out")(attn)
     return out
 
 
-def wave_block(inputs, qkv_bias=False, mlp_ratio=4, drop_prob=0, activation="gelu", normalizer='batch-norm', name=""):
-    attn = get_normalizer_from_name(normalizer)(inputs)
-    attn = phase_aware_token_mixing(attn, out_dim=inputs.shape[-1], qkv_bias=qkv_bias, activation=activation, name=name + "attn_")
-    attn = DropPath(drop_prob=drop_prob, name=name + "attn_drop_")(attn)
-    attn_out = add([inputs, attn], name=name + "attn_out")
+def wave_block(
+    inputs,
+    mlp_ratio=4,
+    qkv_bias=False,
+    activation="gelu",
+    normalizer="batch-norm",
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.,
+    name=None
+):
+    if name is None:
+        name = f"wave_block_{K.get_uid('wave_block')}"
+        
+    regularizer_decay = check_regularizer(regularizer_decay)
 
-    mlp = get_normalizer_from_name(normalizer)(attn_out)
-    mlp = MLPBlock(int(inputs.shape[-1] * mlp_ratio), use_conv=True, activation=activation, name=name + "mlp_blocl_")(mlp)
-    mlp = DropPath(drop_prob=drop_prob, name=name + "mlp_drop_")(mlp)
-    mlp_out = add([attn_out, mlp], name=name + "mlp_out")
-    return mlp_out
+    # phase attn
+    attn = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.attn.norm")(inputs)
+    
+    attn = phase_aware_token_mixing(
+        inputs=attn,
+        out_dim=inputs.shape[-1],
+        qkv_bias=qkv_bias,
+        activation=activation,
+        normalizer=normalizer,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        name=f"{name}.attn.token_mixing"
+    )
+    
+    attn = DropPath(drop_prob=drop_rate, name=f"{name}.attn.drop_path")(attn)
+    attn_out = add([inputs, attn], name=f"{name}.attn.add")
+
+    # phase mlp
+    mlp = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"{name}.mlp.norm")(attn_out)
+    
+    mlp = MLPBlock(
+        mlp_dim=int(inputs.shape[-1] * mlp_ratio),
+        out_dim=-1,
+        use_conv=True,
+        use_bias=True,
+        use_gated=False,
+        activation=activation,
+        normalizer=None,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        drop_rate=drop_rate
+    )(mlp)
+    
+    mlp = DropPath(drop_prob=drop_rate, name=f"{name}.mlp.drop_path")(mlp)
+    
+    out = add([attn_out, mlp], name=f"{name}.mlp.add")
+    return out
 
     
-def WaveMLP(filters,
-            num_blocks,
-            stem_width,
-            mlp_ratios,
-            use_downsample_norm,
-            norm_name,
-            qkv_bias,
-            include_top=True,
-            weights='imagenet',
-            input_tensor=None,
-            input_shape=None,
-            pooling=None,
-            final_activation="softmax",
-            classes=1000,
-            sam_rho=0.0,
-            drop_rate=0):
+def WaveMLP(
+    filters,
+    num_blocks,
+    stem_width,
+    mlp_ratios,
+    qkv_bias,
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="layer-norm",
+    num_classes=1000,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_rate=0.1
+):
         
-    if weights not in {'imagenet', None}:
+    if weights not in {"imagenet", None}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
-
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=32,
-                                      data_format=K.image_data_format(),
-                                      require_flatten=include_top,
-                                      weights=weights)
-
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1 
+    if weights == "imagenet" and include_head and num_classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_head`'
+                         ' as true, `num_classes` should be 1000')
 
     stem_width = stem_width if stem_width > 0 else filters[0]
-    x = ZeroPadding2D(padding=2, name="stem_pad")(img_input)
-    x = Conv2D(filters=stem_width, kernel_size=(7, 7), strides=(4, 4), padding="valid", use_bias=True, name="stem_conv_")(x)
+    regularizer_decay = check_regularizer(regularizer_decay)
+    layer_constant_dict = {
+        "activation": activation,
+        "normalizer": normalizer,
+        "kernel_initializer": kernel_initializer,
+        "bias_initializer": bias_initializer,
+        "regularizer_decay": regularizer_decay,
+        "norm_eps": norm_eps,
+        "drop_rate": drop_rate,
+    }
+    
+    inputs = process_model_input(
+        inputs,
+        include_head=include_head,
+        default_size=224,
+        min_size=32,
+        weights=weights
+    )
 
-    if use_downsample_norm:
-        x = get_normalizer_from_name(norm_name)(x)
+    x = Sequential([
+        ZeroPadding2D(padding=2),
+        Conv2D(
+            filters=stem_width,
+            kernel_size=(7, 7),
+            strides=(4, 4),
+            padding="valid",
+            use_bias=True,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=regularizer_decay,
+        ),
+        get_normalizer_from_name(normalizer, epsilon=norm_eps),
+    ], name="stem")(inputs)
 
-    """ stage [1, 2, 3, 4] """
+
     total_blocks = sum(num_blocks)
     global_block_id = 0
     for stack_id, (num_block, filter, mlp_ratio) in enumerate(zip(num_blocks, filters, mlp_ratios)):
-        stage_name = "stack{}_".format(stack_id + 1)
-        # if stack_id ==1:
-        #     break
         if stack_id > 0:
-            x = Conv2D(filters=filter, kernel_size=(3, 3), strides=(2, 2), padding="same", use_bias=True, name=stage_name + "down_sample_")(x)
-            
-            if use_downsample_norm:
-                x = get_normalizer_from_name(norm_name)(x)
+            x = Conv2D(
+                filters=filter,
+                kernel_size=(3, 3),
+                strides=(2, 2),
+                padding="same",
+                use_bias=True,
+                kernel_initializer=kernel_initializer,
+                bias_initializer=bias_initializer,
+                kernel_regularizer=regularizer_decay,
+                name=f"stage{stack_id + 1}.block1.conv"
+            )(x)
+
+        x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"stage{stack_id + 1}.block1.norm")(x)
 
         for block_id in range(num_block):
-            name = stage_name + "block{}_".format(block_id + 1)
             drop_prob = drop_rate * global_block_id / total_blocks
             global_block_id += 1
-            x = wave_block(x, qkv_bias, mlp_ratio, drop_prob, activation='gelu', normalizer=norm_name, name=name)
-    # return Model(img_input, x, name='abc')
-    x = get_normalizer_from_name(norm_name)(x)
-    
-    if include_top:
-        x = GlobalAveragePooling2D()(x)
-        x = Dropout(rate=drop_rate)(x)
-        x = Dense(
-            units=1 if num_classes == 2 else num_classes,
-            activation=final_activation,
-            name="predictions"
-        )(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling1D()(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling1D()(x)
+            x = wave_block(
+                inputs=x,
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                **layer_constant_dict,
+                name=f"stage{stack_id + 1}.block{block_id + 2}"
+            )
 
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
+    x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name=f"stage{stack_id + 1}.block{block_id + 2}.final_norm")(x)
 
-    def __build_model(inputs, outputs, sam_rho, name):
-        if sam_rho != 0:
-            return SAMModel(inputs, x, name=name + '_SAM')
-        else:
-            return Model(inputs, x, name=name)
-            
-    # Create model.
+    if include_head:
+        x = Sequential([
+            GlobalAveragePooling2D(),
+            Dropout(rate=drop_rate),
+            Dense(units=1 if num_classes == 2 else num_classes),
+            get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
+        ], name="classifier_head")(x)
+
+    model_name = "WaveMLP"
     if num_blocks == [2, 2, 4, 2] and filters == [64, 128, 320, 512] and mlp_ratios == [4, 4, 4, 4]:
-        model = __build_model(inputs, x, sam_rho, name='WaveMLP-T')
+        model_name += "-T"
     elif num_blocks == [2, 3, 10, 3] and filters == [64, 128, 320, 512] and mlp_ratios == [4, 4, 4, 4]:
-        model = __build_model(inputs, x, sam_rho, name='WaveMLP-S')
+        model_name += "-S"
     elif num_blocks == [3, 4, 18, 3] and filters == [64, 128, 320, 512] and mlp_ratios == [8, 8, 4, 4]:
-        model = __build_model(inputs, x, sam_rho, name='WaveMLP-M')
+        model_name += "-M"
     elif num_blocks == [2, 2, 18, 2] and filters == [96, 192, 384, 768] and mlp_ratios == [4, 4, 4, 4]:
-        model = __build_model(inputs, x, sam_rho, name='WaveMLP-B')
-    else:
-        model = __build_model(inputs, x, sam_rho, name='WaveMLP')
-
-    if K.image_data_format() == 'channels_first' and K.backend() == 'tensorflow':
-        warnings.warn('You are using the TensorFlow backend, yet you '
-                      'are using the Theano '
-                      'image data format convention '
-                      '(`image_data_format="channels_first"`). '
-                      'For best performance, set '
-                      '`image_data_format="channels_last"` in '
-                      'your Keras config '
-                      'at ~/.keras/keras.json.')
+        model_name += "-B"
+        
+    model = Model(inputs=inputs, outputs=x, name=model_name)
     return model
 
 
-def WaveMLP_T(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              sam_rho=0.0,
-              drop_rate=0.1) -> Model:
+def WaveMLP_T(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="batch-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
     
-    model = WaveMLP(filters=[64, 128, 320, 512],
-                    num_blocks=[2, 2, 4, 2],
-                    stem_width=-1,
-                    mlp_ratios=[4, 4, 4, 4],
-                    use_downsample_norm=True,
-                    norm_name='batch-norm',
-                    qkv_bias=False,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    sam_rho=sam_rho,
-                    drop_rate=drop_rate)
+    model = WaveMLP(
+        filters=[64, 128, 320, 512],
+        num_blocks=[2, 2, 4, 2],
+        stem_width=-1,
+        mlp_ratios=[4, 4, 4, 4],
+        qkv_bias=False,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def WaveMLP_S(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              sam_rho=0.0,
-              drop_rate=0.1) -> Model:
+def WaveMLP_S(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
     
-    model = WaveMLP(filters=[64, 128, 320, 512],
-                    num_blocks=[2, 3, 10, 3],
-                    stem_width=-1,
-                    mlp_ratios=[4, 4, 4, 4],
-                    use_downsample_norm=True,
-                    norm_name='group-norm',
-                    qkv_bias=False,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    sam_rho=sam_rho,
-                    drop_rate=drop_rate)
+    model = WaveMLP(
+        filters=[64, 128, 320, 512],
+        num_blocks=[2, 3, 10, 3],
+        stem_width=-1,
+        mlp_ratios=[4, 4, 4, 4],
+        qkv_bias=False,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def WaveMLP_M(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              sam_rho=0.0,
-              drop_rate=0.1) -> Model:
+def WaveMLP_M(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
     
-    model = WaveMLP(filters=[64, 128, 320, 512],
-                    num_blocks=[3, 4, 18, 3],
-                    stem_width=-1,
-                    mlp_ratios=[8, 8, 4, 4],
-                    use_downsample_norm=False,
-                    norm_name='group-norm',
-                    qkv_bias=False,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    sam_rho=sam_rho,
-                    drop_rate=drop_rate)
+    model = WaveMLP(
+        filters=[64, 128, 320, 512],
+        num_blocks=[3, 4, 18, 3],
+        stem_width=-1,
+        mlp_ratios=[8, 8, 4, 4],
+        qkv_bias=False,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model
 
 
-def WaveMLP_B(include_top=True,
-              weights='imagenet',
-              input_tensor=None,
-              input_shape=None,
-              pooling=None,
-              final_activation="softmax",
-              classes=1000,
-              sam_rho=0.0,
-              drop_rate=0.1) -> Model:
+def WaveMLP_B(
+    inputs=[224, 224, 3],
+    include_head=True,
+    weights="imagenet",
+    activation="gelu",
+    normalizer="group-norm",
+    num_classes=1000,
+    kernel_initializer="he_normal",
+    bias_initializer="zeros",
+    regularizer_decay=5e-4,
+    norm_eps=1e-6,
+    drop_connect_rate=0.1,
+    drop_rate=0.1,
+) -> Model:
     
-    model = WaveMLP(filters=[96, 192, 384, 768],
-                    num_blocks=[2, 2, 18, 2],
-                    stem_width=-1,
-                    mlp_ratios=[4, 4, 4, 4],
-                    use_downsample_norm=False,
-                    norm_name='group-norm',
-                    qkv_bias=False,
-                    include_top=include_top,
-                    weights=weights, 
-                    input_tensor=input_tensor, 
-                    input_shape=input_shape, 
-                    pooling=pooling, 
-                    final_activation=final_activation,
-                    classes=classes,
-                    sam_rho=sam_rho,
-                    drop_rate=drop_rate)
+    model = WaveMLP(
+        filters=[96, 192, 384, 768],
+        num_blocks=[2, 2, 18, 2],
+        stem_width=-1,
+        mlp_ratios=[4, 4, 4, 4],
+        qkv_bias=False,
+        inputs=inputs,
+        include_head=include_head,
+        weights=weights,
+        activation=activation,
+        normalizer=normalizer,
+        num_classes=num_classes,
+        kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
+        regularizer_decay=regularizer_decay,
+        norm_eps=norm_eps,
+        drop_rate=drop_rate
+    )
     return model

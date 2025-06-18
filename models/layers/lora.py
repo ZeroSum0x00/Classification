@@ -12,24 +12,24 @@ class LoRALayer(tf.keras.layers.Layer):
         input_dim = input_shape[-1]
 
         self.W = self.add_weight(
-            name="W",
             shape=[input_dim, self.units],
             initializer="glorot_uniform",
             trainable=False,
+            name="W"
         )
         
         self.A = self.add_weight(
-            name="A",
             shape=[input_dim, self.r],
             initializer="random_normal",
             trainable=True,
+            name="A"
         )
         
         self.B = self.add_weight(
-            name="B",
             shape=[self.r, self.units],
             initializer="zeros",
             trainable=True,
+            name="B"
         )
         
     def call(self, inputs):
