@@ -5,6 +5,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def linear_gradient(image, orientation="horizontal", edge_brightness=(.1, .3)):
     if not is_numpy_image(image):
         raise TypeError("img should be image. Got {}".format(type(image)))

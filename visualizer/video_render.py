@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 
 
+
 class VideoRender:
     def __init__(self, frame_duration=1, save_path="out.mp4"):
         self.video_path = save_path

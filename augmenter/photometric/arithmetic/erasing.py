@@ -7,6 +7,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def erasing(
     image,
     min_area=0.02,
@@ -33,7 +34,7 @@ def erasing(
     count = min_count if min_count == max_count else random.randint(min_count, max_count)
     log_aspect_ratio = (math.log(min_aspect), math.log(max_aspect))
     for _ in range(count):
-        for attempt in range(10):
+        for _ in range(10):
             target_area = random.uniform(min_area, max_area) * area / count
             aspect_ratio = math.exp(random.uniform(*log_aspect_ratio))
             h = int(round(math.sqrt(target_area * aspect_ratio)))

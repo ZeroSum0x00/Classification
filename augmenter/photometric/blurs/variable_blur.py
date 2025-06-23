@@ -4,8 +4,8 @@ import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from ..lighting import linear_gradient, radial_gradient
-# from ..lighting.radial_gradient import radial_gradient
 from utils.auxiliary_processing import is_numpy_image
+
 
 
 def variable_blur(image, modes=("linear", "radial"), ksize_norm=.2):

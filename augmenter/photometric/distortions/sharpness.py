@@ -1,7 +1,5 @@
-import cv2
 import random
 import numbers
-import numpy as np
 import tensorflow as tf
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
@@ -9,8 +7,12 @@ from utils.auxiliary_processing import is_numpy_image
 from ..blends import blend
 
 
+
 def sharpness(image, factor):
     """Implements Sharpness function from PIL using TF ops."""
+    if not is_numpy_image(image):
+        raise TypeError("img should be image. Got {}".format(type(image)))
+
     orig_image = image
     image = tf.cast(image, tf.float32)
     # Make image 4D for conv operation.

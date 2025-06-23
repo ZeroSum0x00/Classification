@@ -9,6 +9,7 @@ from ..resize import INTER_MODE
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def affine(
     image,
     angle=0,

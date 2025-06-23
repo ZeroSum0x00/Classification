@@ -6,6 +6,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def flashlight(image, radius=0.5, alpha=0.8, bg_darkness=100):
     def decrease_brightness(img, value=30):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)

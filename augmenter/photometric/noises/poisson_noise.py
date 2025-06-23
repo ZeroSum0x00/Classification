@@ -3,6 +3,7 @@ import numpy as np
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 
 
+
 def poisson_noise(image):
     imgtype = image.dtype
     image = image.astype(np.float32)/255.0

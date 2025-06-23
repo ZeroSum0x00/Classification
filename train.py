@@ -16,6 +16,7 @@ from utils.config_processing import load_config
 from utils.logger import logger
 
 
+
 def train(engine_file_config, model_file_config):
     engine_config = load_config(engine_file_config)
     model_config = load_config(model_file_config)
@@ -75,7 +76,7 @@ def train(engine_file_config, model_file_config):
         train_generator = data_generator_instance["train_generator"]
         valid_generator = data_generator_instance.get("valid_generator", None)
         test_generator = data_generator_instance.get("test_generator", None)
-        # class_weights = data_generator_instance.get("class_weights", None)
+        class_weights = data_generator_instance.get("class_weights", None)
         
         train_step = int(np.ceil(train_generator.N / batch_size))
         train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
@@ -127,7 +128,7 @@ def train(engine_file_config, model_file_config):
                 validation_steps=valid_step,
                 epochs=train_config["epoch"]["end"],
                 initial_epoch=initial_epoch,
-                # class_weight=class_weights,
+                class_weight=class_weights,
                 callbacks=callbacks,
             )
         else:
@@ -136,7 +137,7 @@ def train(engine_file_config, model_file_config):
                 steps_per_epoch=train_step,
                 epochs=train_config["epoch"]["end"],
                 initial_epoch=initial_epoch,
-                # class_weight=class_weights,
+                class_weight=class_weights,
                 callbacks=callbacks,
             )
 

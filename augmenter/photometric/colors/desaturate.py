@@ -2,10 +2,10 @@ import cv2
 import random
 import numbers
 import numpy as np
-import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
+
 
 
 def desaturate(image, percent):

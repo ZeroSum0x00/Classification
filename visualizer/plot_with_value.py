@@ -4,8 +4,6 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
 
-import numpy as np
-import matplotlib.pyplot as plt
 
 def value_above_line(f, x, y, i=-1, max_size=[0, 0], linewidth=2,
                      line_color="red", text_color="white", box_color="hotpink", label=""):

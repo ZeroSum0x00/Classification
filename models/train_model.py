@@ -2,6 +2,7 @@ import tensorflow as tf
 from utils.logger import logger
 
 
+
 class TrainModel(tf.keras.Model):
     def __init__(
         self,

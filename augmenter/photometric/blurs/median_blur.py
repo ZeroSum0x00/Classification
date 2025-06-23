@@ -7,8 +7,8 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
-def median_blur(image, ksize_norm=0.05):
 
+def median_blur(image, ksize_norm=0.05):
     if not is_numpy_image(image):
         raise TypeError("img should be image. Got {}".format(type(image)))
         

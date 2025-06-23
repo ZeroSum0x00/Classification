@@ -1,6 +1,4 @@
 import cv2
-import random
-import numpy as np
 import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform

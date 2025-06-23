@@ -2,16 +2,17 @@ import numpy as np
 import tensorflow as tf
 
 
+
 @tf.keras.utils.register_keras_serializable()
 class CLS(tf.keras.Model):
     def __init__(
         self,
         backbone,
         custom_head=None,
-        name="CLS",
+        name="cls",
         *args, **kwargs
     ):
-        super(CLS, self).__init__(*args, **kwargs)
+        super(CLS, self).__init__(name=name, *args, **kwargs)
         self.backbone = backbone
         self.custom_head = custom_head
 
@@ -47,8 +48,6 @@ class CLS(tf.keras.Model):
 
     @classmethod
     def from_config(cls, config):
-        from tensorflow.keras.models import Model
-
         backbone_config = config.pop("backbone")
         backbone = tf.keras.utils.deserialize_keras_object(backbone_config)
 

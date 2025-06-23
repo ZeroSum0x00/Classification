@@ -6,6 +6,7 @@ from utils.logger import logger
 from data_utils import ParseDirName, DataSequencePipeline, TFDataPipeline
 
 
+
 def get_data(
     data_dirs,
     classes,

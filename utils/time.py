@@ -1,18 +1,19 @@
 from datetime import datetime, timedelta
 
 
+
 def datetime2string(object):
     if not isinstance(object, timedelta):
         raise TypeError("input must be datetime.timedelta instance")
         
     seconds = int(object.total_seconds())
     periods = [
-        ("year",        60*60*24*365),
-        ("month",       60*60*24*30),
-        ("day",         60*60*24),
-        ("hour",        60*60),
-        ("minute",      60),
-        ("second",      1)
+        ("year",   60*60*24*365),
+        ("month",  60*60*24*30),
+        ("day",    60*60*24),
+        ("hour",   60*60),
+        ("minute", 60),
+        ("second", 1)
     ]
 
     strings=[]

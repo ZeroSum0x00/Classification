@@ -6,6 +6,7 @@ from utils.files import valid_image
 from utils.logger import logger
 
 
+
 class ParseDirName:
     def __init__(
         self,

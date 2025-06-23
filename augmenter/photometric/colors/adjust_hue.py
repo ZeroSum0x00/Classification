@@ -8,6 +8,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def adjust_hue(image, hue_factor):
     if not(-0.5 <= hue_factor <= 0.5):
         raise ValueError("Hue factor is not in [-0.5, 0.5].".format(hue_factor))

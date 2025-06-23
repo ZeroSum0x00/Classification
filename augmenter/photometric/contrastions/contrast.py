@@ -8,6 +8,7 @@ from utils.auxiliary_processing import is_numpy_image
 from ..blends import blend
 
 
+
 def contrast(image, contrast_factor):
     if not is_numpy_image(image):
         raise TypeError("img should be image. Got {}".format(type(image)))

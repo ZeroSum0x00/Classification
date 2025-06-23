@@ -2,6 +2,8 @@ import numbers
 from .crop import crop
 from ..pad import pad
 from augmenter.base_transform import BaseTransform
+from utils.auxiliary_processing import is_numpy_image
+
 
 
 def center_crop(
@@ -10,6 +12,9 @@ def center_crop(
     fill_color=0,
     padding_mode="constant",
 ):
+    if not is_numpy_image(image):
+        raise TypeError("img should be image. Got {}".format(type(image)))
+
     if isinstance(size, numbers.Number):
         size = (int(size), int(size))
 

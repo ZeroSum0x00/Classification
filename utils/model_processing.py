@@ -1,13 +1,12 @@
 import inspect
-import warnings
 import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Input
-from tensorflow.keras.backend import is_keras_tensor
-from tensorflow.keras.regularizers import l2, L2
+from tensorflow.keras.regularizers import l2
+from .logger import logger
 
 
 
@@ -84,14 +83,14 @@ def _obtain_input_shape(
         if weights != "imagenet" and len(input_shape) == 3:
             if data_format == "channels_first":
                 if input_shape[0] not in {1, 3}:
-                    warnings.warn(
+                    logger.warning(
                         "This model usually expects 1 or 3 input channels. "
                         "However, it was passed an input_shape with " +
                         str(input_shape[0]) + " input channels."
                     )
             else:
                 if input_shape[-1] not in {1, 3}:
-                    warnings.warn(
+                    logger.warning(
                         "This model usually expects 1 or 3 input channels. "
                         "However, it was passed an input_shape with " +
                         str(input_shape[-1]) + " input channels."
@@ -104,7 +103,7 @@ def _obtain_input_shape(
             else:
                 default_shape = (*input_shape, 3)
         else:
-            warnings.warn(
+            logger.warning(
                 "Invalid `input_shape` provided. Expected a 2D shape (height, width) or a 3D shape "
                 "(channels, height, width) or (height, width, channels) depending on `data_format`. "
                 "Received: {}. Defaulting to fallback shape.".format(input_shape)

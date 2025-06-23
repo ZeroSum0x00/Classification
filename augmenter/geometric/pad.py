@@ -1,10 +1,10 @@
 import cv2
 import numbers
-import numpy as np
 import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform
 from utils.auxiliary_processing import is_numpy_image
+
 
 
 PAD_MOD = {

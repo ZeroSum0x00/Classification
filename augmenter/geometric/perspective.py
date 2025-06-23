@@ -6,6 +6,8 @@ import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from .resize import INTER_MODE
+from utils.auxiliary_processing import is_numpy_image
+
 
 
 def perspective(
@@ -20,6 +22,9 @@ def perspective(
     interpolation="BILINEAR",
     fill_color=(0, 0, 0),
 ):
+    if not is_numpy_image(image):
+        raise TypeError("img should be image. Got {}".format(type(image)))
+
     imgtype = image.dtype
     gray_scale = False
 
@@ -97,12 +102,14 @@ def perspective(
     perspective_matrix = cv2.getPerspectiveTransform(org, dst)
     total_matrix = perspective_matrix @ affine_matrix
 
-    result_img = cv2.warpPerspective(image,
-                                     total_matrix,
-                                     (w, h),
-                                     flags=INTER_MODE[interpolation],
-                                     borderMode=cv2.BORDER_CONSTANT,
-                                     borderValue=fill_color)
+    result_img = cv2.warpPerspective(
+        image,
+        total_matrix,
+        (w, h),
+        flags=INTER_MODE[interpolation],
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=fill_color
+    )
     if gray_scale:
         result_img = cv2.cvtColor(result_img, cv2.COLOR_RGB2GRAY)
     return result_img.astype(imgtype)

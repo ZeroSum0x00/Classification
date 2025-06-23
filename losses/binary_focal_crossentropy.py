@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import losses
 
 
+
 class BinaryFocalCrossentropy(losses.Loss):
     def __init__(
         self,
@@ -24,6 +25,7 @@ class BinaryFocalCrossentropy(losses.Loss):
             axis=crossentropy_axis,
             reduction=None,
         )
+        self.reduction = reduction
         self.invariant_name = "binary_focal_crossentropy"
         self.coefficient = 1
 

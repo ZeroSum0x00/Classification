@@ -6,6 +6,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def halo_effect(image, radius=0.5, alpha=0.8):
 
     def ring(x, y, h, w, max_dim, k_size_norm, ring_thickness_norm, radius):

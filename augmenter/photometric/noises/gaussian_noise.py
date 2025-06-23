@@ -6,6 +6,7 @@ import collections.abc as collections
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 
 
+
 def gaussian_noise(image, mean, std):
     assert isinstance(mean, numbers.Number) and mean >= 0, "mean should be a positive value"
     assert isinstance(std, numbers.Number) and std >= 0, "std should be a positive value"

@@ -7,6 +7,7 @@ from ..pad import pad
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def crop(image, top, left, height, width):
     assert is_numpy_image(image), "img should be CV Image. Got {}".format(type(image))
     assert height > 0 and width > 0, "height={} and width={} should greater than 0".format(height, width)

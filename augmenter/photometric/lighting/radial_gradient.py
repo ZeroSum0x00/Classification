@@ -7,6 +7,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def radial_gradient(
     image,
     inner_color=150,

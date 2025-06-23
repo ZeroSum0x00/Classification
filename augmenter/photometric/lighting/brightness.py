@@ -3,8 +3,9 @@ import numbers
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
 from ..blends import blend
+from utils.auxiliary_processing import is_numpy_image
+
 
 
 def brightness(image, factor):

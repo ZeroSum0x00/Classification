@@ -6,6 +6,7 @@ import collections.abc as collections
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 
 
+
 def salt_and_pepper_noise(img, threshold=0.01):
     imgtype = img.dtype
     rnd = np.random.rand(img.shape[0], img.shape[1])

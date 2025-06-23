@@ -1,9 +1,8 @@
 import os
-import io
-import cv2
 import matplotlib
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import callbacks
 
 matplotlib.use("Agg")
 from tqdm import tqdm
@@ -15,7 +14,8 @@ from visualizer import value_above_line, VideoRender
 from utils.logger import logger
 
 
-class Evaluate(tf.keras.callbacks.Callback):
+
+class Evaluate(callbacks.Callback):
     def __init__(
         self,
         result_path=None,

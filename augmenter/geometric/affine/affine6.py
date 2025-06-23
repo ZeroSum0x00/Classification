@@ -6,6 +6,8 @@ import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from ..resize import INTER_MODE
+from utils.auxiliary_processing import is_numpy_image
+
 
 
 def affine6(
@@ -17,6 +19,9 @@ def affine6(
     interpolation="BILINEAR",
     fill_color=(0, 0, 0),
 ):
+    if not is_numpy_image(image):
+        raise TypeError("img should be image. Got {}".format(type(image)))
+
     assert isinstance(translate, (tuple, list)) and len(translate) == 2, \
         "Argument translate should be a list or tuple of length 2"
 

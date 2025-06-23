@@ -6,6 +6,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def smudges(image, number_smudges=None):
 
     def add_smudge(img):

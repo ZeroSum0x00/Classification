@@ -1,9 +1,9 @@
 import cv2
-import random
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
+
 
 
 def clahe(image, clip_limit=2.0, tile_grid_size=(8, 8)):

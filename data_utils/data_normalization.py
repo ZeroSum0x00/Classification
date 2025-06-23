@@ -5,6 +5,7 @@ from utils.constants import epsilon
 from utils.constants import INTER_MODE
 
 
+
 class Normalizer:
     def __init__(
         self,

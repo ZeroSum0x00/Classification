@@ -1,6 +1,7 @@
 from .auxiliary_processing import random_to_negative
 
 
+
 def enhance_level_to_arg(level):
     return (level / _MAX_LEVEL) * 1.8 + 0.1  # range [0.1, 1.9]
 

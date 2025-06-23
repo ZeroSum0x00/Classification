@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import callbacks
 
 import matplotlib
 matplotlib.use("Agg")
@@ -8,7 +9,8 @@ from matplotlib import pyplot as plt
 from visualizer import value_above_line
 
 
-class WarmUpLearningRate(tf.keras.callbacks.Callback):
+
+class WarmUpLearningRate(callbacks.Callback):
     def __init__(self,
                  steps_per_epoch,
                  epochs,

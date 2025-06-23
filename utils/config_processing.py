@@ -3,6 +3,7 @@ import yaml
 from utils.logger import logger
 
 
+
 def load_config(file_path):
     """
     Load config from yml/yaml file.

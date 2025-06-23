@@ -4,7 +4,8 @@ import logging
 import datetime
 import numpy as np
 import tensorflow as tf
-from utils.logger import logger
+from .logger import logger
+
 
 
 def train_prepare(
@@ -90,7 +91,6 @@ def train_prepare(
         return False
 
 
-    
 def find_max_batch_size(model, max_batch=1024):
     def can_run(batch_size):
         try:

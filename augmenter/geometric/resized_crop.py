@@ -1,4 +1,3 @@
-import cv2
 import math
 import random
 import numbers
@@ -7,6 +6,8 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from .crop import crop
 from .resize import resize
 from utils.auxiliary_processing import is_numpy_image
+
+
 
 
 def resized_crop(
@@ -18,7 +19,9 @@ def resized_crop(
     size,
     interpolation="BILINEAR",
 ):
-    assert is_numpy_image(image), "image should be CV Image"
+    if not is_numpy_image(image):
+        raise TypeError("img should be image. Got {}".format(type(image)))
+
     image = crop(image, top, left, height, width)
     image = resize(image, size, interpolation)
     return image

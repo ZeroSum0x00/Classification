@@ -2,6 +2,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def solarize(image, threshold=128):
     if not is_numpy_image(image):
         raise TypeError("img should be image. Got {}".format(type(image)))

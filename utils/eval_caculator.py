@@ -1,5 +1,7 @@
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
+from .logger import logger
+
 
 
 def check_targets(y_true, y_pred):
@@ -168,11 +170,7 @@ def classification_report(
 
     if target_names is not None and len(labels) != len(target_names):
         if labels_given:
-            warnings.warn(
-                "labels size, {0}, does not match size of target_names, {1}".format(
-                    len(labels), len(target_names)
-                )
-            )
+            logger.warning(f"labels size, {len(labels)}, does not match size of target_names, {len(target_names)}")
         else:
             raise ValueError(
                 "Number of classes, {0}, does not match size of "

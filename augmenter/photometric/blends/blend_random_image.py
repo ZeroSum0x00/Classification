@@ -1,12 +1,12 @@
 import io
 import cv2
-import random
 import requests
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 from utils.logger import logger
+
 
 
 def blend_random_image(image, ratio=0.8):

@@ -6,6 +6,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def adjust_gamma(img, gamma, gain=1):
     if not is_numpy_image(img):
         raise TypeError("img should be image. Got {}".format(type(img)))

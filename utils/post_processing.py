@@ -5,6 +5,7 @@ import tensorflow as tf
 from utils.auxiliary_processing import change_color_space
 
 
+
 def get_labels(label_object):
     if os.path.isfile(label_object):
         with open(label_object, encoding="utf-8") as f:

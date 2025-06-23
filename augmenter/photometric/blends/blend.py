@@ -4,6 +4,7 @@ import numpy as np
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 # def blend(image1, image2, ratio=0.8):
 
 #     if not is_numpy_image(image1):

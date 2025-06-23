@@ -7,13 +7,20 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def translate_x(image, pct, mode="rel"):
+    if not is_numpy_image(image):
+        raise TypeError("img should be image. Got {}".format(type(image)))
+
     pixels = pct * image.shape[1] if mode == "rel" else pct
     M = np.array([[1, 0, pixels], [0, 1, 0]], dtype=np.float32) 
     return cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))
 
 
 def translate_y(image, pct, mode="rel"):
+    if not is_numpy_image(image):
+        raise TypeError("img should be image. Got {}".format(type(image)))
+
     pixels = pct * image.shape[0] if mode == "rel" else pct
     M = np.array([[1, 0, 0], [0, 1, pixels]], dtype=np.float32) 
     return cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))

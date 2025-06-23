@@ -3,6 +3,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def equalize(image):
     """Implements Equalize function from PIL using TF ops."""
     if not is_numpy_image(image):

@@ -11,6 +11,7 @@ from data_utils import Augmentor, Normalizer
 from utils.auxiliary_processing import change_color_space
 
 
+
 class DataSequencePipeline(Sequence):
     def __init__(
         self,
@@ -29,7 +30,7 @@ class DataSequencePipeline(Sequence):
         debug_mode=False,
         *args, **kwargs
     ):
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         self.dataset = dataset
         self.batch_size = batch_size
         self.target_size = target_size

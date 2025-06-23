@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
+
 def visual_image(imgs, titles=None, rows=1, columns=2, size=(10, 10), mode=None):
     figure = plt.figure(figsize=size)
     show_imgs = [imgs] if not isinstance(imgs, list) else imgs

@@ -5,6 +5,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def vflip(image):
     if not is_numpy_image(image):
         raise TypeError("Image input should be CV Image. Got {}".format(type(image)))

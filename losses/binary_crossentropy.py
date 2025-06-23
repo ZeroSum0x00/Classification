@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import losses
 
 
+
 class BinaryCrossentropy(losses.Loss):
     def __init__(
         self,
@@ -18,6 +19,7 @@ class BinaryCrossentropy(losses.Loss):
             axis=crossentropy_axis,
             reduction=None,
         )
+        self.reduction = reduction
         self.invariant_name = "binary_crossentropy"
         self.coefficient = 1
 

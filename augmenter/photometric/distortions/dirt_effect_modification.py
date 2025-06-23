@@ -6,6 +6,7 @@ from augmenter.base_transform import BaseTransform, BaseRandomTransform
 from utils.auxiliary_processing import is_numpy_image
 
 
+
 def dirt_effect_modification(
     image,
     blur_kernel=(3, 3),

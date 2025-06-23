@@ -5,6 +5,7 @@ from augmenter.base_transform import BaseTransform
 from .resize import resize
 
 
+
 class ResizeKeepRatio(BaseTransform):
     def __init__(
         self,
