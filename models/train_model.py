@@ -84,13 +84,18 @@ class TrainModel(tf.keras.Model):
         
     def _compute_loss(self, images, labels, training, sample_weight=None):
         self.model_param_call["training"] = training
-        y_pred = self.architecture(images, **self.model_param_call)
+        logits = self.architecture(images, **self.model_param_call)
+
         loss_value = sum(
-            self.architecture.calc_loss(y_true=labels, y_pred=y_pred, loss_object=loss, sample_weight=sample_weight)
+            self.architecture.calc_loss(y_true=labels, y_pred=logits, loss_object=loss, sample_weight=sample_weight)
             for loss in self.loss_object
         )
+
         loss_value += tf.reduce_sum(self.architecture.losses)
-        return y_pred, loss_value
+        return {
+            "loss": loss_value,
+            "logits": logits
+        }
 
     def _apply_gradients(self, gradients, trainable_vars):
         if self.gradient_accumulation_steps == 1:
@@ -153,17 +158,18 @@ class TrainModel(tf.keras.Model):
             v.assign_add(e_w)
     
         # Second forward
-        with tf.GradientTape() as adv_tape:
-            y_adv, adv_loss = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
-            scaled_adv_loss = adv_loss / tf.constant(self.gradient_accumulation_steps, dtype=tf.float32)
+        with tf.GradientTape() as advance_tape:
+            caculated_loss = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
+            advance_loss = caculated_loss["loss"]
+            scaled_advance_loss = advance_loss / tf.constant(self.gradient_accumulation_steps, dtype=tf.float32)
     
-        adv_grads = adv_tape.gradient(scaled_adv_loss, trainable_vars)
+        advance_grads = advance_tape.gradient(scaled_advance_loss, trainable_vars)
     
         # Restore weights
         for v, e_w in zip(trainable_vars, e_ws):
             v.assign_sub(e_w)
     
-        return [g if g is not None else tf.zeros_like(v) for g, v in zip(adv_grads, trainable_vars)]
+        return [g if g is not None else tf.zeros_like(v) for g, v in zip(advance_grads, trainable_vars)]
         
     @tf.function
     def train_step(self, data):
@@ -174,7 +180,9 @@ class TrainModel(tf.keras.Model):
 
         # First forward-backward
         with tf.GradientTape() as tape:
-            y_pred, loss_value = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
+            caculated_loss = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
+            loss_value = caculated_loss["loss"]
+            logits = caculated_loss["logits"]
             
             if teacher_predictions_list:
                 teacher_logits = tf.reduce_mean(
@@ -184,7 +192,7 @@ class TrainModel(tf.keras.Model):
                 
                 distillation_loss = self.distillation_loss_fn(
                     tf.nn.softmax(teacher_logits / self.temperature),
-                    tf.nn.softmax(y_pred / self.temperature),
+                    tf.nn.softmax(logits / self.temperature),
                 ) * (self.temperature ** 2)
                 
                 loss_value = self.alpha * loss_value + (1 - self.alpha) * distillation_loss
@@ -205,9 +213,9 @@ class TrainModel(tf.keras.Model):
             self.distillation_type.lower() == "online" and 
             hasattr(self, "teacher_optimizer")
         ):
-            self._apply_gradients_online_teachers(images, tf.stop_gradient(y_pred))
+            self._apply_gradients_online_teachers(images, tf.stop_gradient(logits))
 
-        self.prev_logits = tf.stop_gradient(y_pred)
+        self.prev_logits = tf.stop_gradient(logits)
                 
         if check_use_ema:
             self.ema.apply(trainable_vars)
@@ -215,7 +223,7 @@ class TrainModel(tf.keras.Model):
         self.total_loss_tracker.update_state(loss_value)
 
         for metric in self.list_metrics:
-            metric.update_state(labels, y_pred, sample_weight=sample_weight)
+            metric.update_state(labels, logits, sample_weight=sample_weight)
     
         return {m.name: m.result() for m in self.metrics}
         
@@ -223,11 +231,14 @@ class TrainModel(tf.keras.Model):
     def test_step(self, data):
         images, labels, sample_weight = tf.keras.utils.unpack_x_y_sample_weight(data)
         
-        y_pred, loss_value = self._compute_loss(images, labels, training=False, sample_weight=sample_weight)
+        caculated_loss = self._compute_loss(images, labels, training=False, sample_weight=sample_weight)
+        loss_value = caculated_loss["loss"]
+        logits = caculated_loss["logits"]
+
         self.total_loss_tracker.update_state(loss_value)
 
         for metric in self.list_metrics:
-            metric.update_state(labels, y_pred, sample_weight=sample_weight)
+            metric.update_state(labels, logits, sample_weight=sample_weight)
 
         return {m.name: m.result() for m in self.metrics}
 
