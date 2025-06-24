@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 
 
+
 class EvoNormalization(tf.keras.layers.Layer):
     def __init__(self, nonlinearity=True, num_groups=-1, zero_gamma=False, momentum=0.99, epsilon=0.001, data_format="auto", *args, **kwargs):
         # [evonorm](https://github.com/tensorflow/tpu/blob/master/models/official/resnet/resnet_model.py)

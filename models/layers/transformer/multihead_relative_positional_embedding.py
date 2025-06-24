@@ -5,7 +5,7 @@ from tensorflow.keras import backend as K
 
 class MultiHeadRelativePositionalEmbedding(tf.keras.layers.Layer):
     def __init__(self, num_heads=-1, attn_height=-1, cls_token=True, *args, **kwargs):
-        super(MultiHeadRelativePositionalEmbedding, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.num_heads = num_heads
         self.attn_height = attn_height
         self.cls_token = cls_token

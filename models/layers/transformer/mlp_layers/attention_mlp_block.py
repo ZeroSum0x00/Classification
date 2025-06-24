@@ -10,6 +10,7 @@ from utils.model_processing import check_regularizer
 
 
 
+
 class AttentionMLPBlock(tf.keras.layers.Layer):
     
     def __init__(
@@ -29,7 +30,7 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
         drop_rate=0.1,
         *args, **kwargs
     ):
-        super(AttentionMLPBlock, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.attention_layer = attention_layer
         self.mlp_ratio = mlp_ratio
         self.layer_scale = layer_scale
@@ -64,8 +65,8 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
             self.affine1 = ChannelAffine(use_bias=False, weight_init_value=self.layer_scale)
             self.affine2 = ChannelAffine(use_bias=False, weight_init_value=self.layer_scale)
             
-        self.drop1 = DropPath(drop_prob=self.drop_path_rate)
-        self.drop2 = DropPath(drop_prob=self.drop_path_rate)
+        self.drop1 = DropPathV1(drop_prob=self.drop_path_rate)
+        self.drop2 = DropPathV1(drop_prob=self.drop_path_rate)
 
     def call(self, inputs, training=False):
         x = self.norm_layer1(inputs, training=training)
@@ -86,16 +87,20 @@ class AttentionMLPBlock(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-                "attention_layer": self.attention_layer,
-                "mlp_ratio": self.mlp_ratio,
-                "layer_scale": self.layer_scale,
-                "use_gated": self.use_gated,
-                "activation": self.activation,
-                "normalizer": self.normalizer,
-                "use_mlp_norm": self.use_mlp_norm,
-                "drop_path_rate": self.drop_path_rate,
-                "drop_rate": self.drop_rate,
-            })
+            "attention_layer": self.attention_layer,
+            "mlp_ratio": self.mlp_ratio,
+            "layer_scale": self.layer_scale,
+            "use_gated": self.use_gated,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "use_mlp_norm": self.use_mlp_norm,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps,
+            "drop_path_rate": self.drop_path_rate,
+            "drop_rate": self.drop_rate,
+        })
         return config
 
     @classmethod

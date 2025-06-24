@@ -14,6 +14,7 @@ from utils.post_processing import get_labels
 from utils.auxiliary_processing import dynamic_import
 
 
+
 def parse_layer(layer_list):
     parsed = []
     for item in layer_list:

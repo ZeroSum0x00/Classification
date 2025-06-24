@@ -12,7 +12,7 @@ class CLS(tf.keras.Model):
         name="cls",
         *args, **kwargs
     ):
-        super(CLS, self).__init__(name=name, *args, **kwargs)
+        super().__init__(name=name, *args, **kwargs)
         self.backbone = backbone
         self.custom_head = custom_head
 

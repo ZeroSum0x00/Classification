@@ -5,7 +5,7 @@ import tensorflow as tf
 
 class PositionalEncodingFourierRot1D(tf.keras.layers.Layer):
     def __init__(self, max_block_size, temperature=1e4, *args, **kwargs):
-        super(PositionalEncodingFourierRot1D, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.max_block_size = max_block_size
         self.temperature = float(temperature)
 

@@ -1,9 +1,10 @@
 import tensorflow as tf
 
 
+
 class SplitWrapper(tf.keras.layers.Layer):
     def __init__(self, num_or_size_splits, axis=0, num=None, *args, **kwargs):
-        super(SplitWrapper, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.num_or_size_splits = num_or_size_splits
         self.axis = axis
         self.num = num

@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+
 class ResizeWrapper(tf.keras.layers.Layer):
     def __init__(
         self,
@@ -10,7 +11,7 @@ class ResizeWrapper(tf.keras.layers.Layer):
         antialias=False,
         *args, **kwargs
     ):
-        super(ResizeWrapper, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.size = size
         self.method = method
         self.preserve_aspect_ratio = preserve_aspect_ratio

@@ -1,10 +1,11 @@
 import tensorflow as tf
 
 
+
 class GELULinear(tf.keras.layers.Layer):
 
     def __init__(self, *args, **kwargs):
-        super(GELULinear, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def call(self, inputs, training=False):
         inputs_abs = tf.math.abs(inputs)

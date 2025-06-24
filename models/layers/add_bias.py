@@ -3,9 +3,10 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 
 
+
 class BiasLayer(tf.keras.layers.Layer):
     def __init__(self, initializer="zeros", axis=-1, *args, **kwargs):
-        super(BiasLayer, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.initializer = initializer
         self.axis = axis
         
@@ -26,13 +27,13 @@ class BiasLayer(tf.keras.layers.Layer):
             name="bias"
         )
         
-        super(BiasLayer, self).build(input_shape)
+        super().build(input_shape)
 
     def call(self, inputs, training=False):
         return inputs + self.bb
 
     def get_config(self):
-        config = super(BiasLayer, self).get_config()
+        config = super().get_config()
         config.update({"axis": self.axis})
         return config
 

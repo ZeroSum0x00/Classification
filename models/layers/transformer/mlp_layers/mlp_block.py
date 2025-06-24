@@ -5,6 +5,7 @@ from models.layers import get_normalizer_from_name, get_activation_from_name
 from utils.model_processing import check_regularizer
 
 
+
 class MLPBlock(tf.keras.layers.Layer):
     def __init__(
         self,
@@ -22,7 +23,7 @@ class MLPBlock(tf.keras.layers.Layer):
         drop_rate=0.1,
         *args, **kwargs
     ):
-        super(MLPBlock, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.mlp_dim = mlp_dim
         self.out_dim = out_dim
         self.use_conv = use_conv
@@ -104,15 +105,19 @@ class MLPBlock(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-                "mlp_dim": self.mlp_dim,
-                "out_dim": self.out_dim,
-                "use_conv": self.use_conv,
-                "use_bias": self.use_bias,
-                "use_gated": self.use_gated,
-                "activation": self.activation,
-                "normalizer": self.normalizer,
-                "drop_rate": self.drop_rate,
-            })
+            "mlp_dim": self.mlp_dim,
+            "out_dim": self.out_dim,
+            "use_conv": self.use_conv,
+            "use_bias": self.use_bias,
+            "use_gated": self.use_gated,
+            "activation": self.activation,
+            "normalizer": self.normalizer,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "norm_eps": self.norm_eps,
+            "drop_rate": self.drop_rate,
+        })
         return config
 
     @classmethod

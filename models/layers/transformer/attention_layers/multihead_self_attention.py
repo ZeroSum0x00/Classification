@@ -202,12 +202,15 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-                "num_heads": self.num_heads,
-                "num_embeds": self.num_embeds,
-                "q_bias": self.q_bias,
-                "kv_bias": self.kv_bias,
-                "use_causal_mask": self.use_causal_mask,
-                "drop_rate": self.drop_rate,
+            "num_heads": self.num_heads,
+            "num_embeds": self.num_embeds,
+            "q_bias": self.q_bias,
+            "kv_bias": self.kv_bias,
+            "use_causal_mask": self.use_causal_mask,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
+            "drop_rate": self.drop_rate,
         })
         return config
 

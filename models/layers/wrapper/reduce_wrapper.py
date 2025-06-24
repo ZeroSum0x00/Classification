@@ -1,9 +1,10 @@
 import tensorflow as tf
 
 
+
 class ReduceWrapper(tf.keras.layers.Layer):
     def __init__(self, reduce_mode='mean', axis=1, *args, **kwargs):
-        super(ReduceWrapper, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.reduce_mode = reduce_mode
         self.axis = axis
 

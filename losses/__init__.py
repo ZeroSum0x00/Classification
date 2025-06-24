@@ -8,6 +8,7 @@ from losses.sparse_categorical_crossentropy import SparseCategoricalCrossentropy
 from utils.auxiliary_processing import dynamic_import
 
 
+
 def build_losses(config):
     config = copy.deepcopy(config)
     losses = []

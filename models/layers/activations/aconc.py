@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+
 class AconC(tf.keras.layers.Layer):
     r""" ACON activation (activate or not)
     AconC: (p1*x-p2*x) * sigmoid(beta*(p1*x-p2*x)) + p2*x, beta is a learnable parameter
@@ -8,7 +9,7 @@ class AconC(tf.keras.layers.Layer):
     """
     
     def __init__(self, *args, **kwargs):
-        super(AconC, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def build(self, input_shape):
         out_dim = input_shape[-1]

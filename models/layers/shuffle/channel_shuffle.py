@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class ChannelShuffle(tf.keras.layers.Layer):
     def __init__(self, upscale_factor=4, *args, **kwargs):
-        super(ChannelShuffle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.upscale_factor = upscale_factor 
         
     def call(self, inputs, training=False):

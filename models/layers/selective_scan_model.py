@@ -4,6 +4,7 @@ from utils.model_processing import check_regularizer
 from models.layers import get_activation_from_name, get_normalizer_from_name
 
 
+
 class SSM(tf.keras.layers.Layer):
 
     """
@@ -33,7 +34,7 @@ class SSM(tf.keras.layers.Layer):
         norm_eps=1e-6,
         *args, **kwargs
     ):
-        super(SSM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.dt_rank = dt_rank
         self.dim_inner = dim_inner
         self.d_state = d_state

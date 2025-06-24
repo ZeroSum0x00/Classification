@@ -2,9 +2,10 @@ import tensorflow as tf
 
 
 
+
 class SpaceToDepthV1(tf.keras.layers.Layer):
     def __init__(self, block_size=2, **kwargs):
-        super(SpaceToDepthV1, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.block_size = block_size
 
     def call(self, inputs):
@@ -18,14 +19,14 @@ class SpaceToDepthV1(tf.keras.layers.Layer):
                 c * self.block_size ** 2)
 
     def get_config(self):
-        config = super(SpaceToDepth, self).get_config()
+        config = super().get_config()
         config.update({"block_size": self.block_size})
         return config
 
         
 class SpaceToDepthV2(tf.keras.layers.Layer):
     def __init__(self, block_size=2, **kwargs):
-        super(SpaceToDepthV2, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.block_size = block_size
 
     def call(self, inputs):
@@ -53,7 +54,7 @@ class SpaceToDepthV2(tf.keras.layers.Layer):
                 c * bs * bs if c is not None else None)
 
     def get_config(self):
-        config = super(SpaceToDepth, self).get_config()
+        config = super().get_config()
         config.update({"block_size": self.block_size})
         return config
         

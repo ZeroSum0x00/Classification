@@ -1,9 +1,10 @@
 import tensorflow as tf
 
 
+
 class OperatorWrapper(tf.keras.layers.Layer):
     def __init__(self, operator="", *args, **kwargs):
-        super(OperatorWrapper, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.operator = operator
 
     def call(self, inputs):

@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class PositionalIndex(tf.keras.layers.Layer):
     def __init__(self, block_size=1024, *args, **kwargs):
-        super(PositionalIndex, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.block_size = block_size
         self.use_layer_as_module = True
 

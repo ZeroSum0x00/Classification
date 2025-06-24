@@ -141,13 +141,13 @@ def _obtain_input_shape(
         else:
             check_valid_shape = True
             
-    if not check_valid_shape:
-        raise ValueError("When setting `include_head=True` "
-                         "and loading `imagenet` weights, "
-                         "`inputs` should be in " +
-                         str(default_size) + ".")
-    else:
-        return default_shape
+        if not check_valid_shape:
+            raise ValueError("When setting `include_head=True` "
+                            "and loading `imagenet` weights, "
+                            "`inputs` should be in " +
+                            str(default_size) + ".")
+        else:
+            return default_shape
     
     if input_shape:
         if data_format == "channels_first":

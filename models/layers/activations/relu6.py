@@ -2,9 +2,10 @@ import tensorflow as tf
 from tensorflow.keras.layers import ReLU
 
 
+
 class ReLU6(tf.keras.layers.Layer):
     def __init__(self, *args, **kwargs):
-        super(ReLU6, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         
     def build(self, input_shape):
         self.activation = ReLU(max_value=6.)

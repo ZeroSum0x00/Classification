@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+
 class PatchConv2DWithResampleWeights(tf.keras.layers.Conv2D):
     """
       Resample the weights of the patch embedding kernel to target resolution.

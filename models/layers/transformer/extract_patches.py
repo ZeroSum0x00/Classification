@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Conv2D
 
 class ExtractPatches(tf.keras.layers.Layer):
     def __init__(self, patch_size, lasted_dim, *args, **kwargs):
-        super(ExtractPatches, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.patch_size = patch_size
         self.lasted_dim = lasted_dim
 

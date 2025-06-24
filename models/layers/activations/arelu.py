@@ -1,9 +1,10 @@
 import tensorflow as tf
 
 
+
 class AReLU(tf.keras.layers.Layer):
     def __init__(self, alpha=0.90, beta=2.0, *args, **kwargs):
-        super(AReLU, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.alpha = alpha
         self.beta = beta
 

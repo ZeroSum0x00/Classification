@@ -3,11 +3,12 @@ from tensorflow.keras.layers import Conv2D
 from ..normalizers import get_normalizer_from_name
 
 
+
 class FReLU(tf.keras.layers.Layer):
     """ FReLU activation https://arxiv.org/abs/2007.11824 """
 
     def __init__(self, kernel=(3, 3), *args, **kwargs):
-        super(FReLU, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.kernel = kernel
         
     def build(self, input_shape):
@@ -32,7 +33,7 @@ class FReLU(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-                "kernel": self.kernel,
+            "kernel": self.kernel,
         })
         return config
 

@@ -2,6 +2,7 @@ import tensorflow as tf
 from models.layers import ChannelAffine
 
 
+
 class GlobalResponseNormalization(tf.keras.layers.Layer):
     def __init__(self, epsilon=1e-6, axis=-1, **kwargs):
         super().__init__(**kwargs)

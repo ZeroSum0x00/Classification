@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Activation
 
 
+
 class ELSA(tf.keras.layers.Layer):
 
     def __init__(
@@ -12,7 +13,7 @@ class ELSA(tf.keras.layers.Layer):
         beta=2.0,
         *args, **kwargs
     ):
-        super(ELSA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.sub_activation = sub_activation
         self.use_elsa = use_elsa
         self.alpha = alpha
@@ -37,7 +38,7 @@ class ELSA(tf.keras.layers.Layer):
         if self.use_elsa:
             alpha = tf.clip_by_value(self.alpha, clip_value_min=0.01, clip_value_max=0.99)
             beta  = tf.math.sigmoid(self.beta)
-            return self.activation(inputs) + tf.where(tf.greater(inputs, 0), inputs * self.beta, inputs * self.alpha)
+            return self.activation(inputs) + tf.where(tf.greater(inputs, 0), inputs * beta, inputs * alpha)
         else:
             return self.activation(inputs)
 

@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+
 class LocalResponseNormalization(tf.keras.layers.Layer):
     def __init__(self, depth_radius=5, bias=1.0, alpha=1.0, beta=0.5, **kwargs):
         super().__init__(**kwargs)

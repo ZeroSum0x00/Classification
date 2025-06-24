@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+
 def group_normalize(x, gamma, beta, num_groups=None, group_size=None, eps=1e-5):
     """Applies group-normalization to NHWC `x` (see abs/1803.08494, go/dune-gn).
 

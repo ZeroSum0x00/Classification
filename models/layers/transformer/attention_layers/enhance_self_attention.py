@@ -29,7 +29,7 @@ class EnhanceSelfAttention(tf.keras.layers.Layer):
         regularizer_decay=5e-4,
         *args, **kwargs
     ):
-        super(EnhanceSelfAttention, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.num_heads = num_heads
         self.key_dim = key_dim
         self.attn_height = attn_height
@@ -162,7 +162,10 @@ class EnhanceSelfAttention(tf.keras.layers.Layer):
             "pos_emb": self.pos_emb,
             "rotate_pos_emb": self.rotate_pos_emb,
             "text_max_block_size": self.text_max_block_size,
-            "attn_dropout": self.attn_dropout
+            "attn_dropout": self.attn_dropout,
+            "kernel_initializer": self.kernel_initializer,
+            "bias_initializer": self.bias_initializer,
+            "regularizer_decay": self.regularizer_decay,
         })
         return config
 

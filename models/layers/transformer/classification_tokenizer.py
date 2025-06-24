@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class ClassToken(tf.keras.layers.Layer):
     def __init__(self, *args, **kwargs):
-        super(ClassToken, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def build(self, input_shape):
         dim = input_shape[-1]

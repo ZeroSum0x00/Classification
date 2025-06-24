@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+
 class ChannelAffine(tf.keras.layers.Layer):
     def __init__(self, use_bias=True, weight_init_value=1.0, axis=-1, **kwargs):
         super().__init__(**kwargs)

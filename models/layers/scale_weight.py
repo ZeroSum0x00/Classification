@@ -2,9 +2,10 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 
 
+
 class ScaleWeight(tf.keras.layers.Layer):
     def __init__(self, scale_ratio=1.0, use_bias=True, *args, **kwargs):
-        super(ScaleWeight, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.scale_ratio = scale_ratio
         self.use_bias = use_bias
         
@@ -26,7 +27,7 @@ class ScaleWeight(tf.keras.layers.Layer):
         else:
             self.bias = None
             
-        super(ScaleWeight, self).build(input_shape)
+        super().build(input_shape)
 
     def call(self, inputs, training=False):
         output = inputs * self.weight_ratio

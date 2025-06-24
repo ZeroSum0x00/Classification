@@ -4,6 +4,7 @@ from .stochastic_depth import DropPathV1, DropPathV2
 from .channel_affine import ChannelAffine
 
 
+
 class LayerScaleAndDropBlock(tf.keras.layers.Layer):
 
     def __init__(
@@ -13,7 +14,7 @@ class LayerScaleAndDropBlock(tf.keras.layers.Layer):
         drop_rate=0,
         *args, **kwargs
     ):
-        super(LayerScaleAndDropBlock, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.layer_scale = layer_scale
         self.residual_scale = residual_scale
         self.drop_rate = drop_rate

@@ -18,7 +18,7 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
         drop_rate=0.1,
         *args, **kwargs
     ):
-        super(TransformerEncoderBlock, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.attention_block = attention_block
         self.mlp_block = mlp_block
         self.activation = activation
@@ -49,6 +49,7 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
                 "mlp_block": self.mlp_block,
                 "activation": self.activation,
                 "normalizer": self.normalizer,
+                "norm_eps": self.norm_eps,
                 "drop_rate": self.drop_rate
             })
         return config
