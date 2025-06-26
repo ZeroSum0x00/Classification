@@ -60,7 +60,7 @@ def train(engine_file_config, model_file_config):
             batch_size=batch_size,
             color_space=data_config["data_info"].get("color_space", "RGB"),
             augmentor=data_config["data_augmentation"],
-            normalizer=data_config["data_normalizer"].get("norm_type", "divide"),
+            normalizer=data_config["data_normalizer"].get("normalizer", "divide"),
             mean_norm=data_config["data_normalizer"].get("norm_mean"),
             std_norm=data_config["data_normalizer"].get("norm_std"),
             sampler=data_config.get("sampler"),
