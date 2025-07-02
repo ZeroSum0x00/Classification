@@ -74,8 +74,10 @@ class Normalizer:
                 return self._divide(image)
             elif self.norm_type == "sub_divide":
                 return self._sub_divide(image)
+            else:
+                return self._basic(image)
         elif isinstance(self.norm_type, types.FunctionType):
             return self._func_calc(image, self.norm_type)
         else:
-            return self._basic(image)
+            raise ValueError("Invalid norm_type")
         

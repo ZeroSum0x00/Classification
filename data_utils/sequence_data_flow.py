@@ -47,13 +47,16 @@ class DataSequencePipeline(Sequence):
         if augmentor and isinstance(self.augmentor, (tuple, list)):
             self.augmentor = Augmentor(augment_objects=build_augmenter(self.augmentor))
 
-        self.normalizer = Normalizer(
-            normalizer,
-            target_size=target_size,
-            mean=mean_norm,
-            std=std_norm,
-            interpolation=interpolation,
-        )
+        if isinstance(normalizer, str):
+            self.normalizer = Normalizer(
+                normalizer,
+                target_size=target_size,
+                mean=mean_norm,
+                std=std_norm,
+                interpolation=interpolation,
+            )
+        else:
+            self.normalizer = normalizer
 
         if sampler and sampler.lower() in ["balance", "balanced"]:
             all_labels = [sample['label'] for sample in self.dataset]
@@ -69,6 +72,7 @@ class DataSequencePipeline(Sequence):
     def load_data(self, sample):
         sample_image = sample.get("image")
         sample_label = sample["label"]
+
         deep_channel = 1 if (len(self.target_size) > 2 and self.target_size[-1] > 1) else 0
 
         if sample_image is not None:
@@ -86,9 +90,6 @@ class DataSequencePipeline(Sequence):
             
         image = self.normalizer(image)
         return image, sample_label
-
-    def __len__(self):
-        return int(np.ceil(self.N / self.batch_size))
 
     def __getitem__(self, index):
         if index >= self.__len__():
@@ -115,7 +116,10 @@ class DataSequencePipeline(Sequence):
             return batch_images, batch_labels, batch_weights, [self.dataset[i]["path"] for i in batch_indices]
         else:
             return batch_images, batch_labels, batch_weights
-    
+            
+    def __len__(self):
+        return int(np.ceil(self.N / self.batch_size))
+
     def on_epoch_end(self):
         if self.phase == "train":
             self.dataset = shuffle(self.dataset)

@@ -43,10 +43,10 @@ def train(engine_file_config, model_file_config):
         shutil.copy(engine_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(engine_file_config)))
         
         if not model_config["classes"]:
-            model_config["classes"] = data_config["data_dir"]
+            model_config["classes"] = data_config["data_source_paths"]
 
         model_config["train_strategy"] = train_config.get("train_strategy", "scratch")
-        model = build_models(model_config)
+        model = build_models(train_config, model_config)
 
         with open(os.path.join(TRAINING_TIME_PATH, "classes.names"), "w") as f:
             for cls in model.classes:
@@ -54,7 +54,7 @@ def train(engine_file_config, model_file_config):
 
         batch_size = find_max_batch_size(model) if train_config["batch_size"] == -1 else train_config["batch_size"]
         data_generator_instance = get_train_test_data(
-            data_dirs=data_config["data_dir"],
+            data_source_paths=data_config["data_source_paths"],
             classes=model.classes,
             target_size=model_config["inputs"],
             batch_size=batch_size,
@@ -161,12 +161,12 @@ def train(engine_file_config, model_file_config):
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a model with specified config files.")
     parser.add_argument(
-        "--engine_config", type=str, default="./configs/test/engine.yaml",
-        help="Path to the engine configuration YAML file. Default: ./configs/test/engine.yaml"
+        "--engine_config", type=str, default="./configs/engine/engine_sample.yaml",
+        help="Path to the engine configuration YAML file."
     )
     parser.add_argument(
-        "--model_config", type=str, default="./configs/test/model.yaml",
-        help="Path to the model configuration YAML file. Default: ./configs/test/model.yaml"
+        "--model_config", type=str, default="./configs/models/convolution-base/repvgg-b1.yaml",
+        help="Path to the model configuration YAML file."
     )
     return parser.parse_args()
 

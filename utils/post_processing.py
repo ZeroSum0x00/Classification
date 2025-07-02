@@ -6,18 +6,43 @@ from utils.auxiliary_processing import change_color_space
 
 
 
-def get_labels(label_object):
-    if os.path.isfile(label_object):
-        with open(label_object, encoding="utf-8") as f:
-            class_names = f.readlines()
-        class_names = [c.strip() for c in class_names]
+def get_labels(label_source):
+    def process_single_source(source):
+        if os.path.isfile(source):
+            with open(source, encoding="utf-8") as f:
+                class_names = f.readlines()
+            return [c.strip() for c in class_names]
+
+        elif os.path.isdir(source):
+            if os.path.isfile(os.path.join(source, "train.txt")):
+                with open(os.path.join(source, "train.txt"), encoding="utf-8") as f:
+                    data = f.readlines()
+                classes = {c.strip().split("\t")[1] for c in data}
+                return list(classes)
+            else:
+                train_dir = os.path.join(source, "train")
+                label_dir = train_dir if os.path.isdir(train_dir) else source
+    
+                subfolders = [f.path for f in os.scandir(label_dir) if f.is_dir()]
+                return sorted([os.path.basename(x) for x in subfolders])
+        else:
+            raise ValueError(f"Invalid path: {source}")
+
+    if isinstance(label_source, (list, tuple)):
+        all_labels = []
+        for src in label_source:
+            labels = process_single_source(src)
+            all_labels.extend(labels)
+
+        all_labels = sorted(set(all_labels))
+        return all_labels, len(all_labels)
+
+    elif isinstance(label_source, str):
+        class_names = process_single_source(label_source)
         return class_names, len(class_names)
-        
-    elif os.path.isdir(label_object):
-        label_object = f"{label_object}/train/" if os.path.isdir(f"{label_object}/train/") else label_object
-        subfolders = [f.path for f in os.scandir(label_object) if f.is_dir() ]
-        subfolders = sorted([os.path.basename(x) for x in subfolders])
-        return subfolders, len(subfolders)
+
+    else:
+        raise TypeError("label_source must be a string, list, or tuple")
 
 
 def inference_batch_generator(

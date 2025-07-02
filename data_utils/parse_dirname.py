@@ -14,6 +14,7 @@ class ParseDirName:
         classes,
         load_memory,
         check_data,
+        *args, **kwargs
     ):
         self.data_dir = data_dir
         self.classes = classes

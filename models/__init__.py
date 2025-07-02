@@ -90,31 +90,33 @@ def remove_last_layer(model):
         new_model = tf.keras.Model(inputs=model.input, outputs=new_output, name=model.name)
     return new_model
     
-def build_models(config):
-    train_strategy = config.get("train_strategy", "scratch")
-    config = copy.deepcopy(config)
-    inputs = config.pop("inputs", [224, 224, 3])
-    weight_path = config.pop("weight_path", None)
-    classes = config.pop("classes")
-    use_ema = config.pop("use_ema", False)
-    sam_rho = config.pop("sam_rho", 0.0)
-    model_clip_gradient = config.pop("model_clip_gradient", 5.)
-    gradient_accumulation_steps = config.pop("gradient_accumulation_steps", 1)
+
+def build_models(trainer_config, model_config):
+    trainer_config = copy.deepcopy(trainer_config)
+    model_config = copy.deepcopy(model_config)
+    train_strategy = trainer_config.get("train_strategy", "scratch")
+    inputs = model_config.pop("inputs", [224, 224, 3])
+    weight_path = model_config.pop("weight_path", None)
+    classes = model_config.pop("classes")
+    model_clip_gradient = trainer_config.pop("model_clip_gradient", 5.)
+    gradient_accumulation_steps = trainer_config.pop("gradient_accumulation_steps", 1)
+    sam_rho = trainer_config.pop("sam_rho", 0.0)
+    use_ema = trainer_config.pop("train_with_ema", False)
+    compile_mode = trainer_config.pop("compile_mode")
     
-    architecture_config = config["Architecture"]
+    architecture_config = model_config["Architecture"]
     architecture_name = architecture_config.pop("name")
     
     if classes:
-        if isinstance(classes, str):
+        if isinstance(classes, (str, list, tuple)):
             classes, num_classes = get_labels(classes)
         else:
             num_classes = len(classes)
 
     if weight_path and weight_path.endswith(".keras"):
         backbone = tf.keras.models.load_model(weight_path).layers[0]
-        print("CLS load model")
     else:
-        backbone_config = config["Backbone"]
+        backbone_config = model_config["Backbone"]
         backbone_config["inputs"] = inputs
         
         if backbone_config.get("weights") and backbone_config.get("weights").lower() == "imagenet":
@@ -146,7 +148,7 @@ def build_models(config):
         else:
             freeze_model.trainable = True
 
-        unfreeze_model_config = config.get("CustomHead", None)
+        unfreeze_model_config = model_config.get("CustomHead", None)
         if unfreeze_model_config:
             unfreeze_model = Sequential(parse_layer(unfreeze_model_config), name="transfer_classifier_head")
         else:
@@ -188,16 +190,19 @@ def build_models(config):
         architecture.load_weights(weight_path)
         print("CLS load weights")
 
-    model_config = {
-        "architecture": architecture,
-        "classes": classes,
-        "inputs": inputs,
-        "use_ema": use_ema,
-        "sam_rho": sam_rho,
-        "model_clip_gradient": model_clip_gradient,
-        "gradient_accumulation_steps": gradient_accumulation_steps,
-        "name": architecture_name
-    }
-    model = TrainModel(**model_config)
-
+    model = TrainModel(
+        architecture=architecture,
+        classes=classes,
+        inputs=inputs,
+        teacher_models=None,
+        distillation_type="",
+        temperature=3,
+        alpha=0.1,
+        model_clip_gradient=model_clip_gradient,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        sam_rho=sam_rho,
+        use_ema=use_ema,
+        compile_mode=compile_mode,
+        name=architecture_name,
+    )
     return model
