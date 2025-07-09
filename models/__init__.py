@@ -1,6 +1,7 @@
 # train-test processing model
 import gc
 import copy
+import inspect
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras import Model, Sequential
@@ -12,7 +13,7 @@ from .architectures import *
 from .layers import *
 from utils.post_processing import get_labels
 from utils.auxiliary_processing import dynamic_import
-
+from utils.model_processing import create_layer_instance
 
 
 def parse_layer(layer_list):
@@ -32,6 +33,15 @@ def parse_layer(layer_list):
             else:
                 raise ValueError(f"Invalid parameters for layer {layer_name}")
     return parsed
+
+
+def get_all_layer(model):
+    return [layer.name for layer in model.layers]
+    
+
+def is_has_layer(model, layer_name):
+    return any(layer.name == layer_name for layer in model.layers)
+
 
 def freeze_until(freeze_layer, model, verbose=True):
     if isinstance(freeze_layer, str):
@@ -73,6 +83,7 @@ def freeze_until(freeze_layer, model, verbose=True):
             for layer in model.layers:
                 print(f"{layer.name} -> trainable: {layer.trainable}")
 
+
 def get_freeze_layer_input():
     freeze_layer_index = input("Enter freeze layer: ")  # Người dùng nhập vào
     try:
@@ -82,6 +93,7 @@ def get_freeze_layer_input():
         # Nếu không thể ép kiểu sang số, trả về tên lớp (string)
         return freeze_layer_index
 
+
 def remove_last_layer(model):
     if isinstance(model, tf.keras.Sequential):
         new_model = tf.keras.Sequential(model.layers[:-2], name=model.name)
@@ -90,6 +102,29 @@ def remove_last_layer(model):
         new_model = tf.keras.Model(inputs=model.input, outputs=new_output, name=model.name)
     return new_model
     
+
+def cut_model_at_layer(model, layer_name):
+    try:
+        target_layer = model.get_layer(layer_name)
+    except ValueError:
+        raise ValueError(f"Layer '{layer_name}' không tồn tại trong mô hình.")
+
+    new_model = tf.keras.Model(inputs=model.input, outputs=target_layer.output, name=f"{model.name}_cut_at_{layer_name}")
+    return new_model
+
+
+def create_model_instance(block, *args, **kwargs):
+
+    if inspect.isclass(block):
+        valid_params = inspect.signature(block.__init__).parameters
+    elif inspect.isfunction(block):
+        valid_params = inspect.signature(block).parameters
+    else:
+        raise ValueError("block must be either a class or a function")
+
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_params}
+    return block(*args, **filtered_kwargs)
+
 
 def build_models(trainer_config, model_config):
     trainer_config = copy.deepcopy(trainer_config)
@@ -125,64 +160,95 @@ def build_models(trainer_config, model_config):
             backbone_config["num_classes"] = num_classes
 
         backbone_name = backbone_config.pop("name")
-        backbone = dynamic_import(backbone_name, globals())(**backbone_config)
+        backbone = dynamic_import(backbone_name, globals())
+        backbone = create_model_instance(backbone, **backbone_config)
+
+    has_classifier = is_has_layer(backbone, "classifier_head")
 
     if train_strategy.lower() in ["fine-tuning", "feature-extractor"]:
-        classifier_head_layer = backbone.get_layer("classifier_head")
+        classifier_head_block = None
         
-        dummy_input = tf.keras.Input(shape=classifier_head_layer.input_shape[1:])
-        _ = classifier_head_layer(dummy_input)
+        if has_classifier:
+            head = backbone.get_layer("classifier_head")
+            
+            dummy_input = tf.keras.Input(shape=head.input_shape[1:])
+            head(dummy_input)
+            
+            classifier_head_block = remove_last_layer(head)
+            classifier_head_block.build(dummy_input.shape)
+            
+            freeze_model = Model(
+                inputs=backbone.input,
+                outputs=backbone.get_layer("classifier_head").input,
+                name=f"{backbone.name}_backbone"
+            )
 
-        classifier_head =  remove_last_layer(classifier_head_layer)
-        _ = classifier_head(dummy_input)
-
-        freeze_model = Model(
-            inputs=backbone.input,
-            outputs=classifier_head_layer.input,
-            name=f"{backbone.name}_backbone"
-        )
-        if train_strategy.lower() == "fine-tuning":
-            freeze_model.summary()
-            freeze_layer_index = get_freeze_layer_input()
-            freeze_until(freeze_layer_index, freeze_model, verbose=False)
+            del dummy_input
+            del head
         else:
-            freeze_model.trainable = True
-
+            backbone_output = backbone.output
+            if isinstance(backbone_output, (list, tuple)):
+                freeze_model = Model(
+                    inputs=backbone.input,
+                    outputs=backbone_output[-1],
+                    name=f"{backbone.name}_backbone"
+                )
+            else:
+                freeze_model = backbone
+            
         unfreeze_model_config = model_config.get("CustomHead", None)
         if unfreeze_model_config:
             unfreeze_model = Sequential(parse_layer(unfreeze_model_config), name="transfer_classifier_head")
-        else:
+        elif classifier_head_block:
             unfreeze_model = Model(
-                inputs=classifier_head.input,
-                outputs=classifier_head.output,
+                inputs=classifier_head_block.input,
+                outputs=classifier_head_block.output,
                 name="transfer_classifier_head"
             )
-
-        unfreeze_model(classifier_head_layer.input)
-
-        if len(unfreeze_model.output_shape) != 2 or unfreeze_model.output_shape[1] != num_classes:
-            unfreeze_model = Sequential([
-                unfreeze_model,
-                Dense(
-                    units=1 if num_classes == 2 else num_classes,
-                    activation="sigmoid" if num_classes == 2 else "softmax",
-                )
-            ], name="transfer_classifier_head")
+        else:
+            unfreeze_model = None
             
-        unfreeze_model.trainable = True
+        if train_strategy.lower() == "fine-tuning":
+            freeze_layer_index = get_freeze_layer_input()
+            freeze_until(freeze_layer_index, freeze_model, verbose=False)
+        else:
+            freeze_model.trainable = False
 
-        del dummy_input
-        del backbone
-        del classifier_head_layer
-        del classifier_head
-        K.clear_session()
-        gc.collect()
-        
         architecture_config["backbone"] = freeze_model
-        architecture_config["custom_head"] = unfreeze_model
-    else:
-        architecture_config["backbone"] = backbone
+        if unfreeze_model:
+            full_model = tf.keras.Model(
+                inputs=freeze_model.input,
+                outputs=unfreeze_model(freeze_model.output),
+                name="full_transfer_model"
+            )
+            architecture_config["model"] = full_model
+        else:
+            architecture_config["model"] = freeze_model
 
+    else:
+        if (not is_has_layer(backbone, "classifier_head") or 
+            len(backbone.output_shape) != 2 or 
+            backbone.output_shape[1] != num_classes):
+            
+            custom_head_config = model_config.get("CustomHead", None)
+            if custom_head_config:
+                head_model = Sequential(parse_layer(custom_head_config), name="custom_head")
+
+                backbone_output = backbone.output
+                if isinstance(backbone_output, (list, tuple)):
+                    latted_dim = backbone_output[-1].shape
+                else:
+                    latted_dim = backbone_output.shape
+
+                dummy_input = Input(latted_dim[1:])
+                head_model(dummy_input)
+                head_model.trainable = True
+                architecture_config["custom_head"] = head_model
+
+                del dummy_input, head_model
+        architecture_config["backbone"] = backbone
+        
+    architecture_config["num_classes"] = num_classes
     architecture = dynamic_import(architecture_name, globals())(**architecture_config)
 
     if weight_path and weight_path.endswith(".h5"):
@@ -205,4 +271,8 @@ def build_models(trainer_config, model_config):
         compile_mode=compile_mode,
         name=architecture_name,
     )
+    
+    del backbone
+    K.clear_session()
+    gc.collect()
     return model

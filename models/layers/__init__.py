@@ -8,6 +8,7 @@ from .activations import (
 )
 
 from .normalizers import get_normalizer_from_name
+from .lora_layers import SimpleLoRA
 from .poolings import AdaptiveAvgPooling2D
 
 from .stochastic_depth import (

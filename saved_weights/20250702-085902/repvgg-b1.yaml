@@ -1,0 +1,19 @@
+Model:
+    inputs: [224, 224, 3]
+    classes: null
+    weight_path: null
+    Architecture:
+        name: CLS
+    Backbone:
+        name: RepVGG_B1
+        include_head: True
+        weights: null
+        regularizer_decay: 0
+        drop_rate: 0.1
+    # CustomHead:
+    #     - Flatten:
+    #     - Dense:
+    #         units: 4096
+    #     - BatchNormalization:
+    #     - ReLU:
+        

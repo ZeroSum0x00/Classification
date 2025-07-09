@@ -22,7 +22,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         drop_rate=0.,
         *args, **kwargs
     ):
-        super(MultiHeadSelfAttention, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.num_heads = num_heads
         self.num_embeds = num_embeds
         self.q_bias = q_bias

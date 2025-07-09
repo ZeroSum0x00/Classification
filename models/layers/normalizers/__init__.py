@@ -3,6 +3,7 @@ from tensorflow.keras import backend as K
 from ..linear_layer import LinearLayer
 
 
+
 def get_normalizer_from_name(norm_name, *args, **kwargs):
     if norm_name:
         norm_name = norm_name.lower()

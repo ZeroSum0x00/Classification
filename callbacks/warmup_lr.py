@@ -33,7 +33,7 @@ class WarmUpLearningRate(callbacks.Callback):
         return self.global_steps.numpy(), self.model.optimizer.learning_rate.numpy()
 
 
-class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
+class AdvanceWarmUpLearningRate(callbacks.Callback):
     def __init__(
         self,
         result_path=None,
@@ -99,7 +99,7 @@ class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
         return lr
 
 
-class BasicReduceLearningRate(tf.keras.callbacks.Callback):
+class BasicReduceLearningRate(callbacks.Callback):
     def __init__(self,
                  lr_init,
                  lr_end,

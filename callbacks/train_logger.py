@@ -1,7 +1,7 @@
 import os
 import logging
-from tensorflow.keras import callbacks
 import tensorflow as tf
+from tensorflow.keras import callbacks
 
 
 

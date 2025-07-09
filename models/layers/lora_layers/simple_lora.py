@@ -2,7 +2,7 @@ import tensorflow as tf
 
 
 
-class LoRALayer(tf.keras.layers.Layer):
+class SimpleLoRA(tf.keras.layers.Layer):
     def __init__(self, units, r=4, alpha=1.0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.units = units

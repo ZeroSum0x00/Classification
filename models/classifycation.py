@@ -1,5 +1,5 @@
-import numpy as np
 import tensorflow as tf
+from tensorflow.keras.layers import Reshape, Dense
 
 
 
@@ -9,23 +9,53 @@ class CLS(tf.keras.Model):
         self,
         backbone,
         custom_head=None,
-        name="cls",
+        num_classes=1000,
+        name="CLS",
         *args, **kwargs
     ):
-        super().__init__(name=name, *args, **kwargs)
+        super(CLS, self).__init__(*args, **kwargs, name=name)
         self.backbone = backbone
         self.custom_head = custom_head
+        self.num_classes = num_classes
 
+    def build(self, input_shape):
+        if self.custom_head:
+            try:
+                latted_dim = self.custom_head.output.shape
+            except:
+                latted_dim = self.custom_head.output_shape
+        else:
+            features_shape = self.backbone.output
+            if isinstance(features_shape, (list, tuple)):
+                latted_dim = features_shape[-2].shape
+            else:
+                latted_dim = features_shape.shape
+
+        if len(latted_dim) > 2:
+            self.flat_layer = Reshape(target_shape=(-1,))
+
+        if latted_dim[-1] != self.num_classes:
+            self._head = Dense(
+                units=self.num_classes,
+                activation="sigmoid" if self.num_classes == 2 else "softmax",
+                name="classifier_head"
+        )
+        
     def call(self, inputs, training=False):
-        x = self.backbone(inputs, training=self.backbone.trainable and training)
+        features = self.backbone(inputs, training=self.backbone.trainable and training)
+
+        x = features[-1] if isinstance(features, (list, tuple)) else features
 
         if self.custom_head:
             x = self.custom_head(x, training=self.custom_head.trainable and training)
+        
+        if hasattr(self, "flat_layer"):
+            x = self.flat_layer(x)
 
-        if isinstance(x, (list, tuple)):
-            return x[-1]
-        else:
-            return x
+        if hasattr(self, "_head"):            
+            x = self._head(x, training=training)
+
+        return x
 
     @tf.function
     def predict(self, inputs):

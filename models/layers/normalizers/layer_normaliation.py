@@ -3,6 +3,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras import initializers, regularizers, constraints
 
 
+
 class LayerNormalization(tf.keras.layers.Layer):
     def __init__(
         self,

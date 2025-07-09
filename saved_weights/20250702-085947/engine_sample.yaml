@@ -1,0 +1,152 @@
+Dataset:
+    data_source_paths:
+        - "D:/Datasets/tiny_animals"
+
+    data_info:
+        data_type: "dirname"
+        color_space: &color_space "RGB"
+        check_data: False
+        load_memory: False
+    data_normalizer:
+        normalizer: "sub_divide"
+        mean_norm: null
+        std_norm: null
+        interpolation: &interpolation "BILINEAR"
+
+    data_augmentation:
+        train:
+            - ResizeKeepRatio:
+                size: 256
+                longest: 0.
+                interpolation: *interpolation
+                random_scale_prob: 0.5
+                random_scale_range: [0.08, 1.0]
+                random_scale_area: True
+                random_aspect_prob: 0.5
+                random_aspect_range: [0.75, 1.3333333333333333]
+            - RandomCrop:
+                size: 224
+            - RandomHorizontalFlip:
+            - RandomRotation:
+                degrees: 45
+            - RandomColorJitter:
+                brightness: [0.6, 1.4]
+                contrast: [0.6, 1.4]
+                saturation: [0.6, 1.4]
+            - RandomGrayscale:
+                prob: 0.2
+            - RandomErosion:
+                prob: 0.1
+            - RandomDilation:
+                prob: 0.1
+            - RandomGaussianNoise:
+                mean_range: 0.3
+                std_range: 0.1
+                prob: 0.1
+            - RandomJpegNoise:
+                quality: 0.1
+                prob: 0.1
+            - RandomPixelize:
+                ratio: 0.2
+                prob: 0.1
+            - RandomPoissonNoise:
+                prob: 0.1
+            - RandomSaltPepperNoise:
+                threshold_range: 0.1
+                prob: 0.1
+            - RandomErasing:
+                max_area: 0.15
+                max_count: 5
+                prob: 0.2
+        valid:
+            - Resize:
+                size: 256
+            - CenterCrop:
+                size: 224
+        test:
+            - Resize:
+                size: 256
+            - CenterCrop:
+                size: 224
+        inference:
+            - Resize:
+                size: 256
+            - CenterCrop:
+                size: 224
+    dataloader_mode: &dataloader_mode "tf"
+    sampler: "balance"
+    get_data_mode: 0
+
+Train:
+    train_strategy: "scratch"        # "scratch", "fine-tuning"
+    execution_mode: "graph"          # "cpu", "eager", "graph"
+    compile_mode: "jit"              # null, "auto-graph", "jit"
+    vram_usage: "growth"             # "full", "growth", "limit"
+    vram_limit_mb: null
+    mixed_precision_dtype: null
+    train_with_ema: False
+    sam_rho: 0.
+    model_clip_gradient: 5.
+    gradient_accumulation_steps: 1
+    num_gpus: 0
+    checkpoints: null
+    output_path: "./saved_weights/"
+    model_save_mode: &model_save_mode "weights"        # "weights", "model"
+    model_save_head: &model_save_head True
+    random_seed: 42
+    num_workers: &num_workers 16
+    batch_size: 64
+    epoch:
+        start: 0
+        end: &end_epoch 300
+
+Losses:
+    - CategoricalCrossentropy:
+        coeff: 1
+
+Optimizer:
+    name: SGD
+    learning_rate: &lr 0.01
+    momentum: 0.937
+    nesterov: True
+    weight_decay: 1.e-5
+    
+Metrics:
+    - CategoricalAccuracy:
+
+Callbacks:
+    - Evaluate:
+        sample_weight: null
+        normalize_confusion_matrix: True
+        min_ratio: 0.2
+        save_best: True
+        save_mode: *model_save_mode
+        save_head: *model_save_head
+        show_frequency: 10
+    - AdvanceWarmUpLearningRate:
+        lr_init: *lr
+        lr_end: 1.25e-04
+        epochs: *end_epoch
+        warmup_epoch_ratio: 0.05 
+        warmup_lr_ratio: 0.1
+        no_aug_epoch_ratio: 0.05
+    - LossHistory:
+        save_best: False
+        save_mode: *model_save_mode
+        save_head: *model_save_head
+    - MetricHistory:
+        min_ratio: 0.2
+        save_best: True
+        save_mode: *model_save_mode
+        save_head: *model_save_head
+    - TensorBoard:
+        extend_path: "logs"
+        update_freq: 1
+    - CSVLogger:
+        extend_path: "summary/train_history.csv"
+        separator: ","
+        append: True
+    - TrainLogger:
+        extend_path: "logs/training_log.log"
+    - TrainSummary:
+        extend_path: "summary/train_summary.txt"

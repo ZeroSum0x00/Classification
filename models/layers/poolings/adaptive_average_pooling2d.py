@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+
 class AdaptiveAvgPooling2D(tf.keras.layers.Layer):
     def __init__(self, output_size, data_format="channels_last", *args, **kwargs):
         super().__init__(*args, **kwargs)

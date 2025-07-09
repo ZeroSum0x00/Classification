@@ -141,13 +141,13 @@ def _obtain_input_shape(
         else:
             check_valid_shape = True
             
-        if not check_valid_shape:
-            raise ValueError("When setting `include_head=True` "
-                            "and loading `imagenet` weights, "
-                            "`inputs` should be in " +
-                            str(default_size) + ".")
-        else:
-            return default_shape
+    if not check_valid_shape:
+        raise ValueError("When setting `include_head=True` "
+                         "and loading `imagenet` weights, "
+                         "`inputs` should be in " +
+                         str(default_size) + ".")
+    else:
+        return default_shape
     
     if input_shape:
         if data_format == "channels_first":
@@ -186,7 +186,6 @@ def _obtain_input_shape(
             raise ValueError("If `include_head` is True, "
                              "you should specify a static `inputs`. "
                              "Got `input_shape=" + str(input_shape) + "`")
-
     return input_shape
 
 
@@ -297,7 +296,6 @@ def validate_conv_arg(value):
 
 
 def create_model_backbone(model_fn, custom_layers=None, *args, **kwargs):
-    print(custom_layers)
     model = model_fn(include_head=False, *args, **kwargs)
 
     custom_layers = custom_layers or []

@@ -35,7 +35,7 @@ class TrainModel(tf.keras.Model):
         self._train_step = self._build_train_step(compile_mode=compile_mode)
         self._test_step = self._build_test_step(compile_mode=compile_mode)
         self._predict_step = self._build_predict_step(compile_mode=compile_mode)
-        
+
         if teacher_models or distillation_type:
             self.distillation_loss_fn = tf.keras.losses.KLDivergence()
 
@@ -46,7 +46,6 @@ class TrainModel(tf.keras.Model):
         self.model_param_call = {}
         self.list_metrics = []
         self.prev_logits = None
-        self._calc_pred_loss_id = 0
         
         if self.use_ema:
             self.ema = tf.train.ExponentialMovingAverage(decay=0.99)
@@ -58,11 +57,7 @@ class TrainModel(tf.keras.Model):
         self.loss_objects = loss
         self.teacher_optimizer = teacher_optimizer
         self.list_metrics = metrics or []
-        
-        # if isinstance(self.architecture, (FaceNet, ArcFace)):
-        #     self.model_param_call['extra_loss'] = True
-        self._calc_pred_loss_id = 1
-    
+
     @property
     def metrics(self):
         return [self.total_loss_tracker] + self.list_metrics
@@ -110,7 +105,7 @@ class TrainModel(tf.keras.Model):
         
         return {
             "loss": loss_value,
-            "logits": logits,
+            "logits": logits
         }
 
     def _apply_gradients(self, gradients, trainable_vars):
