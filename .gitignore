@@ -14,6 +14,8 @@ data/
 results/
 experiments/
 
+saved_weights/
+
 # Distribution / packaging
 .Python
 build/
@@ -166,4 +168,4 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
-"saved_weights/"   # tr nh commit l?i l?n sau
+"saved_weights/"   # trï¿½nh commit l?i l?n sau

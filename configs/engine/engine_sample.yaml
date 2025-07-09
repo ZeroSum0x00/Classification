@@ -75,7 +75,7 @@ Dataset:
                 size: 224
     dataloader_mode: &dataloader_mode "tf"
     sampler: "balance"
-    get_data_mode: 1
+    get_data_mode: 0
 
 Train:
     train_strategy: "scratch"        # "scratch", "fine-tuning"
@@ -94,7 +94,7 @@ Train:
     model_save_mode: &model_save_mode "weights"        # "weights", "model"
     model_save_head: &model_save_head True
     random_seed: 42
-    num_workers: &num_workers 16
+    num_workers: &num_workers 4
     batch_size: 64
     epoch:
         start: 0
