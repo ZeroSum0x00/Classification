@@ -1,16 +1,27 @@
 import cv2
+import copy
 import random
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
 
-def scratches(image, num_scratches=20, alpha=None):
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
+def scratches(metadata, num_scratches=20, alpha=None):
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
 
+    if image is None:
+        return metadata
+        
     alpha = alpha if alpha is not None else .5
     h, w = image.shape[:2]
     min_x, min_y = 0, 0
@@ -53,9 +64,14 @@ def scratches(image, num_scratches=20, alpha=None):
     left, right = w // 2, scratches.shape[1] - (w - w // 2)
 
     scratches = scratches[top:bottom, left:right]
-    dst = cv2.addWeighted(image[:, :, :3], 1.0, scratches, alpha, 0.0)
-
-    return cv2.resize(dst, (w, h), interpolation=cv2.INTER_CUBIC)
+    image = cv2.addWeighted(image[:, :, :3], 1.0, scratches, alpha, 0.0)
+    image = cv2.resize(image, (w, h), interpolation=cv2.INTER_CUBIC)
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class Scratches(BaseTransform):
@@ -63,8 +79,8 @@ class Scratches(BaseTransform):
         self.num_scratches = num_scratches
         self.alpha = alpha
 
-    def image_transform(self, image):
-        return scratches(image, self.num_scratches, self.alpha)
+    def image_transform(self, metadata):
+        return scratches(metadata, self.num_scratches, self.alpha)
 
 
 class RandomScratches(BaseRandomTransform):
@@ -73,6 +89,6 @@ class RandomScratches(BaseRandomTransform):
         self.alpha = alpha
         self.prob = prob
 
-    def image_transform(self, image):
-        return scratches(image, self.num_scratches, self.alpha)
+    def image_transform(self, metadata):
+        return scratches(metadata, self.num_scratches, self.alpha)
     

@@ -33,6 +33,7 @@ def load_model(weight_path, model_config=None, classes=None):
         raise ValueError("Invalid file format. Please provide a `.keras` or `.h5` file.")
 
     return model
+
     
 
 def predict(

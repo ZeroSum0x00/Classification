@@ -1,15 +1,26 @@
 import cv2
+import copy
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
 
-def histogram_equalization(image):
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
+def histogram_equalization(metadata):
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
 
+    if image is None:
+        return metadata
+        
     # segregate color streams
     b, g, r = cv2.split(image)
     h_b, bin_b = np.histogram(b.flatten(), 256, [0, 256])
@@ -38,23 +49,28 @@ def histogram_equalization(image):
     img_g = cdf_final_g[g]
     img_r = cdf_final_r[r]
 
-    img_out = cv2.merge((img_b, img_g, img_r))
+    image = cv2.merge((img_b, img_g, img_r))
 
-    equ_b = cv2.equalizeHist(b)
-    equ_g = cv2.equalizeHist(g)
-    equ_r = cv2.equalizeHist(r)
-    equ = cv2.merge((equ_b, equ_g, equ_r))
-    return img_out
+    # equ_b = cv2.equalizeHist(b)
+    # equ_g = cv2.equalizeHist(g)
+    # equ_r = cv2.equalizeHist(r)
+    # equ = cv2.merge((equ_b, equ_g, equ_r))
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class HistogramEqualization(BaseTransform):
 
-    def image_transform(self, image):
-        return histogram_equalization(image)
+    def image_transform(self, metadata):
+        return histogram_equalization(metadata)
 
 
 class RandomHistogramEqualization(BaseRandomTransform):
 
-    def image_transform(self, image):
-        return histogram_equalization(image)
+    def image_transform(self, metadata):
+        return histogram_equalization(metadata)
     

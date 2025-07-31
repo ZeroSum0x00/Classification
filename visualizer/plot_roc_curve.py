@@ -6,7 +6,6 @@ from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 
-
 def plot_roc_curve(fpr, tpr, roc, iter):
     fig = plt.figure()
     linewidth = 2

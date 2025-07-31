@@ -1,14 +1,15 @@
 import cv2
+import copy
 import random
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
 
 def dirt_effect_modification(
-    image,
+    metadata,
     blur_kernel=(3, 3),
     emboss_kernel_size=None,
     alpha=None,
@@ -26,8 +27,18 @@ def dirt_effect_modification(
                     k[i][j] = 0
         return k
 
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
+
+    if image is None:
+        return metadata
         
     emboss_kernel_size = random.choice([9, 11]) if emboss_kernel_size is None else emboss_kernel_size
     alpha = random.uniform(0.4, 0.7) if alpha is None else alpha
@@ -43,8 +54,13 @@ def dirt_effect_modification(
     gray_dirt_3_channels = cv2.cvtColor(gray_dirt, cv2.COLOR_GRAY2BGR)
 
     blurred_dirt = cv2.blur(gray_dirt_3_channels, blur_kernel)
-    final = cv2.addWeighted(image, 1.0, blurred_dirt, alpha, 0.0)
-    return final
+    image = cv2.addWeighted(image, 1.0, blurred_dirt, alpha, 0.0)
+
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class DirtEffectModification(BaseTransform):
@@ -58,13 +74,14 @@ class DirtEffectModification(BaseTransform):
         self.emboss_kernel_size = emboss_kernel_size
         self.alpha = alpha
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         return dirt_effect_modification(
-            image=image,
+            metadata,
             blur_kernel=self.blur_kernel,
             emboss_kernel_size=self.emboss_kernel_size,
             alpha=self.alpha,
         )
+
 
 class RandomDirtEffectModification(BaseRandomTransform):
     def __init__(
@@ -79,9 +96,9 @@ class RandomDirtEffectModification(BaseRandomTransform):
         self.alpha = alpha
         self.prob = prob
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         return dirt_effect_modification(
-            image=image,
+            metadata,
             blur_kernel=self.blur_kernel,
             emboss_kernel_size=self.emboss_kernel_size,
             alpha=self.alpha,

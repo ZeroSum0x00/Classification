@@ -1,19 +1,41 @@
+import copy
 import random
 import numbers
 import numpy as np
 import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
 
-def gaussian_noise(image, mean, std):
+def gaussian_noise(metadata, mean, std):
     assert isinstance(mean, numbers.Number) and mean >= 0, "mean should be a positive value"
     assert isinstance(std, numbers.Number) and std >= 0, "std should be a positive value"
+
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
+
+    if image is None:
+        return metadata
+
     imgtype = image.dtype
     gauss = np.random.normal(mean, std, image.shape).astype(np.float32)
     noisy = np.clip((1 + gauss) * image.astype(np.float32), 0, 255)
-    return noisy.astype(imgtype)
+    image = noisy.astype(imgtype)
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class GaussianNoise(BaseTransform):
@@ -21,8 +43,8 @@ class GaussianNoise(BaseTransform):
         self.mean = mean
         self.std = std
 
-    def image_transform(self, image):
-        return gaussian_noise(image, self.mean, self.std)
+    def image_transform(self, metadata):
+        return gaussian_noise(metadata, self.mean, self.std)
 
 
 class RandomGaussianNoise(BaseRandomTransform):
@@ -46,7 +68,7 @@ class RandomGaussianNoise(BaseRandomTransform):
             std_factor = random.uniform(std[0], std[1])
         return mean_factor, std_factor
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         ret = self.get_params(self.mean_range, self.std_range)
-        return gaussian_noise(image, *ret)
+        return gaussian_noise(metadata, *ret)
     

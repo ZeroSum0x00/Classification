@@ -2,7 +2,6 @@ import os
 import matplotlib
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import callbacks
 from utils.logger import logger
 
 matplotlib.use("Agg")
@@ -10,8 +9,7 @@ from matplotlib import pyplot as plt
 from visualizer import value_above_line
 
 
-
-class MetricHistory(callbacks.Callback):
+class MetricHistory(tf.keras.callbacks.Callback):
     def __init__(
         self,
         result_path=None,

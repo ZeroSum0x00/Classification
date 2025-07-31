@@ -1,8 +1,10 @@
 import cv2
+import copy
 import types
 import numpy as np
 from utils.constants import epsilon
 from utils.constants import INTER_MODE
+from augmenter import resize
 
 
 
@@ -12,14 +14,12 @@ class Normalizer:
         norm_type="divide",
         target_size=(224, 224, 3),
         mean=None,
-        std=None,
-        interpolation="BILINEAR",
+        std=None
     ):
         self.norm_type = norm_type
         self.target_size = target_size
         self.mean = mean
         self.std = std
-        self.interpolation = interpolation
         
     def __get_standard_deviation(self, img):
         if self.mean is not None:
@@ -61,23 +61,40 @@ class Normalizer:
         image = func(image)
         return image
         
-    def __call__(self, image, *args, **kargs):
-        target_h, target_w = self.target_size[:2]
-        if image.shape[:2] != (target_h, target_w):
-            image = cv2.resize(image, (target_w, target_h), interpolation=INTER_MODE[self.interpolation])
+    def __call__(self, metadata, *args, **kargs):
+        metadata = resize(
+            metadata,
+            size=self.target_size[:2],
+            keep_aspect_ratio=False
+        )
 
+        if isinstance(metadata, dict):
+            metadata_check = True
+            clone_data = copy.deepcopy(metadata)
+            image = clone_data.get("image")
+        elif isinstance(metadata, np.ndarray):
+            metadata_check = False
+            image = metadata
+        else:
+            raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
+        
         if len(image.shape) == 2:
             image = np.expand_dims(image, axis=-1)
 
         if isinstance(self.norm_type, str):
             if self.norm_type == "divide":
-                return self._divide(image)
+                image = self._divide(image)
             elif self.norm_type == "sub_divide":
-                return self._sub_divide(image)
+                image = self._sub_divide(image)
             else:
-                return self._basic(image)
+                image = self._basic(image)
         elif isinstance(self.norm_type, types.FunctionType):
-            return self._func_calc(image, self.norm_type)
+            image = self._func_calc(image)
         else:
             raise ValueError("Invalid norm_type")
-        
+
+        if metadata_check:
+            clone_data["image"] = image
+            return clone_data
+        else:
+            return image

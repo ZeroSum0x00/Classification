@@ -3,37 +3,29 @@ import tensorflow as tf
 from .sequence_data_flow import DataSequencePipeline
 
 
-
 class TFDataPipeline(DataSequencePipeline):
 
     def data_generator(self):
-        batch_images = []
-        batch_labels = []
-        batch_weights = []
+        batch_data = []
 
         for idx, sample in enumerate(self.dataset):
-            image, label = self.load_data(sample)
-            batch_images.append(image)
-            batch_labels.append(label)
+            metadata = self.load_data(sample)
+            batch_data.append(metadata)
 
-            if self.class_weights:
-                weight = self.class_weights.get(label, 1.0)
-            else:
-                weight = 1.0
-                
-            batch_weights.append(weight)
-        
-            if len(batch_images) == self.batch_size or idx == self.N - 1:
-                yield (
-                    np.array(batch_images, dtype=np.float32),
-                    np.array(batch_labels, dtype=np.int32),
-                    np.array(batch_weights, dtype=np.float32),
-                )
-                batch_images = []
-                batch_labels = []
-                batch_weights = []
+            if len(batch_data) == self.batch_size or idx == self.N - 1:
+                batch_data = self.collate_batch(batch_data)
+                if self.class_weights:
+                    batch_weights = np.array([self.class_weights.get(label, 1.0) for label in batch_data["label"]], dtype=np.float32)
+                else:
+                    batch_weights = np.ones_like(batch_data["label"], dtype=np.float32)
 
-    def get_dataset(self):
+                images = batch_data["image"]
+                labels = batch_data["label"]
+                sample_weight = batch_weights
+                yield images, labels, sample_weight
+                batch_data = []
+
+    def get_dataset(self):        
         dataset = tf.data.Dataset.from_generator(
             self.data_generator,
             output_signature=(

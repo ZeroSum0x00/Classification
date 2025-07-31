@@ -1,41 +1,59 @@
 import cv2
+import copy
 import random
 import numbers
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
 
-def median_blur(image, ksize_norm=0.05):
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
-        
+def median_blur(metadata, ksize_norm=0.05):
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
+
+    if image is None:
+        return metadata
+
     try:
         k_size = int(min(image.shape[:2]) * ksize_norm)
         k_size = k_size + 1 if k_size % 2 == 0 else k_size
 
         if k_size <= 2:
-            return image
-        return cv2.medianBlur(image, k_size)
+            return metadata
+            
+        image = cv2.medianBlur(image, k_size)
     except:
         k_size = random.choice([3, 5, 7, 9, 13, 15, 17, 19])
-        return cv2.medianBlur(image, k_size)
+        image = cv2.medianBlur(image, k_size)
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class MedianBlur(BaseTransform):
     def __init__(self, ksize_norm=0.05):
         self.ksize_norm = ksize_norm
 
-    def image_transform(self, image):
-        return median_blur(image, self.ksize_norm)
+    def image_transform(self, metadata):
+        return median_blur(metadata, self.ksize_norm)
 
 
 class RandomMedianBlur(BaseRandomTransform):
     def __init__(self, ksize_norm=0.8, prob=0.5):
         self.ksize_norm = ksize_norm
-        self.prob       = prob
+        self.prob = prob
 
     @staticmethod
     def get_params(ksize):
@@ -52,7 +70,7 @@ class RandomMedianBlur(BaseRandomTransform):
 
         return ksize_factor
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         ksize_norm = self.get_params(self.ksize_norm)
-        return median_blur(image, ksize_norm)
+        return median_blur(metadata, ksize_norm)
     

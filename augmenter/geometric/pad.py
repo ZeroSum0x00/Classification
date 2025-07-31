@@ -1,8 +1,12 @@
 import cv2
+import copy
 import numbers
+import numpy as np
 import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
+from utils.bbox_processing import coordinates_converter
 from utils.auxiliary_processing import is_numpy_image
 
 
@@ -16,53 +20,133 @@ PAD_MOD = {
 
 
 def pad(
-    image,
+    metadata,
     padding,
     fill_color=(0, 0, 0),
     padding_mode="constant",
 ):
-    if not is_numpy_image(image):
-        raise TypeError("Image should be CV Image. Got {}".format(type(image)))
 
-    if not isinstance(padding, (numbers.Number, tuple, list)):
-        raise TypeError("Got inappropriate padding arg")
-    if not isinstance(fill_color, (numbers.Number, str, tuple, list)):
-        raise TypeError("Got inappropriate fill_color arg")
-    if not isinstance(padding_mode, str):
-        raise TypeError("Got inappropriate padding_mode arg")
-
-    if isinstance(padding, collections.Sequence) and len(padding) not in [2, 4]:
-        raise ValueError("Padding must be an int or a 2, or 4 element tuple, not a " +
-                         "{} element tuple".format(len(padding)))
-
-    assert padding_mode in ["constant", "edge", "reflect", "symmetric"], \
-        "Padding mode should be either constant, edge, reflect or symmetric"
-
+    def _pad_array(image):
+        if not is_numpy_image(image):
+            raise TypeError(f"Expected numpy image, got {type(image)}")
+            
+        if isinstance(fill_color, numbers.Number):
+            fc = (fill_color,) * (image.shape[2] if image.ndim == 3 else 1)
+        else:
+            fc = fill_color
+            
+        return cv2.copyMakeBorder(
+            image,
+            top=pad_top,
+            bottom=pad_bottom,
+            left=pad_left,
+            right=pad_right,
+            borderType=PAD_MOD[padding_mode],
+            value=fc,
+        )
+        
     if isinstance(padding, int):
         pad_left = pad_right = pad_top = pad_bottom = padding
-    if isinstance(padding, collections.Sequence) and len(padding) == 2:
+    elif isinstance(padding, (list, tuple)) and len(padding) == 2:
         pad_left = pad_right = padding[0]
         pad_top = pad_bottom = padding[1]
-    if isinstance(padding, collections.Sequence) and len(padding) == 4:
+    elif isinstance(padding, (list, tuple)) and len(padding) == 4:
         pad_left, pad_top, pad_right, pad_bottom = padding
+    else:
+        raise ValueError("padding must be int, 2-tuple, or 4-tuple")
 
-    if isinstance(fill_color, numbers.Number):
-        fill_color = (fill_color,) * (2 * len(image.shape) - 3)
+    assert padding_mode in ["constant", "edge", "reflect", "symmetric"]
 
-    if padding_mode == "constant":
-        assert (len(fill_color) == 3 and len(image.shape) == 3) or (len(fill_color) == 1 and len(image.shape) == 2), \
-            "channel of image is {} but length of fill_color is {}".format(image.shape[-1], len(fill_color))
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        algorithm, image_data, auxi_image_data, masks_data, bbox_data, landmark_data = extract_metadata(clone_data)
+        focus_image = get_focus_image_from_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        image_data = focus_image = copy.deepcopy(metadata)
+        metadata_check = False
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
+    
+    if focus_image.ndim == 2:
+        height, width = focus_image.shape
+        gray_scale = True
+    elif focus_image.ndim == 3:
+        height, width, _ = focus_image.shape
+        gray_scale = False
+    else:
+        raise ValueError(f"Unsupported image shape: {focus_image.shape}")
 
-    image = cv2.copyMakeBorder(
-        src=image,
-        top=pad_top,
-        bottom=pad_bottom,
-        left=pad_left,
-        right=pad_right,
-        borderType=PAD_MOD[padding_mode],
-        value=fill_color,
-    )
-    return image
+    if metadata_check:
+        if image_data is not None:
+            clone_data["image"] = _pad_array(image_data)
+
+        for key, array in auxi_image_data.items():
+            if not isinstance(array, np.ndarray):
+                continue
+                
+            clone_data["auxiliary_images"][key] = _pad_array(array)
+            
+        for key, array in masks_data.items():
+            if not isinstance(array, dict):
+                continue
+
+            if isinstance(array, np.ndarray):
+                if array.ndim == 3 and array.shape[2] == 2 and key == "uv_mask":
+                    for i in range(2):
+                        array[..., i] = _pad_array(array[..., i])
+                    clone_data["masks"][key] = array
+                else:
+                    clone_data["masks"][key] = _pad_array(array)
+            elif isinstance(array, (list, np.ndarray)) and key in ["semantic_mask", "instance_mask"]:
+                clone_data["masks"][key] = np.array([_pad_array(m) for m in array])
+    
+        offset_x, offset_y = pad_left, pad_top
+    
+        if bbox_data.get("value") is not None:
+            boxes = copy.deepcopy(bbox_data.get("value"))
+            coord = bbox_data.get("coord", "corners")
+            max_box = bbox_data.get("max_box", 100)
+            
+            if algorithm.lower() == "od":
+                if not isinstance(boxes, np.ndarray) or boxes.ndim != 2 or boxes.shape[1] != 5:
+                    raise ValueError(f"Expected boxes to be Nx5 numpy array. Got shape: {boxes.shape}")
+                
+                out_boxes = np.zeros((max_box, 5))
+                out_boxes[:, -1] = -1
+                np.random.shuffle(boxes)
+                
+                if coord == "centroids":
+                    boxes = coordinates_converter(boxes, conversion="centroids2corners")
+    
+                boxes[:, [0, 2]] += offset_x
+                boxes[:, [1, 3]] += offset_y
+
+                if coord == "centroids":
+                    boxes = coordinates_converter(boxes, conversion="corners2centroids")
+                    
+                if len(boxes) > max_box: 
+                    boxes = boxes[:max_box]
+                    
+                out_boxes[:len(boxes)] = boxes
+                clone_data["bounding_box"]["value"] = out_boxes
+    
+        if landmark_data.get("value") is not None:
+            landmarks = copy.deepcopy(landmark_data.get("value"))
+            
+            if landmarks.ndim == 2 and landmarks.shape[1] == landmark.get("num_points", 3)*3:
+                landmarks = landmarks.reshape(-1, m, 3)
+            elif landmarks.ndim != 3 or landmarks.shape[2] != 3:
+                raise ValueError(f"Landmark shape invalid: {landmarks.shape}")
+            
+            landmarks[:, :, 0] += offset_x
+            landmarks[:, :, 1] += offset_y
+            clone_data["landmark_point"]["value"] = landmarks
+
+        return clone_data
+    else:
+        image_data = _pad_array(image_data)
+        return image_data
 
 
 class Pad(BaseTransform):
@@ -97,10 +181,10 @@ class Pad(BaseTransform):
             raise ValueError("Padding must be an int or a 2, or 4 element tuple, not a " +
                              "{} element tuple".format(len(padding)))
 
-        self.padding      = padding
-        self.fill_color         = fill_color
+        self.padding = padding
+        self.fill_color = fill_color
         self.padding_mode = padding_mode
 
-    def image_transform(self, image):
-        return pad(image, self.padding, self.fill_color, self.padding_mode)
+    def image_transform(self, metadata):
+        return pad(metadata, self.padding, self.fill_color, self.padding_mode)
     

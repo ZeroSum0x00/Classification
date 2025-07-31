@@ -2,27 +2,22 @@ import numbers
 from augmenter.base_transform import BaseTransform
 from .five_crop import five_crop
 from ..flip import vflip, hflip
-from utils.auxiliary_processing import is_numpy_image
 
 
-
-def ten_crop(image, size, vertical_flip=False):
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
-
+def ten_crop(img, size, vertical_flip=False):
     if isinstance(size, numbers.Number):
         size = (int(size), int(size))
     else:
         assert len(size) == 2, "Please provide only two dimensions (h, w) for size."
 
-    first_five = five_crop(image, size)
+    first_five = five_crop(img, size)
 
     if vertical_flip:
-        image = vflip(image)
+        img = vflip(img)
     else:
-        image = hflip(image)
+        img = hflip(img)
 
-    second_five = five_crop(image, size)
+    second_five = five_crop(img, size)
     return first_five + second_five
 
 

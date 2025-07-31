@@ -1,22 +1,33 @@
 import cv2
+import copy
 import random
 import numbers
 import numpy as np
+import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
-
-def desaturate(image, percent):
+def desaturate(metadata, percent):
     if not(0. <= percent <= 1.):
         raise ValueError("percent is not in [0, 1].".format(percent))
 
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
 
+    if image is None:
+        return metadata
+        
     if percent == 0:
-        return img
+        return metadata
 
     img = image.copy()
 
@@ -41,17 +52,24 @@ def desaturate(image, percent):
     mask = cv2.merge([mask, mask, mask])
 
     # mask bgr_desat and img
-    img = mask * bgr_desat + (1 - mask) * img
+    # img = mask * bgr_desat + (1 - mask) * img
+    img = mask * img + (1 - mask) * bgr_desat
+
     img = img.clip(0,255).astype(np.uint8)
-    return img
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class Desaturate(BaseTransform):
     def __init__(self, percent):
         self.percent = percent
 
-    def image_transform(self, image):
-        return desaturate(image, self.percent)
+    def image_transform(self, metadata):
+        return desaturate(metadata, self.percent)
 
 
 class RandomDesaturate(BaseRandomTransform):
@@ -73,7 +91,7 @@ class RandomDesaturate(BaseRandomTransform):
             
         return percent_factor
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         percent_factor = self.get_params(self.percent)
-        return desaturate(image, percent_factor)
+        return desaturate(metadata, percent_factor)
     

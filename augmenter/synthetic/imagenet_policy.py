@@ -19,7 +19,7 @@ class ImageNetPolicy(BaseTransform):
         self.policies = self.available_policies[policy_mode]
         self.translate_const = 0.8
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         t = random.choice(self.policies)
         list_aug = []
         for sub_policy in t:
@@ -41,7 +41,7 @@ class ImageNetPolicy(BaseTransform):
                 else:
                     arch = getattr(self.mod, name)(level)
             list_aug.append(arch)
-        return ComposeTransform(list_aug)(image)
+        return ComposeTransform(list_aug)(metadata)
     
     @staticmethod
     def policy_v0():

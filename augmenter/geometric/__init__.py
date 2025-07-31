@@ -1,34 +1,33 @@
 from .pad import pad, Pad
 
 from .flip import (
-    vflip, hflip,
-    Flip, RandomFlip,
-    RandomHorizontalFlip, RandomVerticalFlip,
+    flip, Flip, RandomFlip,
+    HorizontalFlip, RandomHorizontalFlip,
+    VerticalFlip, RandomVerticalFlip,
 )
 
 from .resize import (
     resize, Resize,
-    ResizeKeepRatio,
+    ResizeKeepRatio, RandomResizeKeepRatio,
 )
 
 from .crop import (
     crop, Crop, RandomCrop,
     center_crop, CenterCrop,
-    five_crop, FiveCrop,
-    ten_crop, TenCrop,
+    # five_crop, FiveCrop,
+    # ten_crop, TenCrop,
 )
 
-from .resized_crop import resized_crop, ResizedCrop, RandomResizedCrop
+from .resize_crop import resize_crop, ResizeCrop, RandomResizeCrop
 
 from .shear import (
-    shear_x, shear_y, shear,
+    shear, Shear, RandomShear,
     ShearX, RandomShearX,
     ShearY, RandomShearY,
-    Shear, RandomShear,
 )
 
 from .translate import (
-    translate_x, translate_y,
+    translate, Translate, RandomTranslate,
     TranslateX, RandomTranslateX,
     TranslateY, RandomTranslateY,
 )
@@ -38,6 +37,6 @@ from .affine import (
     affine6, Affine6, RandomAffine6,
 )
 
-from .rotate import rotate, Rotation, RandomRotation
+from .rotate import rotate, Rotate, RandomRotate
 
 from .perspective import perspective, Perspective, RandomPerspective

@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import callbacks
 
 import matplotlib
 matplotlib.use("Agg")
@@ -9,8 +8,7 @@ from matplotlib import pyplot as plt
 from visualizer import value_above_line
 
 
-
-class WarmUpLearningRate(callbacks.Callback):
+class WarmUpLearningRate(tf.keras.callbacks.Callback):
     def __init__(self,
                  steps_per_epoch,
                  epochs,
@@ -33,7 +31,7 @@ class WarmUpLearningRate(callbacks.Callback):
         return self.global_steps.numpy(), self.model.optimizer.learning_rate.numpy()
 
 
-class AdvanceWarmUpLearningRate(callbacks.Callback):
+class AdvanceWarmUpLearningRate(tf.keras.callbacks.Callback):
     def __init__(
         self,
         result_path=None,
@@ -99,7 +97,7 @@ class AdvanceWarmUpLearningRate(callbacks.Callback):
         return lr
 
 
-class BasicReduceLearningRate(callbacks.Callback):
+class BasicReduceLearningRate(tf.keras.callbacks.Callback):
     def __init__(self,
                  lr_init,
                  lr_end,

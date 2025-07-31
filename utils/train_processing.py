@@ -27,14 +27,14 @@ def train_prepare(
             os.environ["TF_DETERMINISTIC_OPS"] = "1"
             try:
                 tf.config.experimental.enable_op_determinism()
-                logging.info("Enabled deterministic ops in TensorFlow.")
+                logger.info("Enabled deterministic ops in TensorFlow.")
             except AttributeError:
-                logging.warning("TensorFlow version does not support 'enable_op_determinism'.")
+                logger.warning("TensorFlow version does not support 'enable_op_determinism'.")
 
         # --- 2. Set execution mode (CPU/GPU) ---
         if execution_mode.lower() == "cpu":
             tf.config.set_visible_devices([], "GPU")
-            logging.info("Training in CPU mode.")
+            logger.info("Training in CPU mode.")
             return tf.distribute.get_strategy()
 
         # --- 3. Select GPUs ---
@@ -55,14 +55,14 @@ def train_prepare(
                         gpu,
                         [tf.config.LogicalDeviceConfiguration(memory_limit=vram_limit_mb)]
                     )
-                    logging.info(f"Limiting GPU memory to {vram_limit_mb}MB.")
+                    logger.info(f"Limiting GPU memory to {vram_limit_mb}MB.")
                 elif vram_usage.lower() == "growth":
                     tf.config.experimental.set_memory_growth(gpu, True)
-                    logging.info("Enabled memory growth.")
+                    logger.info("Enabled memory growth.")
                 elif vram_usage.lower() == "full":
-                    logging.info("Using full GPU memory.")
+                    logger.info("Using full GPU memory.")
                 else:
-                    logging.warning(f"Unknown vram_usage mode: {vram_usage}. Using default.")
+                    logger.warning(f"Unknown vram_usage mode: {vram_usage}. Using default.")
 
         # --- 4. Mixed Precision Training ---
         allowed_precisions = {
@@ -73,38 +73,38 @@ def train_prepare(
             "mixed_float16": "mixed_float16",
             "mixed_bfloat16": "mixed_bfloat16",
         }
-        if mixed_precision_dtype:
-            dtype = mixed_precision_dtype.lower()
-            if dtype in allowed_precisions:
-                from tensorflow.keras import mixed_precision
-                policy = allowed_precisions[dtype]
-                mixed_precision.set_global_policy(policy)
-                logging.info(f"Using mixed precision: {policy}")
-            else:
-                logging.warning(f"Unsupported mixed_precision_dtype: {mixed_precision_dtype}")
+        # if mixed_precision_dtype:
+        #     dtype = mixed_precision_dtype.lower()
+        #     if dtype in allowed_precisions:
+        #         from tensorflow.keras import mixed_precision
+        #         policy = allowed_precisions[dtype]
+        #         mixed_precision.set_global_policy(policy)
+        #         logger.info(f"Using mixed precision: {policy}")
+        #     else:
+        #         logger.warning(f"Unsupported mixed_precision_dtype: {mixed_precision_dtype}")
 
         # --- 5. Execution Mode (Eager / Graph) ---
         if execution_mode.lower() == "eager":
             tf.config.run_functions_eagerly(True)
-            logging.info("Execution mode: eager.")
+            logger.info("Execution mode: eager.")
         elif execution_mode.lower() == "graph":
             tf.config.run_functions_eagerly(False)
-            logging.info("Execution mode: graph.")
+            logger.info("Execution mode: graph.")
         else:
-            logging.error(f'Invalid execution_mode: {execution_mode}. Must be "eager", "graph", or "cpu".')
+            logger.error(f'Invalid execution_mode: {execution_mode}. Must be "eager", "graph", or "cpu".')
             return None
 
         if len(gpu_list) <= 1:
             strategy = tf.distribute.get_strategy()  # single-GPU or CPU
-            logging.info("Using default strategy (1 GPU or CPU).")
+            logger.info("Using default strategy (1 GPU or CPU).")
         else:
             strategy = tf.distribute.MirroredStrategy()
-            logging.info(f"Using MirroredStrategy with {len(gpu_list)} GPUs.")
+            logger.info(f"Using MirroredStrategy with {len(gpu_list)} GPUs.")
 
         return strategy
 
     except Exception as e:
-        logging.error(f"[Train prepare error] {e}")
+        logger.error(f"[Train prepare error] {e}")
         return None
 
 

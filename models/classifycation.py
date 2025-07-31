@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Reshape, Dense
 
@@ -13,7 +14,7 @@ class CLS(tf.keras.Model):
         name="CLS",
         *args, **kwargs
     ):
-        super(CLS, self).__init__(*args, **kwargs, name=name)
+        super().__init__(*args, **kwargs)
         self.backbone = backbone
         self.custom_head = custom_head
         self.num_classes = num_classes

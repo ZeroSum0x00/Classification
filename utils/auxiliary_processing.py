@@ -2,7 +2,8 @@ import io
 import cv2
 import importlib
 import numpy as np
-
+import tensorflow as tf
+import matplotlib.pyplot as plt
 
 
 def dynamic_import(module_name, global_vars=None):
@@ -77,6 +78,26 @@ def change_color_space(image, current_space="BGR", to_space="BGR"):
     return image
 
 
+def compute_iou(box1, box2):
+    x1, y1, x2, y2 = box1
+    x1g, y1g, x2g, y2g = box2
+
+    xi1, yi1 = max(x1, x1g), max(y1, y1g)
+    xi2, yi2 = min(x2, x2g), min(y2, y2g)
+
+    inter_width = max(0, xi2 - xi1)
+    inter_height = max(0, yi2 - yi1)
+    inter_area = inter_width * inter_height
+
+    area1 = (x2 - x1) * (y2 - y1)
+    area2 = (x2g - x1g) * (y2g - y1g)
+    union_area = area1 + area2 - inter_area
+
+    if union_area == 0:
+        return 0
+    return inter_area / union_area
+
+        
 def fig_to_cv2_image(fig):
     """
     Chuyển matplotlib Figure sang ảnh OpenCV.

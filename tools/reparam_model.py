@@ -5,7 +5,6 @@ from predict import load_model
 from models import *
 
 
-
 if __name__ == "__main__":
     engine_file_config = "saved_weights/20250507-155452/engine.yaml"
     model_file_config = "saved_weights/20250507-155452/model.yaml"

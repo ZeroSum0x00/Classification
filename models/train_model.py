@@ -17,7 +17,7 @@ class TrainModel(tf.keras.Model):
         gradient_accumulation_steps=1,
         sam_rho=0.,
         use_ema=False,
-        compile_mode=None,                       # None, "auto-graph", "jit"
+        compile_jit=False,
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
@@ -32,9 +32,7 @@ class TrainModel(tf.keras.Model):
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.sam_rho = sam_rho
         self.use_ema = use_ema
-        self._train_step = self._build_train_step(compile_mode=compile_mode)
-        self._test_step = self._build_test_step(compile_mode=compile_mode)
-        self._predict_step = self._build_predict_step(compile_mode=compile_mode)
+        self.compile_jit = compile_jit
 
         if teacher_models or distillation_type:
             self.distillation_loss_fn = tf.keras.losses.KLDivergence()
@@ -47,17 +45,26 @@ class TrainModel(tf.keras.Model):
         self.list_metrics = []
         self.prev_logits = None
         
-        if self.use_ema:
-            self.ema = tf.train.ExponentialMovingAverage(decay=0.99)
-            self.ema.apply(self.architecture.trainable_variables)
-            
     def compile(self, optimizer, loss, teacher_optimizer=None, metrics=None, **kwargs):
         super().compile(**kwargs)
         self.optimizer = optimizer
         self.loss_objects = loss
         self.teacher_optimizer = teacher_optimizer
         self.list_metrics = metrics or []
+        
+        for _ in range(3):
+            dummy = self.architecture(tf.random.normal([1, 224, 224, 3]))
+            
+        self.model_variables = self.architecture.trainable_variables
 
+        self.train_grad_fn = self.grad_caculator(phase="train")
+        self.test_grad_fn = self.grad_caculator(phase="test")
+        self.predict_fn = self.build_predict_step()
+        
+        if self.use_ema:
+            self.ema = tf.train.ExponentialMovingAverage(decay=0.99)
+            self.ema.apply(self.model_variables)
+            
     @property
     def metrics(self):
         return [self.total_loss_tracker] + self.list_metrics
@@ -100,22 +107,22 @@ class TrainModel(tf.keras.Model):
                 loss_object["loss"](y_true=labels, y_pred=logits, sample_weight=sample_weight) * loss_object["coeff"]
                 for loss_object in self.loss_objects
             )
-            
-        loss_value += tf.reduce_sum(self.architecture.losses)
-        
+
         return {
             "loss": loss_value,
             "logits": logits
         }
 
-    def _apply_gradients(self, gradients, trainable_vars):
+    def _apply_gradients(self, gradients):
         if self.gradient_accumulation_steps == 1:
             if self.model_clip_gradient > 0:
                 gradients, _ = tf.clip_by_global_norm(gradients, self.model_clip_gradient)
-            self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+    
+            self.optimizer.apply_gradients(zip(gradients, self.model_variables))
+
         else:
             if self.accumulated_gradients is None:
-                self.accumulated_gradients = [tf.Variable(tf.zeros_like(v), trainable=False) for v in trainable_vars]
+                self.accumulated_gradients = [tf.Variable(tf.zeros_like(v), trainable=False) for v in self.model_variables]
     
             for accum, grad in zip(self.accumulated_gradients, gradients):
                 if grad is not None:
@@ -128,7 +135,7 @@ class TrainModel(tf.keras.Model):
                 else:
                     clipped = self.accumulated_gradients
     
-                self.optimizer.apply_gradients(zip(clipped, trainable_vars))
+                self.optimizer.apply_gradients(zip(clipped, self.model_variables))
                 for accum in self.accumulated_gradients:
                     accum.assign(tf.zeros_like(accum))
 
@@ -150,22 +157,21 @@ class TrainModel(tf.keras.Model):
         self,
         tape,
         scaled_loss,
-        trainable_vars,
         images,
         labels,
         sample_weight,
     ):
-        if self.sam_rho <= 0:
-            return tape.gradient(scaled_loss, trainable_vars)
+        if self.sam_rho <= 0.:
+            return tape.gradient(scaled_loss, self.model_variables)
     
         # First grads
-        grads = tape.gradient(scaled_loss, trainable_vars)
+        grads = tape.gradient(scaled_loss, self.model_variables)
         grad_norm = tf.linalg.global_norm(grads)
         scale = self.sam_rho / (grad_norm + 1e-12)
-        e_ws = [(g * scale if g is not None else tf.zeros_like(v)) for g, v in zip(grads, trainable_vars)]
+        e_ws = [(g * scale if g is not None else tf.zeros_like(v)) for g, v in zip(grads, self.model_variables)]
     
         # Perturb weights
-        for v, e_w in zip(trainable_vars, e_ws):
+        for v, e_w in zip(self.model_variables, e_ws):
             v.assign_add(e_w)
     
         # Second forward
@@ -174,22 +180,19 @@ class TrainModel(tf.keras.Model):
             advance_loss = caculated_loss["loss"]
             scaled_advance_loss = advance_loss / self.gradient_accumulation_steps
     
-        advance_grads = advance_tape.gradient(scaled_advance_loss, trainable_vars)
+        advance_grads = advance_tape.gradient(scaled_advance_loss, self.model_variables)
     
         # Restore weights
-        for v, e_w in zip(trainable_vars, e_ws):
+        for v, e_w in zip(self.model_variables, e_ws):
             v.assign_sub(e_w)
     
-        return [g if g is not None else tf.zeros_like(v) for g, v in zip(advance_grads, trainable_vars)]
+        return [g if g is not None else tf.zeros_like(v) for g, v in zip(advance_grads, self.model_variables)]
+
+    def grad_caculator(self, phase="test"):
         
-    def _build_train_step(self, compile_mode):
-        def _train_step(data):
-            check_use_ema = hasattr(self, "ema")
-            images, labels, sample_weight = tf.keras.utils.unpack_x_y_sample_weight(data)
-            
+        def _train_grad(images, labels, sample_weight=None):
             teacher_predictions_list = self._get_teacher_predictions(images, labels)
-    
-            # First forward-backward
+            
             with tf.GradientTape() as tape:
                 caculated_loss = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
                 loss_value = caculated_loss["loss"]
@@ -210,90 +213,88 @@ class TrainModel(tf.keras.Model):
                 
                 scale_loss_value = loss_value / self.gradient_accumulation_steps
     
-            trainable_vars = self.architecture.trainable_variables
+                final_grads = self._apply_sam_gradients(tape, scale_loss_value, images, labels, sample_weight)
     
-            # ========== SAM logic ==========
-            final_grads = self._apply_sam_gradients(tape, scale_loss_value, trainable_vars, images, labels, sample_weight)
-    
-            # ========== Apply gradients ==========
-            self._apply_gradients(final_grads, trainable_vars)
-    
-            if (
-                teacher_predictions_list and
-                self.teacher_models and 
-                self.distillation_type.lower() == "online" and 
-                hasattr(self, "teacher_optimizer")
-            ):
-                self._apply_gradients_online_teachers(images, tf.stop_gradient(logits))
-    
+            return {
+                "loss": scale_loss_value,
+                "grads": final_grads,
+                "model_preds": logits,
+                "teacher_preds": teacher_predictions_list
+            }
             
-            self.prev_logits = tf.stop_gradient(logits)
-                    
-            if check_use_ema:
-                self.ema.apply(trainable_vars)
-                
-            self.total_loss_tracker.update_state(loss_value)
-    
-            for metric in self.list_metrics:
-                metric.update_state(labels, logits, sample_weight=sample_weight)
-                    
-            return {m.name: m.result() for m in self.metrics}
-
-        if compile_mode and compile_mode in ["auto-graph", "jit"]:
-            return tf.function(_train_step, jit_compile=True if compile_mode.lower() == "jit" else False)
-        else:
-            return _train_step
-        
-    def _build_test_step(self, compile_mode):
-        def _test_step(data):
-            images, labels, sample_weight = tf.keras.utils.unpack_x_y_sample_weight(data)
-            
+        def _test_grad(images, labels, sample_weight=None):
             caculated_loss = self._compute_loss(images, labels, training=False, sample_weight=sample_weight)
             loss_value = caculated_loss["loss"]
             logits = caculated_loss["logits"]
-            
-            self.total_loss_tracker.update_state(loss_value)
-    
-            for metric in self.list_metrics:
-                metric.update_state(labels, logits, sample_weight=sample_weight)
-    
-            return {m.name: m.result() for m in self.metrics}
-            
-        if compile_mode and compile_mode in ["auto-graph", "jit"]:
-            return tf.function(_test_step, jit_compile=True if compile_mode.lower() == "jit" else False)
-        else:
-            return _test_step
 
-    def _build_predict_step(self, compile_mode):
-        def _predict_step(inputs):
-            return self.architecture(inputs, training=False)
+            return {
+                "loss": loss_value,
+                "model_preds": logits,
+            }
+
+        if self.compile_jit:
+            print(f"Use JIT compile in phase {phase.lower()}")
             
-        if compile_mode and compile_mode in ["auto-graph", "jit"]:
-            return tf.function(_predict_step, jit_compile=True if compile_mode.lower() == "jit" else False)
-        else:
-            return _predict_step
-        
+        return tf.function(_train_grad if phase.lower() == "train" else _test_grad, jit_compile=self.compile_jit)
+
     def train_step(self, data):
-        return self._train_step(data)
-        
+        images, labels, sample_weight = tf.keras.utils.unpack_x_y_sample_weight(data)
+        results = self.train_grad_fn(images, labels, sample_weight)
+        self._apply_gradients(results["grads"])
+
+        if (
+            results["teacher_preds"] and
+            self.teacher_models and 
+            self.distillation_type.lower() == "online" and 
+            hasattr(self, "teacher_optimizer")
+        ):
+            self._apply_gradients_online_teachers(images, tf.stop_gradient(results["model_preds"]))
+
+        self.prev_logits = tf.stop_gradient(results["model_preds"])
+                
+        if hasattr(self, "ema"):
+            self.ema.apply(self.model_variables)
+            
+        self.total_loss_tracker.update_state(results["loss"])
+
+        for metric in self.list_metrics:
+            metric.update_state(labels, results["model_preds"], sample_weight=sample_weight)
+
+        return {m.name: m.result() for m in self.metrics}
+
     def test_step(self, data):
-        return self._test_step(data)
-    
+        images, labels, sample_weight = tf.keras.utils.unpack_x_y_sample_weight(data)
+        results = self.test_grad_fn(images, labels, sample_weight)
+        
+        self.total_loss_tracker.update_state(results["loss"])
+
+        for metric in self.list_metrics:
+            metric.update_state(labels, results["model_preds"], sample_weight=sample_weight)
+
+        return {m.name: m.result() for m in self.metrics}
+
+    def build_predict_step(self):
+        def _predict_step(data):
+            if isinstance(data, dict):
+                images, _, _ = tf.keras.utils.unpack_x_y_sample_weight(data)
+            else:
+                images = data
+            return self.architecture(images, training=False)
+            
+        return tf.function(_predict_step, jit_compile=self.compile_jit)
+            
     def call(self, inputs, training=False):
         try:
             if self.use_ema:
-                self.ema.apply(self.architecture.trainable_variables)
+                self.ema.apply(self.model_variables)
 
-            if not training:
-                return self._predict_step(inputs)
-            else:
-                return self.architecture(inputs, training=True)
+            return self.predict_fn(inputs)
         except Exception as e:
             logger.warning(f"Error in call(): {e}")
             return inputs
 
     def predict(self, inputs):
-        return self._predict_step(inputs)
+        return self.predict_fn(inputs)
 
     def save_weights(self, weight_path, save_head=True, **kwargs):
         try:

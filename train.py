@@ -46,16 +46,20 @@ def train(engine_file_config, model_file_config):
     shutil.copy(model_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(model_file_config)))
     shutil.copy(engine_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(engine_file_config)))
 
-    losses = build_losses(loss_config)
-    optimizer = build_optimizer(optimizer_config)
-    metrics = build_metrics(metric_config)
-    
     if not model_config["classes"]:
         model_config["classes"] = data_config["data_source_paths"]
     
     model_config["train_strategy"] = train_config.get("train_strategy", "scratch")
 
+    batch_size = find_max_batch_size(model) if train_config["batch_size"] == -1 else train_config["batch_size"]
+    global_batch_size = batch_size * strategy.num_replicas_in_sync
+    optimizer_config["learning_rate"] = optimizer_config["learning_rate"] / strategy.num_replicas_in_sync
+    
     with strategy.scope():
+        losses = build_losses(loss_config)
+        optimizer = build_optimizer(optimizer_config)
+        metrics = build_metrics(metric_config)
+
         model = build_models(train_config, model_config)
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
     
@@ -63,12 +67,11 @@ def train(engine_file_config, model_file_config):
         for cls in model.classes:
             f.write(cls + "\n")
 
-    batch_size = find_max_batch_size(model) if train_config["batch_size"] == -1 else train_config["batch_size"]
     data_generator_instance = get_train_test_data(
         data_source_paths=data_config["data_source_paths"],
         classes=model.classes,
         target_size=model_config["inputs"],
-        batch_size=batch_size,
+        batch_size=global_batch_size,
         color_space=data_config["data_info"].get("color_space", "RGB"),
         augmentor=data_config["data_augmentation"],
         normalizer=data_config["data_normalizer"].get("normalizer", "divide"),
@@ -89,15 +92,15 @@ def train(engine_file_config, model_file_config):
     test_generator = data_generator_instance.get("test_generator", None)
     class_weights = data_generator_instance.get("class_weights", None)
     
-    train_step = int(np.ceil(train_generator.N / batch_size))
+    train_step = int(np.ceil(train_generator.N / global_batch_size))
     train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
 
     if valid_generator:
-        valid_step = int(np.ceil(valid_generator.N / batch_size))
+        valid_step = int(np.ceil(valid_generator.N / global_batch_size))
         valid_generator = valid_generator.get_dataset() if isinstance(valid_generator, TFDataPipeline) else valid_generator
 
     if test_generator:
-        test_step = int(np.ceil(test_generator.N / batch_size))
+        test_step = int(np.ceil(test_generator.N / global_batch_size))
         test_generator = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
 
     callbacks = build_callbacks(callbacks_config, TRAINING_TIME_PATH)
@@ -125,27 +128,28 @@ def train(engine_file_config, model_file_config):
             logger.info(f"Restored from {ckpt_manager.latest_checkpoint}")
             initial_epoch = int(model.current_epoch)
 
-    if valid_generator:
-        model.fit(
-            train_generator,
-            steps_per_epoch=train_step,
-            validation_data=valid_generator,
-            validation_steps=valid_step,
-            epochs=train_config["epoch"]["end"],
-            initial_epoch=initial_epoch,
-            class_weight=class_weights,
-            callbacks=callbacks,
-        )
-    else:
-        model.fit(
-            train_generator,
-            steps_per_epoch=train_step,
-            epochs=train_config["epoch"]["end"],
-            initial_epoch=initial_epoch,
-            class_weight=class_weights,
-            callbacks=callbacks,
-        )
-
+    with strategy.scope():
+        if valid_generator:
+            model.fit(
+                train_generator,
+                steps_per_epoch=train_step,
+                validation_data=valid_generator,
+                validation_steps=valid_step,
+                epochs=train_config["epoch"]["end"],
+                initial_epoch=initial_epoch,
+                class_weight=class_weights,
+                callbacks=callbacks,
+                )
+        else:
+            model.fit(
+                train_generator,
+                steps_per_epoch=train_step,
+                epochs=train_config["epoch"]["end"],
+                initial_epoch=initial_epoch,
+                class_weight=class_weights,
+                callbacks=callbacks,
+            )
+        
     if test_generator:
         model.evaluate(
             test_generator,

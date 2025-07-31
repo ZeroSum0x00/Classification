@@ -2,14 +2,9 @@ import numbers
 from augmenter.base_transform import BaseTransform
 from .crop import crop
 from .center_crop import center_crop
-from utils.auxiliary_processing import is_numpy_image
-
 
 
 def five_crop(image, size):
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
-
     if isinstance(size, numbers.Number):
         size = (int(size), int(size))
     else:

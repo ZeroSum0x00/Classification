@@ -7,7 +7,7 @@ from tensorflow.keras.utils import Sequence
 from multiprocessing.pool import ThreadPool
 
 from augmenter import build_augmenter
-from data_utils import Augmentor, Normalizer
+from data_utils import AugmentWrapper, Normalizer
 from utils.auxiliary_processing import change_color_space
 
 
@@ -35,6 +35,7 @@ class DataSequencePipeline(Sequence):
         self.batch_size = batch_size
         self.target_size = target_size
         self.color_space = color_space
+        self.interpolation = interpolation
         self.phase = phase
         self.debug_mode = debug_mode
         self.num_workers = num_workers
@@ -45,15 +46,14 @@ class DataSequencePipeline(Sequence):
 
         self.augmentor = augmentor.get(phase) if isinstance(augmentor, dict) else augmentor
         if augmentor and isinstance(self.augmentor, (tuple, list)):
-            self.augmentor = Augmentor(augment_objects=build_augmenter(self.augmentor))
+            self.augmentor = AugmentWrapper(transforms=build_augmenter(self.augmentor))
 
         if isinstance(normalizer, str):
             self.normalizer = Normalizer(
                 normalizer,
                 target_size=target_size,
                 mean=mean_norm,
-                std=std_norm,
-                interpolation=interpolation,
+                std=std_norm
             )
         else:
             self.normalizer = normalizer
@@ -72,6 +72,10 @@ class DataSequencePipeline(Sequence):
     def load_data(self, sample):
         sample_image = sample.get("image")
         sample_label = sample["label"]
+        metadata = {
+            "image": None,
+            "label": -1,
+        }
 
         deep_channel = 1 if (len(self.target_size) > 2 and self.target_size[-1] > 1) else 0
 
@@ -85,11 +89,38 @@ class DataSequencePipeline(Sequence):
         if self.color_space.lower() != "bgr":
             image = change_color_space(image, "bgr" if deep_channel else "gray", self.color_space)
 
+        metadata["image"] = image
+        metadata["label"] = sample_label
+
         if self.augmentor:
-            image = self.augmentor(image)
-            
-        image = self.normalizer(image)
-        return image, sample_label
+            metadata = self.augmentor(metadata)
+
+        metadata = self.normalizer(metadata)
+        return metadata
+ 
+    def collate_batch(self, batch_list):
+        def merge_key(key_items):
+            first = key_items[0]
+            if isinstance(first, dict):
+                return {
+                    k: merge_key([item.get(k) for item in key_items])
+                    for k in first
+                }
+            elif isinstance(first, np.ndarray):
+                try:
+                    return np.stack(key_items, axis=0)
+                except:
+                    for l in key_items:
+                        return np.array(key_items)
+            elif isinstance(first, int):
+                return np.array(key_items)
+            else:
+                return first
+
+        return {
+            k: merge_key([item[k] for item in batch_list])
+            for k in batch_list[0]
+        }
 
     def __getitem__(self, index):
         if index >= self.__len__():
@@ -102,20 +133,18 @@ class DataSequencePipeline(Sequence):
                 batch_data = pool.map(self.load_data, [self.dataset[i] for i in batch_indices])
         else:
             batch_data = [self.load_data(self.dataset[i]) for i in batch_indices]
-            
-        batch_images, batch_labels = zip(*batch_data)
-        batch_images = np.stack(batch_images)
-        batch_labels = np.array(batch_labels)
+
+        batch_data = self.collate_batch(batch_data)
 
         if self.class_weights:
-            batch_weights = np.array([self.class_weights.get(label, 1.0) for label in batch_labels], dtype=np.float32)
+            batch_weights = np.array([self.class_weights.get(label, 1.0) for label in batch_data["label"]], dtype=np.float32)
         else:
-            batch_weights = np.ones_like(batch_labels, dtype=np.float32)
-            
-        if self.debug_mode:
-            return batch_images, batch_labels, batch_weights, [self.dataset[i]["path"] for i in batch_indices]
-        else:
-            return batch_images, batch_labels, batch_weights
+            batch_weights = np.ones_like(batch_data["label"], dtype=np.float32)
+
+        images = batch_data["image"]
+        labels = batch_data["label"]
+        sample_weight = batch_weights
+        return images, labels, sample_weight
             
     def __len__(self):
         return int(np.ceil(self.N / self.batch_size))

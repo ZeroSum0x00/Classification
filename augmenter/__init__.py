@@ -6,6 +6,7 @@ from .base_transform import BaseTransform, BaseRandomTransform
 from .meta_transform import ComposeTransform, RandomApply, RandomOrder, RandomChoice
 
 
+
 def parse_augment_config(aug_list):
     parsed = []
     for item in aug_list:

@@ -1,13 +1,12 @@
 import os
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import callbacks
 from datetime import datetime
 from utils.time import datetime2string
+from utils.logger import logger
 
 
-
-class TrainSummary(callbacks.Callback):
+class TrainSummary(tf.keras.callbacks.Callback):
     def __init__(self, file_path):
         super(TrainSummary, self).__init__()
         self.file_path = file_path

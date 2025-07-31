@@ -10,7 +10,7 @@ from utils.constants import ALLOW_IMAGE_EXTENSIONS
 
 
 if __name__ == "__main__":
-    datasets_path = "/mnt/data_disk/bubbliiiing_datasets/arcface/dataset_splited/"
+    datasets_path = "/mnt/data_disk/Datasets/Classification/full_animals"
     output_path = "./datasets"
 
     data_folders = [name for name in os.listdir(datasets_path) if os.path.isdir(os.path.join(datasets_path, name))]

@@ -2,7 +2,6 @@ import os
 import numpy as np
 import scipy.signal
 import tensorflow as tf
-from tensorflow.keras import callbacks
 from utils.logger import logger
 
 import matplotlib
@@ -11,8 +10,7 @@ from matplotlib import pyplot as plt
 from visualizer import value_above_line
 
 
-
-class LossHistory(callbacks.Callback):
+class LossHistory(tf.keras.callbacks.Callback):
     def __init__(
         self,
         result_path=None,

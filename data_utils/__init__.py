@@ -1,4 +1,4 @@
-from .data_augmentation import Augmentor
+from .data_augmentation import AugmentWrapper
 from .data_normalization import Normalizer
 
 from .sequence_data_flow import DataSequencePipeline

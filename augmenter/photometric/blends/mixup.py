@@ -5,14 +5,13 @@ import numpy as np
 from utils.auxiliary_processing import is_numpy_image
 
 
-
 def mixup(
     images,
     target_size=(224, 224, 3),
     main_image_ratio=0.8,
 ):
-    new_image = 0.0
-    n_sample = len(images)
+    new_image   = 0.0
+    n_sample    = len(images)
     remaining_object_ratio = (1. - main_image_ratio) / (n_sample - 1)
     
     for idx, image in enumerate(images):

@@ -1,9 +1,7 @@
 import tensorflow as tf
-from tensorflow.keras import metrics
 
 
-
-class CategoricalAccuracy(metrics.Metric):
+class CategoricalAccuracy(tf.keras.metrics.Metric):
     def __init__(self, name="accuracy", **kwargs):
         super().__init__(name=name, **kwargs)
         self.acc = tf.keras.metrics.CategoricalAccuracy()
@@ -22,7 +20,7 @@ class CategoricalAccuracy(metrics.Metric):
         self.acc.reset_state()
 
 
-class TopKCategoricalAccuracy(metrics.Metric):
+class TopKCategoricalAccuracy(tf.keras.metrics.Metric):
     def __init__(self, k=5, name="accuracy", **kwargs):
         name = name + f"_top_{k}"
         super().__init__(name=name, **kwargs)

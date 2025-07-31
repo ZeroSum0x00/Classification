@@ -1,31 +1,47 @@
 import cv2
+import copy
 import random
 import numbers
 import numpy as np
 import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
 
-def adjust_contrast(image, contrast_factor):
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
+def adjust_contrast(metadata, contrast_factor):
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
 
-    img = image.astype(np.float32)
-    mean = round(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).mean())
-    img = (1 - contrast_factor) * mean + contrast_factor * img
-    img = img.clip(min=0, max=255)
-    return img.astype(image.dtype)
-
+    if image is None:
+        return metadata
+        
+    image = image.astype(np.float32)
+    mean = round(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY).mean())
+    image = (1 - contrast_factor) * mean + contrast_factor * image
+    image = image.clip(min=0, max=255).astype(np.uint8)
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
+    
 
 class AdjustContrast(BaseTransform):
     def __init__(self, contrast_factor=1):
         self.contrast_factor = contrast_factor
 
-    def image_transform(self, image):
-        return adjust_contrast(image, self.contrast_factor)
+    def image_transform(self, metadata):
+        return adjust_contrast(metadata, self.contrast_factor)
 
 
 class RandomAdjustContrast(BaseRandomTransform):
@@ -49,7 +65,7 @@ class RandomAdjustContrast(BaseRandomTransform):
 
         return contrast_factor
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         contrast_factor = self.get_params(self.contrast_range)
-        return adjust_contrast(image, contrast_factor)
+        return adjust_contrast(metadata, contrast_factor)
     

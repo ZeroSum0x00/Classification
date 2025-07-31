@@ -1,15 +1,16 @@
 import cv2
+import copy
 import math
 import random
 import numpy as np
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 
 
 
 def radial_gradient(
-    image,
+    metadata,
     inner_color=150,
     outer_color=30,
     center=None,
@@ -74,30 +75,40 @@ def radial_gradient(
 
         return np.clip(image.astype(np.uint16) + tmp.astype(np.uint16), 0, 255).astype(np.uint8)
 
-    if not is_numpy_image(image):
-        raise TypeError("image should be image. Got {}".format(type(image)))
-    
-    im_height, im_width, im_depth = image.shape
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
+
+    if image is None:
+        return metadata
+
+    height, width, im_depth = image.shape
     inner_color = im_depth * [inner_color]
     outer_color = im_depth * [outer_color]
 
     if center is None:
-        center = random.randint(0, im_height), random.randint(0, im_width)
+        center = random.randint(0, height), random.randint(0, width)
 
     if not rect:
         if max_distance is None:
             if random_distance:
-                size = max(im_width, im_height)
+                size = max(width, height)
                 max_distance = size * random.uniform(.1, .3)
             else:
                 max_distance = 0
-                corners = [(0, 0), (im_height, 0), (0, im_width), (im_height, im_width)]
+                corners = [(0, 0), (height, 0), (0, width), (height, width)]
                 for corner in corners:
                     distance = math.sqrt((corner[0] - center[0])**2 +
                                          (corner[1] - center[1])**2)
                     max_distance = max(distance, max_distance)
 
-    return apply_radial(
+    image = apply_radial(
         image=image,
         center=center,
         max_distance=int(max_distance),
@@ -105,6 +116,12 @@ def radial_gradient(
         outer_color=outer_color,
         rect=rect,
     )
+
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
     
 
 class RadialGradient(BaseTransform):
@@ -124,9 +141,9 @@ class RadialGradient(BaseTransform):
         self.rect = rect
         self.random_distance = random_distance
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         return radial_gradient(
-            image=image,
+            metadata,
             inner_color=self.inner_color,
             outer_color=self.outer_color,
             center=self.center,
@@ -155,9 +172,9 @@ class RandomRadialGradient(BaseRandomTransform):
         self.random_distance = random_distance
         self.prob = prob
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         return radial_gradient(
-            image=image,
+            metadata,
             inner_color=self.inner_color,
             outer_color=self.outer_color,
             center=self.center,

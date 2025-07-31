@@ -1,18 +1,31 @@
+import cv2
+import copy
 import random
 import numbers
+import numpy as np
 import tensorflow as tf
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 from ..blends import blend
 
 
 
-def sharpness(image, factor):
+def sharpness(metadata, factor):
     """Implements Sharpness function from PIL using TF ops."""
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
 
+    if image is None:
+        return metadata
+        
     orig_image = image
     image = tf.cast(image, tf.float32)
     # Make image 4D for conv operation.
@@ -28,21 +41,27 @@ def sharpness(image, factor):
 
     # For the borders of the resulting image, fill in the values of the
     # original image.
-    mask = tf.ones_like(degenerate)
-    padded_mask = tf.pad(mask, [[1, 1], [1, 1], [0, 0]])
-    padded_degenerate = tf.pad(degenerate, [[1, 1], [1, 1], [0, 0]])
-    result = tf.where(tf.equal(padded_mask, 1), padded_degenerate, orig_image)
+    mask = np.ones_like(degenerate)
+    padded_mask = np.pad(mask, [[1, 1], [1, 1], [0, 0]])
+    padded_degenerate = np.pad(degenerate, [[1, 1], [1, 1], [0, 0]])
+    result = np.where(np.equal(padded_mask, 1), padded_degenerate, orig_image)
 
     # Blend the final result.
-    return blend(result, orig_image, factor)
+    image = blend(result, orig_image, factor)
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class Sharpness(BaseTransform):
     def __init__(self, factor):
         self.factor = factor
 
-    def image_transform(self, image):
-        return sharpness(image, self.factor)
+    def image_transform(self, metadata):
+        return sharpness(metadata, self.factor)
 
 
 class RandomSharpness(BaseRandomTransform):
@@ -69,7 +88,7 @@ class RandomSharpness(BaseRandomTransform):
 
         return sharpness_factor
     
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         sharpness_factor = self.get_params(self.factor)
-        return sharpness(image, sharpness_factor)
+        return sharpness(metadata, sharpness_factor)
     

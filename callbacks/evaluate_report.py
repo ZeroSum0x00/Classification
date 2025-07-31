@@ -1,8 +1,9 @@
 import os
+import io
+import cv2
 import matplotlib
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import callbacks
 
 matplotlib.use("Agg")
 from tqdm import tqdm
@@ -14,8 +15,7 @@ from visualizer import value_above_line, VideoRender
 from utils.logger import logger
 
 
-
-class Evaluate(callbacks.Callback):
+class Evaluate(tf.keras.callbacks.Callback):
     def __init__(
         self,
         result_path=None,
@@ -66,7 +66,8 @@ class Evaluate(callbacks.Callback):
 
                 predictions = []
                 gts = []
-                for i, (images, labels, _) in enumerate(tqdm(self.eval_dataset)):
+                for i, data in enumerate(tqdm(self.eval_dataset)):
+                    images, labels, _ = data
                     preds = self.model.predict(images)
                     preds = np.argmax(preds, axis=1)
                     predictions.append(preds)

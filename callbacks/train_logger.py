@@ -1,11 +1,10 @@
 import os
 import logging
 import tensorflow as tf
-from tensorflow.keras import callbacks
 
 
 
-class TrainLogger(callbacks.Callback):
+class TrainLogger(tf.keras.callbacks.Callback):
 
     """Logs training metrics to a file.
     

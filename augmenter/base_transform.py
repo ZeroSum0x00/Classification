@@ -2,18 +2,15 @@ import random
 from abc import ABC, abstractmethod
 
 
+
 class BaseTransform(ABC):
 
     @abstractmethod
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         raise NotImplemented
 
-    def __call__(self, images):
-        if isinstance(images, (tuple, list)):
-            images = [self.image_transform(img) for img in images]
-        else:
-            images = self.image_transform(images)
-        return images
+    def __call__(self, metadata):
+        return self.image_transform(metadata)
 
 
 class BaseRandomTransform(ABC):
@@ -21,14 +18,11 @@ class BaseRandomTransform(ABC):
         self.prob = prob
 
     @abstractmethod
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         raise NotImplemented
 
-    def __call__(self, images):
+    def __call__(self, metadata):
         if random.random() < self.prob:
-            if isinstance(images, (tuple, list)):
-                images = [self.image_transform(img) for img in images]
-            else:
-                images = self.image_transform(images)
-        return images
+            metadata = self.image_transform(metadata)
+        return metadata
     

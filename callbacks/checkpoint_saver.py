@@ -1,10 +1,8 @@
 import tensorflow as tf
-from tensorflow.keras import callbacks
 from utils.logger import logger
 
 
-
-class CheckpointSaver(callbacks.Callback):
+class CheckpointSaver(tf.keras.callbacks.Callback):
     def __init__(self, model, ckpt_manager):
         super().__init__()
         self.model_obj = model

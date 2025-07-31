@@ -1,4 +1,3 @@
-# train-test processing model
 import gc
 import copy
 import inspect
@@ -137,7 +136,7 @@ def build_models(trainer_config, model_config):
     gradient_accumulation_steps = trainer_config.pop("gradient_accumulation_steps", 1)
     sam_rho = trainer_config.pop("sam_rho", 0.0)
     use_ema = trainer_config.pop("train_with_ema", False)
-    compile_mode = trainer_config.pop("compile_mode")
+    compile_jit = trainer_config.pop("compile_jit")
     
     architecture_config = model_config["Architecture"]
     architecture_name = architecture_config.pop("name")
@@ -268,11 +267,7 @@ def build_models(trainer_config, model_config):
         gradient_accumulation_steps=gradient_accumulation_steps,
         sam_rho=sam_rho,
         use_ema=use_ema,
-        compile_mode=compile_mode,
+        compile_jit=compile_jit,
         name=architecture_name,
     )
-    
-    del backbone
-    K.clear_session()
-    gc.collect()
     return model

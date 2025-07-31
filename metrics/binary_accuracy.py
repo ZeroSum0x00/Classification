@@ -1,9 +1,7 @@
 import tensorflow as tf
-from tensorflow.keras import metrics
 
 
-
-class BinaryAccuracy(metrics.Metric):
+class BinaryAccuracy(tf.keras.metrics.Metric):
     def __init__(self, name="accuracy", **kwargs):
         super().__init__(name=name, **kwargs)
         self.acc = tf.keras.metrics.BinaryAccuracy()

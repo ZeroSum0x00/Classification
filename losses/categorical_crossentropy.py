@@ -2,7 +2,6 @@ import tensorflow as tf
 from tensorflow.keras import losses
 
 
-
 class CategoricalCrossentropy(losses.Loss):
     def __init__(
         self,
@@ -17,7 +16,7 @@ class CategoricalCrossentropy(losses.Loss):
             from_logits=from_logits,
             label_smoothing=label_smoothing,
             axis=crossentropy_axis,
-            # reduction=None,
+            reduction=None,
         )
         self.reduction = reduction
         self.invariant_name = "categorical_crossentropy"

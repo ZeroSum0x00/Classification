@@ -14,7 +14,6 @@ from utils.constants import ALLOW_IMAGE_EXTENSIONS
 from utils.config_processing import load_config
 
 
-
 def load_model(weight_path, model_config=None, classes=None):
     if weight_path.endswith(".keras"):
         model = tf.keras.models.load_model(weight_path)

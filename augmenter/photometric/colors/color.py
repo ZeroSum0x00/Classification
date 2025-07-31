@@ -1,29 +1,46 @@
 import cv2
+import copy
 import random
 import numbers
+import numpy as np
 import collections.abc as collections
 
 from augmenter.base_transform import BaseTransform, BaseRandomTransform
-from utils.auxiliary_processing import is_numpy_image
+from utils.augmenter_processing import extract_metadata, get_focus_image_from_metadata
 from ..blends import blend
 
 
+def color(metadata, color_factor):
+    if isinstance(metadata, dict):
+        metadata_check = True
+        clone_data = copy.deepcopy(metadata)
+        _, image, _, _, _, _ = extract_metadata(clone_data)
+    elif isinstance(metadata, np.ndarray):
+        metadata_check = False
+        image = copy.deepcopy(metadata)
+    else:
+        raise ValueError("Input must be either a dictionary (metadata) or a NumPy array (image).")
 
-def color(image, color_factor):
-    if not is_numpy_image(image):
-        raise TypeError("img should be image. Got {}".format(type(image)))
-
+    if image is None:
+        return metadata
+        
     degenerate = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     degenerate = cv2.cvtColor(degenerate, cv2.COLOR_GRAY2RGB)
-    return blend(degenerate, image, color_factor)
+    image = blend(degenerate, image, color_factor)
+    
+    if metadata_check:
+        clone_data["image"] = image
+        return clone_data
+    else:
+        return image
 
 
 class Color(BaseTransform):
     def __init__(self, color_factor=1):
         self.color_factor = color_factor
 
-    def image_transform(self, image):
-        return color(image, self.color_factor)
+    def image_transform(self, metadata):
+        return color(metadata, self.color_factor)
 
 
 class RandomColor(BaseRandomTransform):
@@ -46,7 +63,7 @@ class RandomColor(BaseRandomTransform):
             
         return color_factor
 
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         color_factor = self.get_params(self.color_range)
-        return color(image, color_factor)
+        return color(metadata, color_factor)
     

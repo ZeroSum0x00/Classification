@@ -1,3 +1,4 @@
+import copy
 import random
 import collections.abc as collections
 
@@ -31,10 +32,10 @@ class ColorJitter(BaseTransform):
         if (isinstance(hue, (int, float)) and hue > 0) or (isinstance(hue, collections.Iterable) and len(hue) == 2):
             self.transforms.append(RandomAdjustHue(hue))
         
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         random.shuffle(self.transforms)
         transform = ComposeTransform(self.transforms)
-        return transform(image)
+        return transform(metadata)
 
 
 class RandomColorJitter(BaseRandomTransform):
@@ -61,8 +62,8 @@ class RandomColorJitter(BaseRandomTransform):
         if (isinstance(hue, (int, float)) and hue > 0) or (isinstance(hue, collections.Iterable) and len(hue) == 2):
             self.transforms.append(RandomAdjustHue(hue))
         
-    def image_transform(self, image):
+    def image_transform(self, metadata):
         random.shuffle(self.transforms)
         transform = ComposeTransform(self.transforms)
-        return transform(image)
+        return transform(metadata)
     

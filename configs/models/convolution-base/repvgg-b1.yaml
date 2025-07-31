@@ -2,6 +2,9 @@ Model:
     inputs: [224, 224, 3]
     classes: null
     weight_path: null
+    use_ema: False
+    model_clip_gradient: 10
+    gradient_accumulation_steps: 2
     Architecture:
         name: CLS
     Backbone:
