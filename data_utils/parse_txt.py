@@ -5,7 +5,8 @@ from tqdm import tqdm
 
 
 class ParseTXT:
-    def __init__(self, 
+    def __init__(
+        self, 
         data_dir,
         annotation_file,
         classes,
