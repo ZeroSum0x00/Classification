@@ -233,7 +233,7 @@ class TrainModel(tf.keras.Model):
             }
 
         if self.compile_jit:
-            print(f"Use JIT compile in phase {phase.lower()}")
+            logger.info(f"Use JIT compile in phase {phase.lower()}")
             
         return tf.function(_train_grad if phase.lower() == "train" else _test_grad, jit_compile=self.compile_jit)
 

@@ -14,6 +14,7 @@ data/
 results/
 experiments/
 
+datasets/
 saved_weights/
 
 # Distribution / packaging

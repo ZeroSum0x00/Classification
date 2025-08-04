@@ -12,6 +12,7 @@ from metrics import build_metrics
 from callbacks import build_callbacks, Evaluate, CheckpointSaver
 from data_utils import get_train_test_data, TFDataPipeline
 from utils.train_processing import create_folder_weights, find_max_batch_size, train_prepare
+from utils.post_processing import get_labels
 from utils.config_processing import load_config
 from utils.logger import logger
 
@@ -47,29 +48,23 @@ def train(engine_file_config, model_file_config):
     shutil.copy(engine_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(engine_file_config)))
 
     if not model_config["classes"]:
-        model_config["classes"] = data_config["data_source_paths"]
+        classes, _ = get_labels(data_config["data_source_paths"])
+        model_config["classes"] = classes
+        model_config["is_set_classes"] = True
     
     model_config["train_strategy"] = train_config.get("train_strategy", "scratch")
 
     batch_size = find_max_batch_size(model) if train_config["batch_size"] == -1 else train_config["batch_size"]
     global_batch_size = batch_size * strategy.num_replicas_in_sync
     optimizer_config["learning_rate"] = optimizer_config["learning_rate"] / strategy.num_replicas_in_sync
-    
-    with strategy.scope():
-        losses = build_losses(loss_config)
-        optimizer = build_optimizer(optimizer_config)
-        metrics = build_metrics(metric_config)
 
-        model = build_models(train_config, model_config)
-        model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
-    
     with open(os.path.join(TRAINING_TIME_PATH, "classes.names"), "w") as f:
-        for cls in model.classes:
+        for cls in classes:
             f.write(cls + "\n")
 
     data_generator_instance = get_train_test_data(
         data_source_paths=data_config["data_source_paths"],
-        classes=model.classes,
+        classes=classes,
         target_size=model_config["inputs"],
         batch_size=global_batch_size,
         color_space=data_config["data_info"].get("color_space", "RGB"),
@@ -102,7 +97,15 @@ def train(engine_file_config, model_file_config):
     if test_generator:
         test_step = int(np.ceil(test_generator.N / global_batch_size))
         test_generator = test_generator.get_dataset() if isinstance(test_generator, TFDataPipeline) else test_generator
+    
+    with strategy.scope():
+        losses = build_losses(loss_config)
+        optimizer = build_optimizer(optimizer_config)
+        metrics = build_metrics(metric_config)
 
+        model = build_models(train_config, model_config)
+        model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
+    
     callbacks = build_callbacks(callbacks_config, TRAINING_TIME_PATH)
 
     for callback in callbacks:

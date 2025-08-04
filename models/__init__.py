@@ -132,21 +132,27 @@ def build_models(trainer_config, model_config):
     inputs = model_config.pop("inputs", [224, 224, 3])
     weight_path = model_config.pop("weight_path", None)
     classes = model_config.pop("classes")
+    is_set_classes = model_config.pop("is_set_classes", False)
     model_clip_gradient = trainer_config.pop("model_clip_gradient", 5.)
     gradient_accumulation_steps = trainer_config.pop("gradient_accumulation_steps", 1)
     sam_rho = trainer_config.pop("sam_rho", 0.0)
     use_ema = trainer_config.pop("train_with_ema", False)
     compile_jit = trainer_config.pop("compile_jit")
-    
+        
     architecture_config = model_config["Architecture"]
     architecture_name = architecture_config.pop("name")
     
-    if classes:
-        if isinstance(classes, (str, list, tuple)):
-            classes, num_classes = get_labels(classes)
+    if not is_set_classes:
+        if classes:
+            if isinstance(classes, (str, list, tuple)):
+                classes, num_classes = get_labels(classes)
+            else:
+                num_classes = len(classes)
         else:
-            num_classes = len(classes)
-
+            raise ValueError("You much pass classes args to get classes and num_classes")
+    else:
+        num_classes = len(classes)
+    
     if weight_path and weight_path.endswith(".keras"):
         backbone = tf.keras.models.load_model(weight_path).layers[0]
     else:
