@@ -24,7 +24,8 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.norm_eps = norm_eps
         self.drop_rate = drop_rate
-    
+        self.supports_masking = True
+        
     def build(self, input_shape):
         self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
@@ -86,7 +87,8 @@ class TransformerDecoderBlock(tf.keras.layers.Layer):
         self.normalizer = normalizer
         self.norm_eps = norm_eps
         self.drop_rate = drop_rate
-    
+        self.supports_masking = True
+        
     def build(self, input_shape):
         if self.cross_attn_block is not None:
             self.norm_layer_cross = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
