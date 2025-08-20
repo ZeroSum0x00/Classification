@@ -28,7 +28,8 @@ from .transformer import (
     MLPBlock, ExtractPatches, ClassificationToken,
     CausalMask, ClassToken, DistillationToken,
     PositionalEmbedding, PositionalIndex, MultiHeadSelfAttention,
-    TransformerEncoderBlock, PositionalEncodingFourierRot1D, PositionalEncodingFourierRot,
+    TransformerEncoderBlock, TransformerDecoderBlock,
+    PositionalEncodingFourierRot1D, PositionalEncodingFourierRot,
     MultiHeadRelativePositionalEmbedding, AttentionMLPBlock, EnhanceSelfAttention,  
 )
 
