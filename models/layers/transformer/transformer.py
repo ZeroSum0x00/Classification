@@ -33,9 +33,11 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
         self.dropout_layer1 = Dropout(rate=self.drop_rate)
         self.dropout_layer2 = Dropout(rate=self.drop_rate)
 
-    def call(self, inputs, training=False, return_weight=False):
+    def call(self, inputs, attn_mask=None, training=False, return_weight=False):
         x = self.norm_layer1(inputs, training=training)
-        x, weights = self.attention_block(x, training=training, return_weight=return_weight)
+        x, weights = self.attention_block(
+            x, attn_mask=attn_mask, training=training, return_weight=return_weight
+        )
         x = self.dropout_layer1(x, training=training)
         x = x + inputs
         
