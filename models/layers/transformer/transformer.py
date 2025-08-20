@@ -99,18 +99,18 @@ class TransformerDecoderBlock(tf.keras.layers.Layer):
         self.activ_layer = get_activation_from_name(self.activation)
         self.dropout = Dropout(self.drop_rate)
 
-    def call(self, inputs, attn_mask=None, training=False, return_weight=False):
+    def call(self, inputs, self_mask=None, cross_mask=None, training=False, return_weight=False):
         hidden_state, encoder_outputs = inputs
         hidden_state = self.norm_layer1(hidden_state, training=training)
         masked_attn_out, weights1 = self.masked_attn_block(
-            hidden_state, attn_mask=attn_mask, training=training, return_weight=return_weight
+            hidden_state, attn_mask=self_mask, training=training, return_weight=return_weight
         )
         hidden_state = hidden_state + masked_attn_out
         
         if self.cross_attn_block is not None:
             hidden_state = self.norm_layer_cross(hidden_state, training=training)
             cross_attn_out, weights2 = self.cross_attn_block(
-                [hidden_state, encoder_outputs], attn_mask=attn_mask, training=training, return_weight=return_weight
+                [hidden_state, encoder_outputs], attn_mask=cross_mask, training=training, return_weight=return_weight
             )
             hidden_state = hidden_state + cross_attn_out
         else:
