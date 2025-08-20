@@ -139,6 +139,25 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
                 trainable=True,
                 name="causal_mask"
             )
+            
+    def get_causal_attention_mask(self, query, key=None):
+        rank = query.shape.rank
+        
+        if rank == 2:
+            seq_len = tf.shape(query)[1]
+            mask = tf.linalg.band_part(tf.ones((seq_len, seq_len)), -1, 0)
+            mask = tf.reshape(mask, [1, 1, seq_len, seq_len])
+            return mask
+        
+        elif rank == 3:
+            q_len = tf.shape(query)[-2]
+            k_len = q_len if key is None else tf.shape(key)[-2]
+            mask = tf.linalg.band_part(tf.ones((q_len, k_len), dtype=tf.float32), -1, 0)
+            mask = tf.reshape(mask, [1, 1, q_len, k_len])
+            return mask
+        
+        else:
+            raise ValueError(f"Unsupported input rank {rank}")
 
     def scaled_dot_product_attention(self, query, key, value, attn_mask=None):
         score = tf.matmul(query, key, transpose_b=True)
@@ -147,10 +166,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
     
         # causal mask trực tiếp từ shape
         if self.use_causal_mask:
-            q_len = tf.shape(query)[-2]
-            k_len = tf.shape(key)[-2]
-            causal_mask = tf.linalg.band_part(tf.ones((q_len, k_len)), -1, 0)
-            causal_mask = tf.reshape(causal_mask, [1, 1, q_len, k_len])
+            causal_mask = self.get_causal_attention_mask(query, key)
             attn += (1.0 - causal_mask) * -1e9
     
         # attn_mask ngoài
