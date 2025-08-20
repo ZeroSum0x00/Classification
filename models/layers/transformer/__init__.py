@@ -8,4 +8,5 @@ from .multihead_relative_positional_embedding import MultiHeadRelativePositional
 from .positional_embedding import PositionalEmbedding
 from .positional_encoding_fourier_rot import PositionalEncodingFourierRot1D, PositionalEncodingFourierRot
 from .positional_indexing import PositionalIndex
-from .transformer import TransformerEncoderBlock
+
+from .transformer import TransformerEncoderBlock, TransformerDecoderBlock
