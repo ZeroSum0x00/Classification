@@ -96,7 +96,7 @@ class TransformerDecoderBlock(tf.keras.layers.Layer):
         self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.norm_layer3 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
-        self.activ_layer = Activation(self.activation)
+        self.activ_layer = get_activation_from_name(self.activation)
         self.dropout = Dropout(self.drop_rate)
 
     def call(self, inputs, self_mask=None, cross_mask=None, training=False, return_weight=False):
