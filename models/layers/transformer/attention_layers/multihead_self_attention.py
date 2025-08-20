@@ -128,54 +128,27 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         
         self.final_dropout = Dropout(rate=self.drop_rate)
 
-        if self.use_causal_mask:
-            block_size = query_shape[-2]
-            causal_mask = np.tril(np.ones((block_size, block_size)))
-            causal_mask = np.reshape(causal_mask, [1, block_size, block_size, 1])
-            causal_mask = tf.convert_to_tensor(causal_mask, dtype=tf.float32)
-            self.causal_mask = self.add_weight(
-                shape=causal_mask.shape,
-                initializer=causal_mask,
-                trainable=True,
-                name="causal_mask"
-            )
-            
     def get_causal_attention_mask(self, query, key=None):
-        rank = query.shape.rank
-        
-        if rank == 2:
-            seq_len = tf.shape(query)[1]
-            mask = tf.linalg.band_part(tf.ones((seq_len, seq_len)), -1, 0)
-            mask = tf.reshape(mask, [1, 1, seq_len, seq_len])
-            return mask
-        
-        elif rank == 3:
-            q_len = tf.shape(query)[-2]
-            k_len = q_len if key is None else tf.shape(key)[-2]
-            mask = tf.linalg.band_part(tf.ones((q_len, k_len), dtype=tf.float32), -1, 0)
-            mask = tf.reshape(mask, [1, 1, q_len, k_len])
-            return mask
-        
-        else:
-            raise ValueError(f"Unsupported input rank {rank}")
+        q_len = tf.shape(query)[-2]
+        k_len = q_len if key is None else tf.shape(key)[-2]
+        mask = tf.linalg.band_part(tf.ones((q_len, k_len), dtype=tf.float32), -1, 0)
+        return tf.reshape(mask, [1, 1, q_len, k_len])
 
     def scaled_dot_product_attention(self, query, key, value, attn_mask=None):
         score = tf.matmul(query, key, transpose_b=True)
         dim_key = tf.cast(tf.shape(key)[-1], score.dtype)
         attn = score / tf.math.sqrt(dim_key)
     
-        # causal mask trực tiếp từ shape
         if self.use_causal_mask:
             causal_mask = self.get_causal_attention_mask(query, key)
-            attn += (1.0 - causal_mask) * -1e9
+            attn = attn + (1.0 - causal_mask) * -1e9
     
-        # attn_mask ngoài
         if attn_mask is not None:
             if attn_mask.dtype == tf.bool:
                 attn_mask = tf.cast(attn_mask, attn.dtype)
-                attn += (1.0 - attn_mask) * -1e9
+                attn = attn + (1.0 - attn_mask) * -1e9
             else:
-                attn += attn_mask
+                attn = attn + attn_mask
     
         weights = tf.nn.softmax(attn, axis=-1)
         output = tf.matmul(weights, value)
