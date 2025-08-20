@@ -12,8 +12,8 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
         self,
         attention_block=None,
         mlp_block=None,
-        activation="gelu",
-        normalizer=None,
+        activation=None,
+        normalizer="layer-norm",
         norm_eps=1e-6,
         drop_rate=0.1,
         *args, **kwargs
@@ -30,17 +30,22 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
         self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.activ_layer = get_activation_from_name(self.activation)
-        self.dropout_layer = Dropout(rate=self.drop_rate)
+        self.dropout_layer1 = Dropout(rate=self.drop_rate)
+        self.dropout_layer2 = Dropout(rate=self.drop_rate)
 
     def call(self, inputs, training=False, return_weight=False):
         x = self.norm_layer1(inputs, training=training)
         x, weights = self.attention_block(x, training=training, return_weight=return_weight)
-        x = self.dropout_layer(x, training=training)
+        x = self.dropout_layer1(x, training=training)
         x = x + inputs
+        
         y = self.norm_layer2(x, training=training)
         y = self.mlp_block(y, training=training)
-        y = self.activ_layer(y, training=training)
-        return x + y, weights
+        y = self.dropout_layer2(y, training=training)
+        
+        o = x + y
+        o = self.activ_layer(o, training=training)
+        return o, weights
 
     def get_config(self):
         config = super().get_config()
