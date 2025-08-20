@@ -32,6 +32,7 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         self.bias_initializer = bias_initializer
         self.regularizer_decay = check_regularizer(regularizer_decay)
         self.drop_rate = drop_rate
+        self.supports_masking = True
         
     def build(self, input_shape):
         if isinstance(input_shape, (list, tuple)):  
@@ -116,7 +117,6 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
                 bias_initializer=self.bias_initializer,
                 kernel_regularizer=self.regularizer_decay,
             )
-
 
         self.combine_heads = Dense(
             units=hidden_size,
