@@ -144,19 +144,23 @@ class MultiHeadSelfAttention(tf.keras.layers.Layer):
         score = tf.matmul(query, key, transpose_b=True)
         dim_key = tf.cast(tf.shape(key)[-1], score.dtype)
         attn = score / tf.math.sqrt(dim_key)
-
+    
+        # causal mask trực tiếp từ shape
         if self.use_causal_mask:
-            attn = tf.transpose(attn, [0, 2, 3, 1])
-            mask = tf.where(tf.equal(self.causal_mask, 0), tf.zeros_like(self.causal_mask), self.causal_mask)
-            attn = attn * mask
-            attn = tf.transpose(attn, [0, 3, 1, 2])
-
+            q_len = tf.shape(query)[-2]
+            k_len = tf.shape(key)[-2]
+            causal_mask = tf.linalg.band_part(tf.ones((q_len, k_len)), -1, 0)
+            causal_mask = tf.reshape(causal_mask, [1, 1, q_len, k_len])
+            attn += (1.0 - causal_mask) * -1e9
+    
+        # attn_mask ngoài
         if attn_mask is not None:
             if attn_mask.dtype == tf.bool:
-                attn = tf.where(attn_mask, -1e30, attn)
+                attn_mask = tf.cast(attn_mask, attn.dtype)
+                attn += (1.0 - attn_mask) * -1e9
             else:
                 attn += attn_mask
-                
+    
         weights = tf.nn.softmax(attn, axis=-1)
         output = tf.matmul(weights, value)
         return output, weights
