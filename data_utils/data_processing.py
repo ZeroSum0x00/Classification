@@ -19,9 +19,9 @@ def get_data(
     load_memory=False,
     *args, **kwargs
 ):
-    def load_data(data_dir):
+    def load_data(data_path):
         if data_type.lower() == "dirname":
-            annotation_dir = os.path.join(data_dir, phase)
+            annotation_dir = os.path.join(data_path, phase)
             image_file_list = [sorted(get_files(os.path.join(annotation_dir, cls), ALLOW_IMAGE_EXTENSIONS, cls)) for cls in classes]
             image_files = [item for sublist in image_file_list for item in sublist]
 
@@ -32,12 +32,12 @@ def get_data(
             return parser(image_files)
             
         elif data_type.lower() == "text" or data_type.lower() == "txt":
-            annotation_file = os.path.join(data_dir, f'{phase}.txt')
+            annotation_file = os.path.join(data_path, f'{phase}.txt')
             
             if not os.path.isfile(annotation_file):
                 raise FileNotFoundError(f"Annotation file not found: '{annotation_file}'")
 
-            parser = ParseTXT(data_dir, annotation_file, classes, load_memory, check_data=check_data, *args, **kwargs)
+            parser = ParseTXT(data_path, annotation_file, classes, load_memory, check_data=check_data, *args, **kwargs)
             return parser()
         else:
             raise ValueError(f"Unsupported data_type: '{data_type}'. Expected one of ['dirname', 'text', 'txt']")
