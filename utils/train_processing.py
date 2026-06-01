@@ -1,6 +1,5 @@
 import os
 import random
-import logging
 import datetime
 import numpy as np
 import tensorflow as tf
@@ -10,14 +9,11 @@ from .logger import logger
 
 def train_prepare(
     execution_mode="graph",
-    vram_usage="full",
-    vram_limit_mb=10240,
+    device=None,
     mixed_precision_dtype=None,
-    num_gpu=0,
     init_seed=-1
 ):
     try:
-        # --- 1. Set random seeds ---
         if init_seed >= 0:
             random.seed(init_seed)
             np.random.seed(init_seed)
@@ -31,22 +27,44 @@ def train_prepare(
             except AttributeError:
                 logger.warning("TensorFlow version does not support 'enable_op_determinism'.")
 
+        device_kine = device.get("kine", "gpu") if device else "cpu"
+        num_usage = device.get("num_usage", -1) if device else -1
+        vram_usage = device.get("vram_usage", "full") if device_kine == "gpu" else None
+        vram_limit_mb = device.get("vram_limit_mb", 10240) if device_kine == "gpu" else None
+
         # --- 2. Set execution mode (CPU/GPU) ---
-        if execution_mode.lower() == "cpu":
+        if device_kine.lower() == "cpu":
             tf.config.set_visible_devices([], "GPU")
-            logger.info("Training in CPU mode.")
+
+            if num_usage <= 0:
+                num_threads = os.cpu_count()
+            else:
+                num_threads = num_usage
+
+            tf.config.threading.set_intra_op_parallelism_threads(num_threads)
+            tf.config.threading.set_inter_op_parallelism_threads(num_threads)
+
+            logger.info(f"Training in CPU mode with {num_threads} threads.")
             return tf.distribute.get_strategy()
 
         # --- 3. Select GPUs ---
-        if isinstance(num_gpu, int):
-            gpu_list = [num_gpu] if num_gpu >= 0 else []
-        elif isinstance(num_gpu, (list, tuple)):
-            gpu_list = list(num_gpu)
+        if isinstance(num_usage, int):
+            if num_usage == -1:
+                gpu_list = None
+            elif num_usage >= 0:
+                gpu_list = [num_usage]
+            else:
+                raise ValueError("num_usage must be -1 or a non-negative int when using GPU.")
+        elif isinstance(num_usage, (list, tuple)):
+            gpu_list = list(num_usage)
         else:
-            raise ValueError("num_gpu must be int or list of ints.")
+            raise ValueError("num_usage must be int or list of ints.")
         
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_list))
+        if gpu_list is not None:
+            os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_list))
         physical_gpus = tf.config.list_physical_devices("GPU")
+        if gpu_list is None:
+            gpu_list = list(range(len(physical_gpus)))
 
         if physical_gpus:
             for gpu in physical_gpus:
@@ -73,15 +91,18 @@ def train_prepare(
             "mixed_float16": "mixed_float16",
             "mixed_bfloat16": "mixed_bfloat16",
         }
-        # if mixed_precision_dtype:
-        #     dtype = mixed_precision_dtype.lower()
-        #     if dtype in allowed_precisions:
-        #         from tensorflow.keras import mixed_precision
-        #         policy = allowed_precisions[dtype]
-        #         mixed_precision.set_global_policy(policy)
-        #         logger.info(f"Using mixed precision: {policy}")
-        #     else:
-        #         logger.warning(f"Unsupported mixed_precision_dtype: {mixed_precision_dtype}")
+        if mixed_precision_dtype:
+            dtype = mixed_precision_dtype.lower()
+            if dtype in allowed_precisions:
+                from tensorflow.keras import mixed_precision
+                policy = allowed_precisions[dtype]
+                try:
+                    mixed_precision.set_global_policy(policy)
+                    logger.info(f"Using mixed precision: {policy}")
+                except Exception as exc:
+                    logger.error(f"Failed to set mixed precision policy {policy}: {exc}")
+            else:
+                logger.warning(f"Unsupported mixed_precision_dtype: {mixed_precision_dtype}")
 
         # --- 5. Execution Mode (Eager / Graph) ---
         if execution_mode.lower() == "eager":
@@ -95,11 +116,11 @@ def train_prepare(
             return None
 
         if len(gpu_list) <= 1:
-            strategy = tf.distribute.get_strategy()  # single-GPU or CPU
-            logger.info("Using default strategy (1 GPU or CPU).")
+            strategy = tf.distribute.get_strategy()
+            logger.info("Using default strategy.")
         else:
             strategy = tf.distribute.MirroredStrategy()
-            logger.info(f"Using MirroredStrategy with {len(gpu_list)} GPUs.")
+            logger.info(f"Using mirrored strategy with {len(gpu_list)} GPUs.")
 
         return strategy
 
@@ -133,7 +154,7 @@ def find_max_batch_size(model, max_batch=1024):
 
 def create_folder_weights(saved_dir):
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    TRAINING_TIME_PATH = saved_dir + current_time
+    TRAINING_TIME_PATH = os.path.join(saved_dir, current_time)
     access_rights = 0o755
     try:
         os.makedirs(TRAINING_TIME_PATH, access_rights)

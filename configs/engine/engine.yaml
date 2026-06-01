@@ -1,33 +1,36 @@
 Dataset:
-    data_dir: &data_dir "/mnt/data_disk/Datasets/Classification/full_animals"
-    annotation_dir: null
-    data_info:
+    overall:
+        source_paths: "/home/vbpo-101386/Desktop/TuNIT/Datasets/Datasets/Classification/tiny_animals"
         data_type: "dirname"
-        color_space: &color_space "RGB"
+        dataloader_mode: "sequence"
+        sampler: ""
+        load_subset: ["train", "valid"]
+        color_space: "RGB"
         check_data: False
         load_memory: False
-    data_normalizer:
-        norm_type: "sub_divide"
-        norm_mean: null
-        norm_std: null
+
+    normalizer:
+        mode: "sub_divide"
+        mean: null
+        std: null
         interpolation: "BILINEAR"
 
-    data_augmentation:
+    augmentation:
         train:
-            - ResizeKeepRatio:
+            - RandomResizeKeepRatio:
                 size: 256
                 longest: 0.
-                interpolation: "BILINEAR"
                 random_scale_prob: 0.5
                 random_scale_range: [0.08, 1.0]
                 random_scale_area: True
                 random_aspect_prob: 0.5
                 random_aspect_range: [0.75, 1.3333333333333333]
+                interpolation: "BILINEAR"
             - RandomCrop:
                 size: 224
             - RandomHorizontalFlip:
-            - RandomRotation:
-                degrees: 15
+            - RandomRotate:
+                angle: 15
             - RandomColorJitter:
                 brightness: [0.6, 1.4]
                 contrast: [0.6, 1.4]
@@ -48,49 +51,57 @@ Dataset:
                 size: 256
             - CenterCrop:
                 size: 224
-    dataloader_mode: &dataloader_mode "tf"
-    sampler: "balance"
-    get_data_mode: 0
 
 Train:
-    train_strategy: "scratch"        # "scratch", "fine-tuning"
-    execution_mode: "eager"          # "eager", "graph"
-    vram_usage: "limit"             # "full", "growth", "limit"
-    vram_limit_mb: null
-    mixed_precision_dtype: null
-    num_gpus: 0
-    checkpoints: null
-    output_path: "./saved_weights/"
-    model_save_mode: &model_save_mode "model"        # "weights", "model"
-    model_save_head: &model_save_head True
-    random_seed: 0
-    num_workers: &num_workers 4
-    batch_size: 8
-    epoch:
-        start: 0
-        end: &end_epoch 300
+    strategy:
+        train_mode: "fine-tuning"        # "scratch", "fine-tuning", "feature-extractor"
+        execution_mode: "graph"          # "eager", "graph"
+        compile_jit: False
+        checkpoints: null
+        output_path: "./saved_weights/"
+        model_save_mode: &model_save_mode "weights"        # "weights", "model"
+        model_save_head: &model_save_head True
+        model_freeze_layer: -1
+
+    hyperparams:
+        batch_size: 32
+        epoch:
+            start: 0
+            end: &end_epoch 300
+
+    device:
+        kine: "gpu"
+        num_usage: [0]
+        vram_usage: "growth"             # "full", "growth", "limit"
+        vram_limit_mb: null
+    
+    advanced:
+        random_seed: 0
+        num_workers: 2
+        mixed_precision_dtype: null
+        train_with_ema: False
+        sam_rho: 0.
+        model_clip_gradient: 5.
+        gradient_accumulation_steps: 1
 
 Losses:
-    - CategoricalFocalCrossentropy:
-        alpha: 0.25
-        gamma: 2.0
+    - CategoricalCrossentropy:
         coeff: 1
 
 Optimizer:
     name: SGD
-    learning_rate: &lr 0.05
-    momentum: 0.937
+    learning_rate: &lr 0.001
+    momentum: 0.9
     nesterov: True
-    weight_decay: 1.e-5
+    weight_decay: 1.e-6
     
 Metrics:
     - CategoricalAccuracy:
-    - TopKCategoricalAccuracy:
-        k: 5
 
 Callbacks:
     - Evaluate:
         sample_weight: null
+        normalize_confusion_matrix: True
         min_ratio: 0.2
         save_best: True
         save_mode: *model_save_mode

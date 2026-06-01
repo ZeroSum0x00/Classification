@@ -20,11 +20,8 @@ class DataSequencePipeline(Sequence):
         batch_size,
         color_space="RGB",
         augmentor=None,
-        normalizer="divide",
-        mean_norm=None,
-        std_norm=None,
+        normalizer=None,
         sampler=None,
-        interpolation="BILINEAR",
         phase="train",
         num_workers=1,
         debug_mode=False,
@@ -35,11 +32,11 @@ class DataSequencePipeline(Sequence):
         self.batch_size = batch_size
         self.target_size = target_size
         self.color_space = color_space
-        self.interpolation = interpolation
         self.phase = phase
         self.debug_mode = debug_mode
         self.num_workers = num_workers
         self.N = len(self.dataset)
+        self._thread_pool = ThreadPool(self.num_workers) if self.num_workers > 1 else None
 
         if phase == "train":
             self.dataset = shuffle(self.dataset)
@@ -48,24 +45,28 @@ class DataSequencePipeline(Sequence):
         if augmentor and isinstance(self.augmentor, (tuple, list)):
             self.augmentor = AugmentWrapper(transforms=build_augmenter(self.augmentor))
 
-        if isinstance(normalizer, str):
-            self.normalizer = Normalizer(
-                normalizer,
-                target_size=target_size,
-                mean=mean_norm,
-                std=std_norm
-            )
-        else:
-            self.normalizer = normalizer
-
+        self.normalizer = None
+        if normalizer:
+            if isinstance(normalizer, dict):
+                self.normalizer = Normalizer(
+                    normalizer.get("mode", "divide"),
+                    target_size=target_size,
+                    mean=normalizer.get("mean", None),
+                    std=normalizer.get("std", None),
+                    interpolation=normalizer.get("interpolation", "BILINEAR"),
+                )
+            else:
+                self.normalizer = normalizer
+        
         if sampler and sampler.lower() in ["balance", "balanced"]:
             all_labels = [sample['label'] for sample in self.dataset]
+            classes = np.unique(all_labels)
             class_weights = compute_class_weight(
                 class_weight='balanced',
-                classes=np.unique(all_labels),
+                classes=classes,
                 y=all_labels,
             )
-            self.class_weights = dict(enumerate(class_weights))
+            self.class_weights = dict(zip(classes, class_weights))
         else:
             self.class_weights = None
             
@@ -95,7 +96,9 @@ class DataSequencePipeline(Sequence):
         if self.augmentor:
             metadata = self.augmentor(metadata)
 
-        metadata = self.normalizer(metadata)
+        if self.normalizer:
+            metadata = self.normalizer(metadata)
+
         return metadata
  
     def collate_batch(self, batch_list):
@@ -109,13 +112,12 @@ class DataSequencePipeline(Sequence):
             elif isinstance(first, np.ndarray):
                 try:
                     return np.stack(key_items, axis=0)
-                except:
-                    for l in key_items:
-                        return np.array(key_items)
-            elif isinstance(first, int):
+                except Exception:
+                    return np.array(key_items)
+            elif isinstance(first, (int, np.integer, np.floating, np.number)):
                 return np.array(key_items)
             else:
-                return first
+                return np.array(key_items)
 
         return {
             k: merge_key([item[k] for item in batch_list])
@@ -128,9 +130,8 @@ class DataSequencePipeline(Sequence):
 
         batch_indices = np.arange(index * self.batch_size, min((index + 1) * self.batch_size, self.N))
 
-        if self.num_workers > 1:
-            with ThreadPool(self.num_workers) as pool:
-                batch_data = pool.map(self.load_data, [self.dataset[i] for i in batch_indices])
+        if self._thread_pool is not None:
+            batch_data = self._thread_pool.map(self.load_data, [self.dataset[i] for i in batch_indices])
         else:
             batch_data = [self.load_data(self.dataset[i]) for i in batch_indices]
 

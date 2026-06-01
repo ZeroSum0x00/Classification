@@ -30,31 +30,31 @@ def train(engine_file_config, model_file_config):
     callbacks_config = engine_config["Callbacks"]
 
     strategy = train_prepare(
-        execution_mode=train_config.get("execution_mode", "graph"),
-        vram_usage=train_config.get("vram_usage", "limit"),
-        vram_limit_mb=train_config.get("vram_limit_mb", 10240),
-        mixed_precision_dtype=train_config.get("mixed_precision_dtype"),
-        num_gpu=train_config.get("num_gpus", 0),
-        init_seed=train_config.get("random_seed", 42),
+        execution_mode=train_config["strategy"].get("execution_mode", "graph"),
+        device=train_config.get("device", None),
+        mixed_precision_dtype=train_config["advanced"].get("mixed_precision_dtype"),
+        init_seed=train_config["advanced"].get("random_seed", 42),
     )
 
     if strategy is None:
         raise RuntimeError("Failed to prepare training environment.")
         
-    train_strategy = train_config.get("train_strategy", "scratch")
-    initial_epoch = train_config["epoch"].get("start", 0)
+    train_strategy = train_config["strategy"].get("train_mode", "scratch")
+    start_epoch = train_config["hyperparams"]["epoch"].get("start", 0)
+    stop_epoch= train_config["hyperparams"]["epoch"].get("end", 100)
+
     TRAINING_TIME_PATH = create_folder_weights(train_config.get("output_path", "saved_weights"))
     shutil.copy(model_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(model_file_config)))
     shutil.copy(engine_file_config, os.path.join(TRAINING_TIME_PATH, os.path.basename(engine_file_config)))
 
     if not model_config["classes"]:
-        classes, _ = get_labels(data_config["data_source_paths"])
+        classes, _ = get_labels(data_config["overall"]["source_paths"])
         model_config["classes"] = classes
         model_config["is_set_classes"] = True
     
     model_config["train_strategy"] = train_config.get("train_strategy", "scratch")
 
-    batch_size = find_max_batch_size(model) if train_config["batch_size"] == -1 else train_config["batch_size"]
+    batch_size = train_config["hyperparams"]["batch_size"] if train_config["hyperparams"]["batch_size"] != -1 else find_max_batch_size(model)
     global_batch_size = batch_size * strategy.num_replicas_in_sync
     optimizer_config["learning_rate"] = optimizer_config["learning_rate"] / strategy.num_replicas_in_sync
 
@@ -63,29 +63,25 @@ def train(engine_file_config, model_file_config):
             f.write(cls + "\n")
 
     data_generator_instance = get_train_test_data(
-        data_source_paths=data_config["data_source_paths"],
+        dataloader_mode=data_config.get("dataloader_mode", "tf"),
+        load_subset=data_config["overall"].get("load_subset", ["train", "valid"]),
+        data_source_paths=data_config["overall"]["source_paths"],
         classes=classes,
         target_size=model_config["inputs"],
         batch_size=global_batch_size,
-        color_space=data_config["data_info"].get("color_space", "RGB"),
-        augmentor=data_config["data_augmentation"],
-        normalizer=data_config["data_normalizer"].get("normalizer", "divide"),
-        mean_norm=data_config["data_normalizer"].get("norm_mean"),
-        std_norm=data_config["data_normalizer"].get("norm_std"),
-        sampler=data_config.get("sampler"),
-        interpolation=data_config["data_normalizer"].get("interpolation", "BILINEAR"),
-        data_type=data_config["data_info"]["data_type"],
-        check_data=data_config["data_info"].get("check_data", False),
-        load_memory=data_config["data_info"].get("load_memory", False),
-        dataloader_mode=data_config.get("dataloader_mode", "tf"),
-        get_data_mode=data_config.get("get_data_mode", 2),
-        num_workers=train_config.get("num_workers", 1),
+        color_space=data_config["overall"].get("color_space", "RGB"),
+        augmentor=data_config.get("augmentation", {}),
+        normalizer=data_config.get("normalizer", {}),
+        sampler=data_config["overall"].get("sampler"),
+        data_type=data_config["overall"]["data_type"],
+        check_data=data_config["overall"].get("check_data", False),
+        load_memory=data_config["overall"].get("load_memory", False),
+        num_workers=train_config["advanced"].get("num_workers", 1),
     )
 
     train_generator = data_generator_instance["train_generator"]
     valid_generator = data_generator_instance.get("valid_generator", None)
     test_generator = data_generator_instance.get("test_generator", None)
-    class_weights = data_generator_instance.get("class_weights", None)
     
     train_step = int(np.ceil(train_generator.N / global_batch_size))
     train_generator = train_generator.get_dataset() if isinstance(train_generator, TFDataPipeline) else train_generator
@@ -129,7 +125,7 @@ def train(engine_file_config, model_file_config):
         if ckpt_manager.latest_checkpoint:
             ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
             logger.info(f"Restored from {ckpt_manager.latest_checkpoint}")
-            initial_epoch = int(model.current_epoch)
+            start_epoch = int(model.current_epoch)
 
     with strategy.scope():
         if valid_generator:
@@ -138,18 +134,16 @@ def train(engine_file_config, model_file_config):
                 steps_per_epoch=train_step,
                 validation_data=valid_generator,
                 validation_steps=valid_step,
-                epochs=train_config["epoch"]["end"],
-                initial_epoch=initial_epoch,
-                class_weight=class_weights,
+                epochs=stop_epoch,
+                initial_epoch=start_epoch,
                 callbacks=callbacks,
                 )
         else:
             model.fit(
                 train_generator,
                 steps_per_epoch=train_step,
-                epochs=train_config["epoch"]["end"],
-                initial_epoch=initial_epoch,
-                class_weight=class_weights,
+                epochs=stop_epoch,
+                initial_epoch=start_epoch,
                 callbacks=callbacks,
             )
         
@@ -173,7 +167,7 @@ def train(engine_file_config, model_file_config):
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a model with specified config files.")
     parser.add_argument(
-        "--engine_config", type=str, default="./configs/test/engine.yaml",
+        "--engine_config", type=str, default="./configs/engine/engine.yaml",
         help="Path to the engine configuration YAML file. Default: ./configs/test/engine.yaml"
     )
     parser.add_argument(

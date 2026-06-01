@@ -8,9 +8,9 @@ Dataset:
         check_data: False
         load_memory: False
     data_normalizer:
-        normalizer: "sub_divide"
-        mean_norm: null
-        std_norm: null
+        mode: "sub_divide"
+        mean: null
+        std: null
         interpolation: &interpolation "BILINEAR"
 
     data_augmentation:
