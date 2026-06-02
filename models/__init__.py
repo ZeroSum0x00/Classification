@@ -10,6 +10,7 @@ from .train_model import TrainModel
 from .classifycation import CLS
 from .architectures import *
 from .layers import *
+from .adapters import apply_lora
 from utils.post_processing import get_labels
 from utils.auxiliary_processing import dynamic_import
 from utils.model_processing import create_layer_instance
@@ -258,6 +259,7 @@ def build_models(trainer_config, model_config):
     
     architecture_config = model_config["Architecture"]
     architecture_name = architecture_config.pop("name")
+    lora_config = model_config.get("LoRA", None)
 
     classes, num_classes = resolve_classes(classes, is_set_classes)
     is_keras_model = bool(weight_path and weight_path.endswith(".keras"))
@@ -283,6 +285,10 @@ def build_models(trainer_config, model_config):
         backbone_name = backbone_config.pop("name")
         backbone = dynamic_import(backbone_name, globals())
         backbone = create_model_instance(backbone, **backbone_config)
+
+    if lora_config and lora_config.get("enabled", False):
+        backbone = apply_lora(backbone, **lora_config)
+        logger.info("Applied LoRA adapters to backbone.")
 
     load_weights_after_build = is_h5_weights
     if is_h5_weights and use_transfer_strategy:

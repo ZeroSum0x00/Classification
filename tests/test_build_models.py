@@ -25,7 +25,7 @@ def make_trainer_config(train_mode="scratch", freeze_layer=-1):
     }
 
 
-def make_model_config(weight_path=None, custom_head=None):
+def make_model_config(weight_path=None, custom_head=None, lora=None):
     config = {
         "inputs": [16, 16, 3],
         "classes": ["cat", "dog", "bird"],
@@ -41,6 +41,9 @@ def make_model_config(weight_path=None, custom_head=None):
 
     if custom_head is not None:
         config["CustomHead"] = custom_head
+
+    if lora is not None:
+        config["LoRA"] = lora
 
     return config
 
@@ -180,3 +183,29 @@ def test_build_models_rejects_unknown_weight_format():
             make_trainer_config("scratch"),
             make_model_config(weight_path="model.ckpt"),
         )
+
+
+def test_build_models_applies_lora_to_conv2d_and_dense():
+    model = models.build_models(
+        make_trainer_config("scratch"),
+        make_model_config(
+            lora={
+                "enabled": True,
+                "rank": 2,
+                "alpha": 4,
+                "dropout": 0.0,
+                "target_layers": ["Conv2D", "Dense"],
+            }
+        ),
+    )
+
+    backbone = model.architecture.backbone
+    conv = backbone.get_layer("conv")
+    dense = backbone.get_layer("classifier_head").get_layer("dense")
+
+    assert conv.__class__.__name__ == "Conv2DLoRA"
+    assert dense.__class__.__name__ == "DenseLoRA"
+    assert conv.base_layer.trainable is False
+    assert dense.base_layer.trainable is False
+    assert conv.lora_a.trainable is True
+    assert dense.lora_a.trainable is True

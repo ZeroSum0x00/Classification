@@ -1,0 +1,23 @@
+Model:
+    inputs: [224, 224, 3]
+    classes: null
+    weight_path: null
+    Architecture:
+        name: CLS
+    Backbone:
+        name: RepVGG_B1
+        include_head: True
+        weights: null
+
+    LoRA:
+        enabled: True
+        type: "lora"
+        rank: 4
+        alpha: 8
+        dropout: 0.05
+        target_layers: ["Conv2D", "Dense"]
+        target_names:
+            - conv
+            - dense
+        train_base: False
+        train_head: True

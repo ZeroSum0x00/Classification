@@ -2,30 +2,20 @@ Model:
     inputs: [224, 224, 3]
     classes: null
     weight_path: null
-    use_ema: False
-    model_clip_gradient: 10
-    gradient_accumulation_steps: 2
     Architecture:
         name: CLS
     Backbone:
         name: RepVGG_B1
         include_head: True
         weights: null
-        regularizer_decay: 0
-        drop_rate: 0.1
-    # CustomHead:
-    #     - Flatten:
-    #     - Dense:
-    #         units: 4096
-    #     - BatchNormalization:
-    #     - ReLU:
+
     LoRA:
         enabled: True
         type: "lora"
         rank: 8
         alpha: 16
         dropout: 0.0
-        target_layers: ["Conv2D", "Dense"]
+        target_layers: ["Conv2D"]
         target_names: null
         train_base: False
         train_head: True
