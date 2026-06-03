@@ -18,32 +18,39 @@ class TrainModel(tf.keras.Model):
         sam_rho=0.,
         use_ema=False,
         compile_jit=False,
+        model_summary=False,
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.architecture = architecture
         self.teacher_models = teacher_models
-        self.distillation_type = distillation_type
+        self.distillation_type = (distillation_type or "").lower()
         self.classes = classes
         self.inputs = inputs
-        self.temperature = temperature
-        self.alpha = alpha
-        self.model_clip_gradient = model_clip_gradient
-        self.gradient_accumulation_steps = gradient_accumulation_steps
-        self.sam_rho = sam_rho
+        self.temperature = max(float(temperature or 1.0), 1e-6)
+        self.alpha = float(alpha)
+        self.model_clip_gradient = float(model_clip_gradient or 0.0)
+        self.gradient_accumulation_steps = max(
+            1,
+            int(gradient_accumulation_steps or 1),
+        )
+        self.sam_rho = float(sam_rho or 0.0)
         self.use_ema = use_ema
         self.compile_jit = compile_jit
+        self.model_summary = model_summary
 
-        if teacher_models or distillation_type:
+        if teacher_models or self.distillation_type:
             self.distillation_loss_fn = tf.keras.losses.KLDivergence()
 
         self.total_loss_tracker = tf.keras.metrics.Mean(name="loss")        
         self.accumulated_gradients = None
+        self.accumulated_steps = tf.Variable(0, trainable=False, dtype=tf.int64)
         self.step_counter = tf.Variable(0, trainable=False, dtype=tf.int64)
         self.current_epoch = tf.Variable(0, trainable=False, dtype=tf.int64)
+        self.steps_per_epoch = None
         self.model_param_call = {}
         self.list_metrics = []
-        self.prev_logits = None
+        self.ema_decay = 0.99
         
     def compile(self, optimizer, loss, teacher_optimizer=None, metrics=None, **kwargs):
         super().compile(**kwargs)
@@ -52,26 +59,58 @@ class TrainModel(tf.keras.Model):
         self.teacher_optimizer = teacher_optimizer
         self.list_metrics = metrics or []
         
+        dummy = tf.random.normal([1, *self.inputs])
         for _ in range(3):
-            dummy = self.architecture(tf.random.normal([1, 224, 224, 3]))
+            self.architecture(dummy)
+
+        if self.model_summary:
+            self.architecture.summary(expand_nested=True)
             
         self.model_variables = self.architecture.trainable_variables
+        if hasattr(self.optimizer, "build"):
+            self.optimizer.build(self.model_variables)
+        if self.gradient_accumulation_steps > 1:
+            self.accumulated_gradients = [
+                tf.Variable(tf.zeros_like(v), trainable=False)
+                for v in self.model_variables
+            ]
 
         self.train_grad_fn = self.grad_caculator(phase="train")
         self.test_grad_fn = self.grad_caculator(phase="test")
         self.predict_fn = self.build_predict_step()
         
         if self.use_ema:
-            self.ema = tf.train.ExponentialMovingAverage(decay=0.99)
-            self.ema.apply(self.model_variables)
+            self.ema_variables = [
+                tf.Variable(v, trainable=False)
+                for v in self.model_variables
+            ]
+
+        if self.teacher_models:
+            for model in self.teacher_models:
+                model(dummy, training=False)
+
+            if self.teacher_optimizer is not None and hasattr(self.teacher_optimizer, "build"):
+                teacher_variables = [
+                    var
+                    for model in self.teacher_models
+                    for var in model.trainable_variables
+                ]
+                self.teacher_optimizer.build(teacher_variables)
             
     @property
     def metrics(self):
         return [self.total_loss_tracker] + self.list_metrics
+
+    def fit(self, *args, **kwargs):
+        self.steps_per_epoch = kwargs.get("steps_per_epoch", None)
+        return super().fit(*args, **kwargs)
         
     def reset_metrics(self):
+        did_flush = self._flush_accumulated_gradients()
+        self._apply_ema_if_needed(did_flush)
         super().reset_metrics()
         self.step_counter.assign(0)
+        self.accumulated_steps.assign(0)
         if self.accumulated_gradients is not None:
             for accum_grad in self.accumulated_gradients:
                 accum_grad.assign(tf.zeros_like(accum_grad))
@@ -79,18 +118,19 @@ class TrainModel(tf.keras.Model):
     def _get_teacher_predictions(self, images, labels):
         preds_list = []
         if self.teacher_models:
-            if self.distillation_type.lower() == "base":
-                preds_list = [model(images, training=False) for model in self.teacher_models]
-            elif self.distillation_type.lower() == "self":
-                if hasattr(self, "prev_logits") and self.prev_logits is not None:
-                    if tf.reduce_all(tf.equal(tf.shape(self.prev_logits), tf.shape(labels))):
-                        preds_list.append(tf.stop_gradient(self.prev_logits))
-                if hasattr(self, "ema"):
-                    preds_list.append(self.ema(images, training=False))
-            elif self.distillation_type.lower() == "online":
-                preds_list = [model(images, training=True) for model in self.teacher_models]
-        elif self.distillation_type.lower() == "self" and hasattr(self, "ema"):
-            preds_list.append(self.ema(images, training=False))
+            if self.distillation_type == "base":
+                preds_list = [
+                    tf.stop_gradient(model(images, training=False))
+                    for model in self.teacher_models
+                ]
+            elif self.distillation_type == "online":
+                preds_list = [
+                    tf.stop_gradient(model(images, training=True))
+                    for model in self.teacher_models
+                ]
+
+        if self.distillation_type == "self" and hasattr(self, "ema_variables"):
+            preds_list.append(self._call_with_ema_variables(images))
         return preds_list
         
     def _compute_loss(self, images, labels, training, sample_weight=None):
@@ -113,62 +153,181 @@ class TrainModel(tf.keras.Model):
             "logits": logits
         }
 
-    def _apply_gradients(self, gradients):
-        if self.gradient_accumulation_steps == 1:
-            if self.model_clip_gradient > 0:
-                gradients, _ = tf.clip_by_global_norm(gradients, self.model_clip_gradient)
-    
-            self.optimizer.apply_gradients(zip(gradients, self.model_variables))
+    def _normalize_gradients(self, gradients):
+        return [
+            grad if grad is not None else tf.zeros_like(var)
+            for grad, var in zip(gradients, self.model_variables)
+        ]
 
+    def _clip_gradients(self, gradients):
+        if self.model_clip_gradient > 0:
+            gradients, _ = tf.clip_by_global_norm(
+                gradients,
+                self.model_clip_gradient,
+            )
+        return gradients
+
+    def _apply_ema(self):
+        if hasattr(self, "ema_variables"):
+            for ema_var, var in zip(self.ema_variables, self.model_variables):
+                ema_var.assign(
+                    self.ema_decay * ema_var +
+                    (1.0 - self.ema_decay) * var
+                )
+        return tf.constant(True)
+
+    def _apply_ema_if_needed(self, did_apply_gradients):
+        if hasattr(self, "ema_variables"):
+            return tf.cond(
+                did_apply_gradients,
+                self._apply_ema,
+                lambda: tf.constant(False),
+            )
+        return tf.constant(False)
+
+    def _apply_accumulated_gradients(self):
+        denominator = tf.maximum(self.accumulated_steps, 1)
+        gradients = [
+            accum / tf.cast(denominator, accum.dtype)
+            for accum in self.accumulated_gradients
+        ]
+        gradients = self._clip_gradients(gradients)
+        self.optimizer.apply_gradients(zip(gradients, self.model_variables))
+
+        for accum in self.accumulated_gradients:
+            accum.assign(tf.zeros_like(accum))
+        self.accumulated_steps.assign(0)
+        return tf.constant(True)
+
+    def _flush_accumulated_gradients(self):
+        if self.gradient_accumulation_steps == 1 or self.accumulated_gradients is None:
+            return tf.constant(False)
+
+        return tf.cond(
+            self.accumulated_steps > 0,
+            self._apply_accumulated_gradients,
+            lambda: tf.constant(False),
+        )
+
+    def _is_last_epoch_step(self):
+        if self.steps_per_epoch is None:
+            return tf.constant(False)
+        return self.step_counter >= self.steps_per_epoch
+
+    def _apply_gradients(self, gradients):
+        gradients = self._normalize_gradients(gradients)
+        self.step_counter.assign_add(1)
+
+        if self.gradient_accumulation_steps == 1:
+            gradients = self._clip_gradients(gradients)
+            self.optimizer.apply_gradients(zip(gradients, self.model_variables))
+            return tf.constant(True)
+
+        for accum, grad in zip(self.accumulated_gradients, gradients):
+            accum.assign_add(grad)
+        self.accumulated_steps.assign_add(1)
+
+        should_apply = tf.logical_or(
+            self.accumulated_steps >= self.gradient_accumulation_steps,
+            self._is_last_epoch_step(),
+        )
+
+        return tf.cond(
+            should_apply,
+            self._apply_accumulated_gradients,
+            lambda: tf.constant(False),
+        )
+
+    def _call_with_ema_variables(self, images):
+        current_values = [
+            tf.identity(var)
+            for var in self.model_variables
+        ]
+
+        for var, ema_var in zip(self.model_variables, self.ema_variables):
+            var.assign(ema_var)
+
+        predictions = self.architecture(images, training=False)
+
+        for var, value in zip(self.model_variables, current_values):
+            var.assign(value)
+
+        return tf.stop_gradient(predictions)
+
+    def _to_distillation_distribution(self, predictions):
+        predictions = tf.cast(predictions, tf.float32)
+        eps = tf.keras.backend.epsilon()
+
+        if predictions.shape.rank is not None and predictions.shape[-1] == 1:
+            probs = tf.clip_by_value(predictions, eps, 1.0 - eps)
+            probs = tf.concat([1.0 - probs, probs], axis=-1)
         else:
-            if self.accumulated_gradients is None:
-                self.accumulated_gradients = [tf.Variable(tf.zeros_like(v), trainable=False) for v in self.model_variables]
-    
-            for accum, grad in zip(self.accumulated_gradients, gradients):
-                if grad is not None:
-                    accum.assign_add(grad)
-    
-            self.step_counter.assign_add(1)
-            if self.step_counter % self.gradient_accumulation_steps == 0:
-                if self.model_clip_gradient > 0:
-                    clipped, _ = tf.clip_by_global_norm(self.accumulated_gradients, self.model_clip_gradient)
-                else:
-                    clipped = self.accumulated_gradients
-    
-                self.optimizer.apply_gradients(zip(clipped, self.model_variables))
-                for accum in self.accumulated_gradients:
-                    accum.assign(tf.zeros_like(accum))
+            probs = tf.clip_by_value(predictions, eps, 1.0)
+            probs = probs / tf.reduce_sum(probs, axis=-1, keepdims=True)
+
+        log_probs = tf.math.log(probs) / self.temperature
+        return tf.nn.softmax(log_probs, axis=-1)
+
+    def _distillation_loss(self, teacher_predictions, student_predictions):
+        teacher_probs = self._to_distillation_distribution(
+            tf.stop_gradient(teacher_predictions)
+        )
+        student_probs = self._to_distillation_distribution(student_predictions)
+
+        return self.distillation_loss_fn(
+            teacher_probs,
+            student_probs,
+        ) * (self.temperature ** 2)
+
+    def _combine_with_distillation(self, loss_value, logits, teacher_predictions_list):
+        if teacher_predictions_list:
+            teacher_logits = tf.reduce_mean(
+                tf.stack(teacher_predictions_list, axis=0),
+                axis=0,
+            )
+            distillation_loss = self._distillation_loss(teacher_logits, logits)
+            
+            return self.alpha * loss_value + (1 - self.alpha) * distillation_loss
+        return loss_value
 
     def _apply_gradients_online_teachers(self, images, student_logits):
-        with tf.GradientTape() as tape:
-            teacher_preds = [model(images, training=True) for model in self.teacher_models]
-            teacher_logits = tf.reduce_mean(tf.stack(teacher_preds, axis=0), axis=0)
-    
-            teacher_distill_loss = self.distillation_loss_fn(
-                tf.nn.softmax(teacher_logits / self.temperature),
-                tf.nn.softmax(student_logits / self.temperature)
-            ) * (self.temperature ** 2)
-    
+        if self.teacher_optimizer is None:
+            return
+
+        student_logits = tf.stop_gradient(student_logits)
         for model in self.teacher_models:
-            grads = tape.gradient(teacher_distill_loss, model.trainable_variables)
+            with tf.GradientTape() as tape:
+                teacher_logits = model(images, training=True)
+                teacher_distill_loss = self._distillation_loss(
+                    student_logits,
+                    teacher_logits,
+                )
+
+            grads = tape.gradient(
+                teacher_distill_loss,
+                model.trainable_variables,
+            )
             self.teacher_optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
     def _apply_sam_gradients(
         self,
         tape,
-        scaled_loss,
+        loss_value,
         images,
         labels,
         sample_weight,
+        teacher_predictions_list,
     ):
         if self.sam_rho <= 0.:
-            return tape.gradient(scaled_loss, self.model_variables)
+            return tape.gradient(loss_value, self.model_variables)
     
         # First grads
-        grads = tape.gradient(scaled_loss, self.model_variables)
+        grads = self._normalize_gradients(
+            tape.gradient(loss_value, self.model_variables)
+        )
         grad_norm = tf.linalg.global_norm(grads)
         scale = self.sam_rho / (grad_norm + 1e-12)
-        e_ws = [(g * scale if g is not None else tf.zeros_like(v)) for g, v in zip(grads, self.model_variables)]
+        e_ws = [g * scale for g in grads]
     
         # Perturb weights
         for v, e_w in zip(self.model_variables, e_ws):
@@ -178,15 +337,20 @@ class TrainModel(tf.keras.Model):
         with tf.GradientTape() as advance_tape:
             caculated_loss = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
             advance_loss = caculated_loss["loss"]
-            scaled_advance_loss = advance_loss / self.gradient_accumulation_steps
+            advance_logits = caculated_loss["logits"]
+            advance_loss = self._combine_with_distillation(
+                advance_loss,
+                advance_logits,
+                teacher_predictions_list,
+            )
     
-        advance_grads = advance_tape.gradient(scaled_advance_loss, self.model_variables)
+        advance_grads = advance_tape.gradient(advance_loss, self.model_variables)
     
         # Restore weights
         for v, e_w in zip(self.model_variables, e_ws):
             v.assign_sub(e_w)
     
-        return [g if g is not None else tf.zeros_like(v) for g, v in zip(advance_grads, self.model_variables)]
+        return self._normalize_gradients(advance_grads)
 
     def grad_caculator(self, phase="test"):
         
@@ -197,26 +361,23 @@ class TrainModel(tf.keras.Model):
                 caculated_loss = self._compute_loss(images, labels, training=True, sample_weight=sample_weight)
                 loss_value = caculated_loss["loss"]
                 logits = caculated_loss["logits"]
-                
-                if teacher_predictions_list:
-                    teacher_logits = tf.reduce_mean(
-                        tf.stack(teacher_predictions_list, axis=0),
-                        axis=0,
-                    )
-                    
-                    distillation_loss = self.distillation_loss_fn(
-                        tf.nn.softmax(teacher_logits / self.temperature),
-                        tf.nn.softmax(logits / self.temperature),
-                    ) * (self.temperature ** 2)
-                    
-                    loss_value = self.alpha * loss_value + (1 - self.alpha) * distillation_loss
-                
-                scale_loss_value = loss_value / self.gradient_accumulation_steps
+                loss_value = self._combine_with_distillation(
+                    loss_value,
+                    logits,
+                    teacher_predictions_list,
+                )
     
-                final_grads = self._apply_sam_gradients(tape, scale_loss_value, images, labels, sample_weight)
+                final_grads = self._apply_sam_gradients(
+                    tape,
+                    loss_value,
+                    images,
+                    labels,
+                    sample_weight,
+                    teacher_predictions_list,
+                )
     
             return {
-                "loss": scale_loss_value,
+                "loss": loss_value,
                 "grads": final_grads,
                 "model_preds": logits,
                 "teacher_preds": teacher_predictions_list
@@ -240,7 +401,7 @@ class TrainModel(tf.keras.Model):
     def train_step(self, data):
         images, labels, sample_weight = tf.keras.utils.unpack_x_y_sample_weight(data)
         results = self.train_grad_fn(images, labels, sample_weight)
-        self._apply_gradients(results["grads"])
+        did_apply_gradients = self._apply_gradients(results["grads"])
 
         if (
             results["teacher_preds"] and
@@ -251,9 +412,7 @@ class TrainModel(tf.keras.Model):
             self._apply_gradients_online_teachers(images, tf.stop_gradient(results["model_preds"]))
 
         self.prev_logits = tf.stop_gradient(results["model_preds"])
-                
-        if hasattr(self, "ema"):
-            self.ema.apply(self.model_variables)
+        self._apply_ema_if_needed(did_apply_gradients)
             
         self.total_loss_tracker.update_state(results["loss"])
 
@@ -263,6 +422,8 @@ class TrainModel(tf.keras.Model):
         return {m.name: m.result() for m in self.metrics}
 
     def test_step(self, data):
+        did_flush = self._flush_accumulated_gradients()
+        self._apply_ema_if_needed(did_flush)
         images, labels, sample_weight = tf.keras.utils.unpack_x_y_sample_weight(data)
         results = self.test_grad_fn(images, labels, sample_weight)
         

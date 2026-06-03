@@ -209,3 +209,36 @@ def test_build_models_applies_lora_to_conv2d_and_dense():
     assert dense.base_layer.trainable is False
     assert conv.lora_a.trainable is True
     assert dense.lora_a.trainable is True
+
+
+def test_build_models_loads_h5_weights_before_applying_lora(tmp_path):
+    base_model = models.build_models(
+        make_trainer_config("scratch"),
+        make_model_config(),
+    ).architecture
+    base_model.build((None, 16, 16, 3))
+
+    images = tf.random.uniform([2, 16, 16, 3], seed=1)
+    expected = base_model(images, training=False)
+
+    weight_path = tmp_path / "tiny.weights.h5"
+    base_model.save_weights(weight_path)
+
+    model = models.build_models(
+        make_trainer_config("scratch"),
+        make_model_config(
+            weight_path=str(weight_path),
+            lora={
+                "enabled": True,
+                "rank": 2,
+                "alpha": 4,
+                "dropout": 0.0,
+                "target_layers": ["Conv2D", "Dense"],
+            },
+        ),
+    )
+
+    actual = model.architecture(images, training=False)
+
+    assert model.architecture.backbone.get_layer("conv").__class__.__name__ == "Conv2DLoRA"
+    tf.debugging.assert_near(actual, expected, atol=1e-6)

@@ -54,12 +54,12 @@ Dataset:
 
 Train:
     strategy:
-        train_mode: "fine-tuning"        # "scratch", "fine-tuning", "feature-extractor"
+        train_mode: "scratch"        # "scratch", "fine-tuning", "feature-extractor"
         execution_mode: "graph"          # "eager", "graph"
         compile_jit: False
         checkpoints: null
         output_path: "./saved_weights/"
-        model_save_mode: &model_save_mode "weights"        # "weights", "model"
+        model_save_mode: &model_save_mode "model"        # "weights", "model"
         model_save_head: &model_save_head True
         model_freeze_layer: -1
 
@@ -83,6 +83,7 @@ Train:
         sam_rho: 0.
         model_clip_gradient: 5.
         gradient_accumulation_steps: 1
+        model_summary: True
 
 Losses:
     - CategoricalCrossentropy:

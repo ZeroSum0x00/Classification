@@ -162,6 +162,31 @@ def create_model_instance(block, *args, **kwargs):
     return block(*args, **filtered_kwargs)
 
 
+def rebuild_architecture_with_lora(architecture, lora_config, inputs):
+    lora_backbone = apply_lora(architecture.backbone, **lora_config)
+
+    init_kwargs = {
+        "backbone": lora_backbone,
+        "name": architecture.name,
+    }
+
+    if hasattr(architecture, "custom_head"):
+        init_kwargs["custom_head"] = architecture.custom_head
+    if hasattr(architecture, "num_classes"):
+        init_kwargs["num_classes"] = architecture.num_classes
+
+    lora_architecture = architecture.__class__(**init_kwargs)
+    lora_architecture.build((None, *inputs))
+
+    old_classifier = getattr(architecture, "classifier_head", None)
+    new_classifier = getattr(lora_architecture, "classifier_head", None)
+    if old_classifier is not None and new_classifier is not None:
+        if old_classifier.weights and new_classifier.weights:
+            new_classifier.set_weights(old_classifier.get_weights())
+
+    return lora_architecture
+
+
 def normalize_train_strategy(train_strategy):
     train_strategy = (train_strategy or "scratch").lower()
     if train_strategy == "feature-extraction":
@@ -256,10 +281,12 @@ def build_models(trainer_config, model_config):
     sam_rho = trainer_config["advanced"].pop("sam_rho", 0.0)
     use_ema = trainer_config["advanced"].pop("train_with_ema", False)
     compile_jit = trainer_config["advanced"].pop("compile_jit", False)
-    
+    model_summary = trainer_config["advanced"].pop("model_summary", False)
+
     architecture_config = model_config["Architecture"]
     architecture_name = architecture_config.pop("name")
     lora_config = model_config.get("LoRA", None)
+    use_lora = bool(lora_config and lora_config.get("enabled", False))
 
     classes, num_classes = resolve_classes(classes, is_set_classes)
     is_keras_model = bool(weight_path and weight_path.endswith(".keras"))
@@ -286,7 +313,7 @@ def build_models(trainer_config, model_config):
         backbone = dynamic_import(backbone_name, globals())
         backbone = create_model_instance(backbone, **backbone_config)
 
-    if lora_config and lora_config.get("enabled", False):
+    if use_lora and not is_h5_weights:
         backbone = apply_lora(backbone, **lora_config)
         logger.info("Applied LoRA adapters to backbone.")
 
@@ -300,6 +327,9 @@ def build_models(trainer_config, model_config):
         weight_loader.build((None, *inputs))
         weight_loader.load_weights(weight_path, skip_mismatch=True)
         backbone = get_model_backbone(weight_loader)
+        if use_lora:
+            backbone = apply_lora(backbone, **lora_config)
+            logger.info("Applied LoRA adapters to loaded backbone.")
         load_weights_after_build = False
         logger.info(f"Loaded transfer weights before splitting head: {weight_path}")
 
@@ -388,13 +418,20 @@ def build_models(trainer_config, model_config):
 
                 del head_model
         architecture_config["backbone"] = backbone
-        
+    
     architecture_config["num_classes"] = num_classes
     architecture = dynamic_import(architecture_name, globals())(**architecture_config)
 
     if load_weights_after_build:
         architecture.build((None, *inputs))
         architecture.load_weights(weight_path, skip_mismatch=True)
+        if use_lora:
+            architecture = rebuild_architecture_with_lora(
+                architecture,
+                lora_config,
+                inputs,
+            )
+            logger.info("Applied LoRA adapters after loading architecture weights.")
         logger.info(f"Loaded architecture weights from: {weight_path}")
 
     model = TrainModel(
@@ -410,6 +447,7 @@ def build_models(trainer_config, model_config):
         sam_rho=sam_rho,
         use_ema=use_ema,
         compile_jit=compile_jit,
+        model_summary=model_summary,
         name=architecture_name,
     )
     return model

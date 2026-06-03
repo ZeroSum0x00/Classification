@@ -209,9 +209,32 @@ def set_lora_trainable(layer, trainable_base=False):
         layer.lora_b.trainable = True
         return
 
-    layer.trainable = False
-    for child in getattr(layer, "layers", []):
+    children = getattr(layer, "layers", [])
+    if children:
+        layer.trainable = True
+    else:
+        layer.trainable = False
+
+    for child in children:
         set_lora_trainable(child, trainable_base=trainable_base)
+
+
+def _enable_head_trainable(layer):
+    if is_lora_layer(layer):
+        layer.trainable = True
+        layer.lora_a.trainable = True
+        layer.lora_b.trainable = True
+        return
+
+    layer.trainable = True
+    for child in getattr(layer, "layers", []):
+        _enable_head_trainable(child)
+
+
+def _iter_layers_recursive(layer):
+    for child in getattr(layer, "layers", []):
+        yield child
+        yield from _iter_layers_recursive(child)
 
 
 def apply_lora(
@@ -244,15 +267,19 @@ def apply_lora(
             )
         return layer.__class__.from_config(layer.get_config())
 
-    lora_model = tf.keras.models.clone_model(model, clone_function=clone_function)
+    lora_model = tf.keras.models.clone_model(
+        model,
+        clone_function=clone_function,
+        recursive=True,
+    )
     if model.built:
         lora_model.build(model.input_shape)
     _copy_lora_weights(model, lora_model)
     set_lora_trainable(lora_model, trainable_base=train_base)
 
     if train_head:
-        for layer in getattr(lora_model, "layers", []):
+        for layer in _iter_layers_recursive(lora_model):
             if layer.name == "classifier_head":
-                layer.trainable = True
+                _enable_head_trainable(layer)
 
     return lora_model
