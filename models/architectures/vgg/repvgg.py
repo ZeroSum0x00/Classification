@@ -390,7 +390,7 @@ class RepVGGBlock(tf.keras.layers.Layer):
     def get_equivalent_kernel_bias(self):
         kernel3x3, bias3x3 = self._fuse_bn_tensor(self.rbr_dense)
         kernel1x1, bias1x1 = self._fuse_bn_tensor(self.rbr_1x1)
-        kernelid, biasid = self._fuse_bn_tensor(self.rbr_identity)
+        kernelid, biasid = self._fuse_bn_tensor(getattr(self, "rbr_identity", None))
         return (
             kernel3x3 + self._pad_1x1_to_3x3_tensor(kernel1x1) + kernelid,
             bias3x3 + bias1x1 + biasid,
@@ -1445,15 +1445,17 @@ def repvgg_reparameter(model: tf.keras.Model, structure, input_shape=(224, 224, 
         if hasattr(layer, "repvgg_convert"):
             kernel, bias = layer.repvgg_convert()
             deploy_layer.rbr_reparam.layers[1].set_weights([kernel, bias])
-        elif isinstance(layer, tf.keras.Sequential) and layer.name != "classifier_head":
+        elif isinstance(layer, tf.keras.Sequential):
             assert isinstance(deploy_layer, tf.keras.Sequential)
             for sub_layer, deploy_sub_layer in zip(layer.layers, deploy_layer.layers):
-                kernel, bias = sub_layer.repvgg_convert()
-                deploy_sub_layer.rbr_reparam.layers[1].set_weights([kernel, bias])
+                if hasattr(sub_layer, "repvgg_convert"):
+                    kernel, bias = sub_layer.repvgg_convert()
+                    deploy_sub_layer.rbr_reparam.layers[1].set_weights([kernel, bias])
+                elif sub_layer.get_weights():
+                    deploy_sub_layer.set_weights(sub_layer.get_weights())
         elif isinstance(layer, tf.keras.layers.Dense):
             assert isinstance(deploy_layer, tf.keras.layers.Dense)
-            weights = layer.get_weights()
-            deploy_layer.set_weights(weights)
+            deploy_layer.set_weights(layer.get_weights())
 
     if save_path is not None:
         structure.save_weights(save_path)
