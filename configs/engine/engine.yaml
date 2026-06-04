@@ -1,6 +1,6 @@
 Dataset:
     overall:
-        source_paths: "/home/vbpo-101386/Desktop/TuNIT/Datasets/Datasets/Classification/tiny_animals"
+        source_paths: "/home/vbpo-101386/Desktop/TuNIT/Datasets/Datasets/Classification/full_animals"
         data_type: "dirname"
         dataloader_mode: "sequence"
         sampler: ""
@@ -56,7 +56,7 @@ Train:
     strategy:
         train_mode: "scratch"        # "scratch", "fine-tuning", "feature-extractor"
         execution_mode: "graph"          # "eager", "graph"
-        compile_jit: False
+        compile_jit: "auto"
         checkpoints: null
         output_path: "./saved_weights/"
         model_save_mode: &model_save_mode "model"        # "weights", "model"

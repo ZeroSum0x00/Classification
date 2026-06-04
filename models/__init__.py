@@ -280,7 +280,10 @@ def build_models(trainer_config, model_config):
     gradient_accumulation_steps = trainer_config["advanced"].pop("gradient_accumulation_steps", 1)
     sam_rho = trainer_config["advanced"].pop("sam_rho", 0.0)
     use_ema = trainer_config["advanced"].pop("train_with_ema", False)
-    compile_jit = trainer_config["advanced"].pop("compile_jit", False)
+    compile_jit = trainer_config["strategy"].get(
+        "compile_jit",
+        trainer_config["advanced"].pop("compile_jit", False),
+    )
     model_summary = trainer_config["advanced"].pop("model_summary", False)
 
     architecture_config = model_config["Architecture"]

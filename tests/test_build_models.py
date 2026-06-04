@@ -242,3 +242,16 @@ def test_build_models_loads_h5_weights_before_applying_lora(tmp_path):
 
     assert model.architecture.backbone.get_layer("conv").__class__.__name__ == "Conv2DLoRA"
     tf.debugging.assert_near(actual, expected, atol=1e-6)
+
+
+def test_build_models_reads_compile_jit_from_strategy_config():
+    trainer_config = make_trainer_config("scratch")
+    trainer_config["strategy"]["compile_jit"] = True
+    trainer_config["advanced"]["compile_jit"] = False
+
+    model = models.build_models(
+        trainer_config,
+        make_model_config(),
+    )
+
+    assert model.compile_jit is True

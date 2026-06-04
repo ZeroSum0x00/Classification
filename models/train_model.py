@@ -36,13 +36,14 @@ class TrainModel(tf.keras.Model):
         )
         self.sam_rho = float(sam_rho or 0.0)
         self.use_ema = use_ema
-        self.compile_jit = compile_jit
+        self.compile_jit_mode = self._normalize_compile_jit_mode(compile_jit)
+        self.compile_jit = self.compile_jit_mode in {"auto", "true"}
         self.model_summary = model_summary
 
         if teacher_models or self.distillation_type:
             self.distillation_loss_fn = tf.keras.losses.KLDivergence()
 
-        self.total_loss_tracker = tf.keras.metrics.Mean(name="loss")        
+        self.total_loss_tracker = tf.keras.metrics.Mean(name="loss")
         self.accumulated_gradients = None
         self.accumulated_steps = tf.Variable(0, trainable=False, dtype=tf.int64)
         self.step_counter = tf.Variable(0, trainable=False, dtype=tf.int64)
@@ -51,6 +52,48 @@ class TrainModel(tf.keras.Model):
         self.model_param_call = {}
         self.list_metrics = []
         self.ema_decay = 0.99
+
+    def _normalize_compile_jit_mode(self, compile_jit):
+        if isinstance(compile_jit, str):
+            value = compile_jit.lower()
+            if value == "auto":
+                return "auto"
+            if value in {"1", "true", "yes", "y", "on"}:
+                return "true"
+            if value in {"0", "false", "no", "n", "off"}:
+                return "false"
+            raise ValueError(
+                "compile_jit must be one of True, False, or 'auto'. "
+                f"Got: {compile_jit}"
+            )
+        return "true" if bool(compile_jit) else "false"
+
+    def _has_jit_unsafe_layer(self, layer):
+        layer_name = layer.__class__.__name__.lower()
+        if "maxpool" in layer_name or "max_pool" in layer_name:
+            return True
+
+        return any(
+            self._has_jit_unsafe_layer(child)
+            for child in getattr(layer, "layers", [])
+        )
+
+    def _resolve_compile_jit(self):
+        if self.compile_jit_mode == "false":
+            return False
+
+        if (
+            self.compile_jit_mode == "auto" and
+            self._has_jit_unsafe_layer(self.architecture)
+        ):
+            logger.warning(
+                "compile_jit='auto' disabled JIT because the model contains "
+                "MaxPooling/MaxPool layers, which can fail under XLA for some "
+                "TensorFlow device backends. Set compile_jit=True to force JIT."
+            )
+            return False
+
+        return True
         
     def compile(self, optimizer, loss, teacher_optimizer=None, metrics=None, **kwargs):
         super().compile(**kwargs)
@@ -67,17 +110,15 @@ class TrainModel(tf.keras.Model):
             self.architecture.summary(expand_nested=True)
             
         self.model_variables = self.architecture.trainable_variables
+
         if hasattr(self.optimizer, "build"):
             self.optimizer.build(self.model_variables)
+            
         if self.gradient_accumulation_steps > 1:
             self.accumulated_gradients = [
                 tf.Variable(tf.zeros_like(v), trainable=False)
                 for v in self.model_variables
             ]
-
-        self.train_grad_fn = self.grad_caculator(phase="train")
-        self.test_grad_fn = self.grad_caculator(phase="test")
-        self.predict_fn = self.build_predict_step()
         
         if self.use_ema:
             self.ema_variables = [
@@ -96,6 +137,12 @@ class TrainModel(tf.keras.Model):
                     for var in model.trainable_variables
                 ]
                 self.teacher_optimizer.build(teacher_variables)
+
+        self.compile_jit = self._resolve_compile_jit()
+
+        self.train_grad_fn = self.grad_caculator(phase="train")
+        self.test_grad_fn = self.grad_caculator(phase="test")
+        self.predict_fn = self.build_predict_step()
             
     @property
     def metrics(self):
@@ -134,8 +181,11 @@ class TrainModel(tf.keras.Model):
         return preds_list
         
     def _compute_loss(self, images, labels, training, sample_weight=None):
-        self.model_param_call["training"] = training
-        logits = self.architecture(images, **self.model_param_call)
+        if not training and hasattr(self, "ema_variables"):
+            logits = self._call_with_ema_variables(images)
+        else:
+            self.model_param_call["training"] = training
+            logits = self.architecture(images, **self.model_param_call)
 
         if hasattr(self.architecture, "calc_loss"):
             loss_value = sum(
@@ -406,12 +456,11 @@ class TrainModel(tf.keras.Model):
         if (
             results["teacher_preds"] and
             self.teacher_models and 
-            self.distillation_type.lower() == "online" and 
-            hasattr(self, "teacher_optimizer")
+            self.distillation_type == "online" and 
+            self.teacher_optimizer is not None
         ):
             self._apply_gradients_online_teachers(images, tf.stop_gradient(results["model_preds"]))
 
-        self.prev_logits = tf.stop_gradient(results["model_preds"])
         self._apply_ema_if_needed(did_apply_gradients)
             
         self.total_loss_tracker.update_state(results["loss"])
@@ -440,15 +489,14 @@ class TrainModel(tf.keras.Model):
                 images, _, _ = tf.keras.utils.unpack_x_y_sample_weight(data)
             else:
                 images = data
+            if hasattr(self, "ema_variables"):
+                return self._call_with_ema_variables(images)
             return self.architecture(images, training=False)
             
         return tf.function(_predict_step, jit_compile=self.compile_jit)
             
     def call(self, inputs, training=False):
         try:
-            if self.use_ema:
-                self.ema.apply(self.model_variables)
-
             return self.predict_fn(inputs)
         except Exception as e:
             logger.warning(f"Error in call(): {e}")
