@@ -23,8 +23,6 @@ class Evaluate(tf.keras.callbacks.Callback):
         normalize_confusion_matrix=False,
         min_ratio=0.2,
         save_best=True,
-        save_mode="weights",
-        save_head=True,
         show_frequency=10,
     ):
         super(Evaluate, self).__init__()
@@ -33,17 +31,12 @@ class Evaluate(tf.keras.callbacks.Callback):
         self.normalize_confusion_matrix = normalize_confusion_matrix
         self.min_ratio = min_ratio
         self.save_best = save_best
-        self.save_mode = save_mode
-        self.save_head = save_head
         self.show_frequency = show_frequency
         self.epoches = [0]
         self.metric_values = [0]
         self.current_value = 0.0
         self.eval_dataset = None
         self.video_render = VideoRender(frame_duration=0.7, save_path=os.path.join(result_path, 'summary', 'confusion_matrix_per_epoch.mp4'))
-
-        if self.save_mode not in ["model", "weights"]:
-            raise ValueError(f"Invalid input: {self.save_mode}. Expected values are ['model', 'weights'].")
 
     def pass_data(self, data):
         self.eval_dataset = data
@@ -92,14 +85,11 @@ class Evaluate(tf.keras.callbacks.Callback):
                     if accuracy > self.current_value and accuracy > self.min_ratio:
                         logger.info(f"Evaluate accuracy score increase {self.current_value*100:.2f}% to {accuracy*100:.2f}%")
                         self.current_value = accuracy
-                        if self.save_mode == "model":
-                            weight_path = os.path.join(save_weight_path, "best_eval_acc.keras")
-                            logger.info(f"Save best evaluate accuracy model to {weight_path}")
-                            self.model.save_model(weight_path, save_head=self.save_head)
-                        elif self.save_mode == "weights":
-                            weight_path = os.path.join(save_weight_path, "best_eval_acc.weights.h5")
-                            logger.info(f"Save best evaluate accuracy weights to {weight_path}")
-                            self.model.save_weights(weight_path, save_head=self.save_head)
+                        weight_path = self.model.checkpoint_path(
+                            save_weight_path, "best_eval_acc"
+                        )
+                        logger.info(f"Save best evaluate accuracy to {weight_path}")
+                        self.model.save(weight_path)
                         
                 self.epoches.append(temp_epoch)
                 with open(os.path.join(summary_path, "evaluate_report.txt"), "a") as f:

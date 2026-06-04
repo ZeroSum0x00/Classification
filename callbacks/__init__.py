@@ -11,6 +11,18 @@ from tensorflow.keras.callbacks import *
 from utils.auxiliary_processing import dynamic_import
 
 
+# Callbacks that take result_path / file path as the first positional argument.
+RESULT_PATH_CALLBACKS = frozenset({
+    "Evaluate",
+    "LossHistory",
+    "MetricHistory",
+    "AdvanceWarmUpLearningRate",
+})
+FILE_PATH_CALLBACKS = frozenset({"TrainLogger", "TrainSummary"})
+# Keras callbacks whose first positional argument is a path (log_dir, filename, ...).
+PATH_FIRST_KERAS_CALLBACKS = frozenset({"TensorBoard", "CSVLogger", "ModelCheckpoint"})
+
+
 def build_callbacks(config, result_path):
     config = copy.deepcopy(config)
     callbacks = []
@@ -30,6 +42,10 @@ def build_callbacks(config, result_path):
             if not value:
                 value = {}
 
-            arch = dynamic_import(name, globals())(save_path, **value)
+            callback_cls = dynamic_import(name, globals())
+            if name in RESULT_PATH_CALLBACKS | FILE_PATH_CALLBACKS | PATH_FIRST_KERAS_CALLBACKS:
+                arch = callback_cls(save_path, **value)
+            else:
+                arch = callback_cls(**value)
             callbacks.append(arch)
     return callbacks

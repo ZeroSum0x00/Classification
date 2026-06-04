@@ -451,6 +451,8 @@ def build_models(trainer_config, model_config):
         use_ema=use_ema,
         compile_jit=compile_jit,
         model_summary=model_summary,
+        save_model_format=trainer_config["strategy"].get("model_save_mode", "weights"),
+        save_model_head=trainer_config["strategy"].get("model_save_head", True),
         name=architecture_name,
     )
     return model

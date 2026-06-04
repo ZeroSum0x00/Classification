@@ -153,16 +153,11 @@ def train(engine_file_config, model_file_config):
             steps=test_step,
         )
 
-    save_mode = train_config.get("model_save_mode", "weights")
-    save_head = train_config.get("model_save_head", True)
-    if save_mode.lower() == "model":
-        weight_path = os.path.join(TRAINING_TIME_PATH, "weights", "last_weights.keras")
-        logger.info(f"Save last model to {weight_path}")
-        model.save_model(weight_path, save_head=save_head)
-    elif save_mode.lower() == "weights":
-        weight_path = os.path.join(TRAINING_TIME_PATH, "weights", "last_weights.weights.h5")
-        logger.info(f"Save last weights to {weight_path}")
-        model.save_weights(weight_path, save_head=save_head)
+    weight_path = model.checkpoint_path(
+        os.path.join(TRAINING_TIME_PATH, "weights"), "last_weights"
+    )
+    logger.info(f"Save last checkpoint to {weight_path}")
+    model.save(weight_path)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a model with specified config files.")

@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 from utils.logger import logger
 
@@ -19,6 +21,8 @@ class TrainModel(tf.keras.Model):
         use_ema=False,
         compile_jit=False,
         model_summary=False,
+        save_model_format="weights",
+        save_model_head=True,
         *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
@@ -39,6 +43,8 @@ class TrainModel(tf.keras.Model):
         self.compile_jit_mode = self._normalize_compile_jit_mode(compile_jit)
         self.compile_jit = self.compile_jit_mode in {"auto", "true"}
         self.model_summary = model_summary
+        self.save_model_format = self._normalize_save_format(save_model_format)
+        self.save_model_head = save_model_head
 
         if teacher_models or self.distillation_type:
             self.distillation_loss_fn = tf.keras.losses.KLDivergence()
@@ -52,6 +58,17 @@ class TrainModel(tf.keras.Model):
         self.model_param_call = {}
         self.list_metrics = []
         self.ema_decay = 0.99
+
+    def _normalize_save_format(self, save_format):
+        value = str(save_format or "weights").lower()
+        if value in {"weight", "weights"}:
+            return "weights"
+        if value == "model":
+            return "model"
+        raise ValueError(
+            "save_format must be one of 'weight', 'weights', or 'model'. "
+            f"Got: {save_format}"
+        )
 
     def _normalize_compile_jit_mode(self, compile_jit):
         if isinstance(compile_jit, str):
@@ -505,43 +522,41 @@ class TrainModel(tf.keras.Model):
     def predict(self, inputs):
         return self.predict_fn(inputs)
 
-    def save_weights(self, weight_path, save_head=True, **kwargs):
+    def checkpoint_path(self, directory, stem):
+        ext = ".keras" if self.save_model_format == "model" else ".weights.h5"
+        return os.path.join(directory, f"{stem}{ext}")
+
+    def save(self, path, **kwargs):
         try:
-            if save_head:
-                self.architecture.save_weights(weight_path, **kwargs)
-                logger.info(f"Full model weights saved to: {weight_path}")
+            if self.save_model_format == "model":
+                if self.save_model_head:
+                    self.architecture.save(path)
+                    logger.info(f"Full model saved to: {path}")
+                else:
+                    backbone_path = path.replace(".keras", "_backbone.keras")
+                    self.architecture.backbone.save(backbone_path)
+                    logger.info(f"Backbone saved to: {backbone_path}")
             else:
-                backbone_path = weight_path.replace(".weights.h5", "_backbone.weights.h5")
-                self.architecture.backbone.save_weights(backbone_path, **kwargs)
-                logger.info(f"Backbone weights saved to: {backbone_path}")
+                if self.save_model_head:
+                    self.architecture.save_weights(path, **kwargs)
+                    logger.info(f"Full model weights saved to: {path}")
+                else:
+                    backbone_path = path.replace(".weights.h5", "_backbone.weights.h5")
+                    self.architecture.backbone.save_weights(backbone_path, **kwargs)
+                    logger.info(f"Backbone weights saved to: {backbone_path}")
         except Exception as e:
-            logger.error(f"Failed to save weights: {e}")
+            logger.error(f"Failed to save: {e}")
 
-    def load_weights(self, weight_path):
+    def load(self, path):
         try:
-            self.architecture.build(input_shape=self.inputs)
-            self.architecture.built = True
-            self.architecture.load_weights(weight_path, skip_mismatch=True)
-            logger.info(f"Weights loaded from: {weight_path}")
-        except Exception as e:
-            logger.error(f"Failed to load weights: {e}")
-
-    def save_model(self, model_path, save_head=True):
-        try:
-            if save_head:
-                self.architecture.save(model_path)
-                logger.info(f"Full model saved to: {model_path}")
+            if self.save_model_format == "model":
+                self.architecture = tf.keras.models.load_model(path)
+                logger.info(f"Model loaded from: {path}")
             else:
-                backbone_path = model_path.replace(".keras", "_backbone.keras")
-                self.architecture.backbone.save(backbone_path)
-                logger.info(f"Backbone saved to: {backbone_path}")
+                self.architecture.build(input_shape=self.inputs)
+                self.architecture.built = True
+                self.architecture.load_weights(path, skip_mismatch=True)
+                logger.info(f"Weights loaded from: {path}")
         except Exception as e:
-            logger.error(f"Failed to save model: {e}")
-
-    def load_model(self, model_path):
-        try:
-            self.architecture = tf.keras.models.load_model(model_path)
-            logger.info(f"Model loaded from: {model_path}")
-        except Exception as e:
-            logger.error(f"Failed to load model: {e}")
+            logger.error(f"Failed to load: {e}")
             
