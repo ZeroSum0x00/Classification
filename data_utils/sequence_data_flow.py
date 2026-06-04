@@ -54,9 +54,25 @@ class DataSequencePipeline(Sequence):
                     mean=normalizer.get("mean", None),
                     std=normalizer.get("std", None),
                     interpolation=normalizer.get("interpolation", "BILINEAR"),
+                    backend="np",
+                )
+            elif isinstance(normalizer, str):
+                self.normalizer = Normalizer(
+                    normalizer,
+                    target_size=target_size,
+                    backend="np",
                 )
             else:
                 self.normalizer = normalizer
+                if isinstance(self.normalizer, Normalizer) and self.normalizer.backend != "np":
+                    self.normalizer = Normalizer(
+                        norm_type=self.normalizer.norm_type,
+                        target_size=self.normalizer.target_size,
+                        mean=self.normalizer.mean,
+                        std=self.normalizer.std,
+                        interpolation=self.normalizer.interpolation,
+                        backend="np",
+                    )
         
         if sampler and sampler.lower() in ["balance", "balanced"]:
             all_labels = [sample['label'] for sample in self.dataset]

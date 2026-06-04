@@ -54,30 +54,27 @@ class TFDataPipeline:
                 mean=normalizer.get("mean", None),
                 std=normalizer.get("std", None),
                 interpolation=normalizer.get("interpolation", "BILINEAR"),
+                backend="tf",
             )
-            self._norm_type = self.normalizer.norm_type
-            self._norm_mean = self.normalizer.mean
-            self._norm_std = self.normalizer.std
         elif isinstance(normalizer, str):
             self.normalizer = Normalizer(
                 normalizer,
                 target_size=target_size,
                 mean=mean_norm,
                 std=std_norm,
+                backend="tf",
             )
-            self._norm_type = normalizer
-            self._norm_mean = mean_norm
-            self._norm_std = std_norm
         else:
             self.normalizer = normalizer
-            if hasattr(normalizer, "norm_type"):
-                self._norm_type = normalizer.norm_type
-                self._norm_mean = getattr(normalizer, "mean", None)
-                self._norm_std = getattr(normalizer, "std", None)
-            else:
-                self._norm_type = None
-                self._norm_mean = None
-                self._norm_std = None
+            if isinstance(self.normalizer, Normalizer) and self.normalizer.backend != "tf":
+                self.normalizer = Normalizer(
+                    norm_type=self.normalizer.norm_type,
+                    target_size=self.normalizer.target_size,
+                    mean=self.normalizer.mean,
+                    std=self.normalizer.std,
+                    interpolation=self.normalizer.interpolation,
+                    backend="tf",
+                )
 
         # class weights if sampler indicates balanced sampling
         if sampler and sampler.lower() in ["balance", "balanced"]:
@@ -161,35 +158,11 @@ class TFDataPipeline:
         return img_tf
 
     def _tf_normalize(self, img_tf):
-        # img_tf expected float32 (0-255 or 0-1 depending on caller). Normalize to float32 output.
-        if img_tf.dtype != tf.float32:
-            img_tf = tf.image.convert_image_dtype(img_tf, tf.float32)
-
-        if self._norm_type is None:
-            # fallback: no-op
+        if self.normalizer is None:
+            if img_tf.dtype != tf.float32:
+                return tf.image.convert_image_dtype(img_tf, tf.float32)
             return img_tf
-
-        if self._norm_type == "divide":
-            img = img_tf / 1.0  # already in [0,1]
-        elif self._norm_type == "sub_divide":
-            img = img_tf * 2.0 - 1.0
-        else:
-            img = img_tf
-
-        # apply mean/std if provided
-        if self._norm_mean is not None:
-            mean = tf.constant(self._norm_mean, dtype=tf.float32)
-            if mean.shape.ndims == 0:
-                img = img - mean
-            else:
-                img = img - tf.reshape(mean, [1, 1, -1])
-        if self._norm_std is not None:
-            std = tf.constant(self._norm_std, dtype=tf.float32)
-            if std.shape.ndims == 0:
-                img = img / (std + 1e-7)
-            else:
-                img = img / (tf.reshape(std, [1, 1, -1]) + 1e-7)
-        return img
+        return self.normalizer.normalize(img_tf)
 
     def _augment_numpy(self, img_np, lbl_np):
         # called inside tf.py_function: img_np may be a numpy array or a Tensor
