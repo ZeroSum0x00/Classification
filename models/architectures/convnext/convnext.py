@@ -184,13 +184,12 @@ def convnext_original_block(
         ),
     ], name=f"{name}.conv_block")(inputs)
 
-    if layer_scale_init_value > 0:
-        layer_scale_gamma = tf.ones(in_filters) * layer_scale_init_value
-        x = x * layer_scale_gamma
+    x = LayerScaleAndDropBlock(
+        layer_scale=layer_scale_init_value,
+        drop_rate=drop_prob,
+        name=f"{name}.scale_and_drop_block"
+    )([inputs, x])
 
-    if drop_prob > 0:
-        x = StochasticDepthV1(drop_prob, name=f"{name}.drop_path")([inputs, x])
-    
     x = Lambda(lambda x: x, name=f"{name}.final")(x)
     return x
 
@@ -414,7 +413,7 @@ def ConvNeXt_backbone(
 
 
 def ConvNeXt_tiny(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -450,7 +449,7 @@ def ConvNeXt_tiny(
 
 
 def ConvNeXt_tiny_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -590,7 +589,7 @@ def ConvNeXt_kecam_tiny_backbone(
 
 
 def ConvNeXt_small(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -626,7 +625,7 @@ def ConvNeXt_small(
 
 
 def ConvNeXt_small_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -766,7 +765,7 @@ def ConvNeXt_kecam_small_backbone(
 
 
 def ConvNeXt_base(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -802,7 +801,7 @@ def ConvNeXt_base(
 
 
 def ConvNeXt_base_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -942,7 +941,7 @@ def ConvNeXt_kecam_base_backbone(
 
 
 def ConvNeXt_large(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -978,7 +977,7 @@ def ConvNeXt_large(
 
 
 def ConvNeXt_large_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -1118,7 +1117,7 @@ def ConvNeXt_kecam_large_backbone(
 
 
 def ConvNeXt_xlarge(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -1154,7 +1153,7 @@ def ConvNeXt_xlarge(
 
 
 def ConvNeXt_xlarge_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -1294,7 +1293,7 @@ def ConvNeXt_kecam_xlarge_backbone(
 
 
 def ConvNeXt_xxlarge(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -1330,7 +1329,7 @@ def ConvNeXt_xxlarge(
 
 
 def ConvNeXt_xxlarge_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",

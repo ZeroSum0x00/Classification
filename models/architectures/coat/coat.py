@@ -462,7 +462,7 @@ def parallel_block(
     cpe_outs, crpe_outs, crpe_images, resample_shapes = [], [], [], []
     block_heights = block_heights[1:]
     for id, (xx, shared_cpe, shared_crpe) in enumerate(zip(inputs[1:], shared_cpes[1:], shared_crpes[1:])):
-        cur_name = name + "{}.".format(id + 2)
+        cur_name = f"{name}.branch{id + 2}.attn"
         
         cpe_out, crpe_out = cpe_norm_crpe(
             xx,
@@ -494,7 +494,7 @@ def parallel_block(
     # MLP
     outs = []
     for id, (cpe_out, crpe_out, mlp_ratio) in enumerate(zip(cpe_outs, crpe_stack, mlp_ratios[1:])):
-        cur_name = name + "{}.".format(id + 2)
+        cur_name = f"{name}.branch{id + 2}.mlp"
         
         out = res_mlp_block(
             cpe_out,

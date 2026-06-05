@@ -41,6 +41,35 @@
             - **ResNet-50 / 101 / 152**: Use BottleneckBlock
             - Pretrained variants widely available
 
+    # Notes:
+        - Modified classifier head:
+            Original implementation:
+                Backbone
+                → AveragePooling2D (7×7)
+                → Flatten
+                → Dense(num_classes)
+
+            This implementation:
+                Backbone
+                → GlobalAveragePooling2D()
+                → Dense(num_classes)
+
+        - The original ResNet paper performs global spatial averaging on the
+        final feature map before classification. Some implementations achieve
+        this using a fixed-size AveragePooling2D(7×7), assuming a final
+        feature map of size 7×7 for 224×224 inputs.
+
+        - This implementation replaces the fixed pooling operation with
+        GlobalAveragePooling2D(), which performs the same global averaging
+        behavior while removing the dependency on a specific feature-map size.
+
+        - The modification enables variable input resolutions and simplifies
+        the classifier head without changing the fundamental classification
+        strategy proposed in the original ResNet architecture.
+
+        - Residual blocks, shortcut connections, bottleneck structures, and
+        all backbone stages remain identical to the original ResNet design.
+
     General Model Architecture:
          -------------------------------------------------------------------------
         | Stage         | Layer                         | Output Shape            |
@@ -62,8 +91,7 @@
         | Stage 4       | resnet_block (s=2)            | (None, 7, 7, 2048)      |
         |               | resnet_block (x2)             | (None, 7, 7, 2048)      |
         |---------------+-------------------------------+-------------------------|
-        | CLS Logics    | AveragePooling2D              | (None, 1, 1, 2048)      |
-        |               | Flatten                       | (None, 2048)            |
+        | CLS Logics    | GlobalAveragePooling2D        | (None, 2048)            |
         |               | fc (Logics)                   | (None, 1000)            |
          -------------------------------------------------------------------------
 
@@ -101,17 +129,15 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    ZeroPadding2D, Conv2D, Flatten,
-    MaxPooling2D, AveragePooling2D,
+    ZeroPadding2D, Conv2D, MaxPooling2D,
     Dense, Dropout, GlobalAveragePooling2D,
     add
 )
 
-from models.layers import get_activation_from_name, get_normalizer_from_name, LinearLayer
+from models.layers import get_activation_from_name, get_normalizer_from_name
 from utils.model_processing import (
-    process_model_input, correct_pad,
+    process_model_input, create_model_backbone,
     validate_conv_arg, check_regularizer,
-    create_model_backbone,
 )
 
 
@@ -353,9 +379,7 @@ def ResNet(
 
     if include_head:
         x = Sequential([
-            AveragePooling2D(pool_size=(7, 7)),
-            Dropout(rate=drop_rate),
-            Flatten(),
+            GlobalAveragePooling2D(),
             Dropout(drop_rate),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
@@ -392,9 +416,10 @@ def ResNet_backbone(
 
     custom_layers = custom_layers or [
         "stem",
-        "stage1.add",
-        "stage2.add",
-        "stage4.block8.add",
+        f"stage1.block{num_blocks[0]}.final_activ",
+        f"stage2.block{num_blocks[1]}.final_activ",
+        f"stage3.block{num_blocks[2]}.final_activ",
+        f"stage4.block{num_blocks[3]}.final_activ"
     ]
 
     return create_model_backbone(
@@ -453,9 +478,10 @@ def ResNet18_backbone(
 
     custom_layers = custom_layers or [
         "stem",
-        "stage1.add",
-        "stage2.add",
-        "stage4.block8.add",
+        "stage1.block3.final_activ",
+        "stage2.block2.final_activ",
+        "stage3.block2.final_activ",
+        "stage4.block2.final_activ"
     ]
 
     return create_model_backbone(
@@ -511,9 +537,10 @@ def ResNet34_backbone(
 
     custom_layers = custom_layers or [
         "stem",
-        "stage1.add",
-        "stage2.add",
-        "stage4.block8.add",
+        "stage1.block4.final_activ",
+        "stage2.block4.final_activ",
+        "stage3.block6.final_activ",
+        "stage4.block3.final_activ"
     ]
 
     return create_model_backbone(
@@ -569,9 +596,10 @@ def ResNet50_backbone(
 
     custom_layers = custom_layers or [
         "stem",
-        "stage1.add",
-        "stage2.add",
-        "stage4.block8.add",
+        "stage1.block4.final_activ",
+        "stage2.block4.final_activ",
+        "stage3.block6.final_activ",
+        "stage4.block3.final_activ"
     ]
 
     return create_model_backbone(
@@ -627,9 +655,10 @@ def ResNet101_backbone(
 
     custom_layers = custom_layers or [
         "stem",
-        "stage1.add",
-        "stage2.add",
-        "stage4.block8.add",
+        "stage1.block4.final_activ",
+        "stage2.block4.final_activ",
+        "stage3.block23.final_activ",
+        "stage4.block3.final_activ"
     ]
 
     return create_model_backbone(
@@ -685,9 +714,10 @@ def ResNet152_backbone(
 
     custom_layers = custom_layers or [
         "stem",
-        "stage1.add",
-        "stage2.add",
-        "stage4.block8.add",
+        "stage1.block4.final_activ",
+        "stage2.block8.final_activ",
+        "stage3.block36.final_activ",
+        "stage4.block3.final_activ"
     ]
 
     return create_model_backbone(

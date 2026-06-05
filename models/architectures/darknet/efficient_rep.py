@@ -2276,7 +2276,7 @@ def EfficientLite_small(
 def EfficientLite_small_backbone(
     inputs=[320, 320, 3],
     weights="imagenet",
-    activation="leaky-relu",
+    activation="hard-swish",
     normalizer="batch-norm",
     deploy=False,
     custom_layers=[]
@@ -2350,7 +2350,7 @@ def EfficientLite_medium(
 def EfficientLite_medium_backbone(
     inputs=[320, 320, 3],
     weights="imagenet",
-    activation="leaky-relu",
+    activation="hard-swish",
     normalizer="batch-norm",
     deploy=False,
     custom_layers=[]
@@ -2424,7 +2424,7 @@ def EfficientLite_large(
 def EfficientLite_large_backbone(
     inputs=[320, 320, 3],
     weights="imagenet",
-    activation="leaky-relu",
+    activation="hard-swish",
     normalizer="batch-norm",
     deploy=False,
     custom_layers=[]

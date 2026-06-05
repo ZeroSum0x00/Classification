@@ -167,7 +167,7 @@ def BEiT(
         if use_pre_norm:
             x = get_normalizer_from_name(normalizer, epsilon=norm_eps, name="pre_ln")(x)
 
-    drop_connect_rates = drop_connect_rates_split([num_layers], 0.0, drop_rate)[0]
+    drop_connect_rates = drop_connect_rates_split([num_layers], 0.0, drop_path_rate)[0]
 
     for i in range(num_layers):
         block_drop_rate = drop_connect_rates[i]

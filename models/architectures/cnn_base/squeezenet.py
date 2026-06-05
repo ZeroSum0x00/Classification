@@ -12,6 +12,23 @@
         - No fully connected layers — replaced with convolution + global average pooling.
         - Small model size (~5MB), ideal for low-latency or memory-constrained environments.
 
+    # Notes:
+        - Modified classifier head:
+            Original paper:
+                Backbone
+                → AveragePooling2D (13x13, s=1)
+                → Flatten
+                → Dense (num_classes)
+
+            This implementation:
+                Backbone
+                → GlobalAveragePooling2D
+                → Dense (num_classes)
+
+        - The change removes the dependency on a fixed 13×13 feature map and
+        enables variable input image sizes while preserving the original
+        global averaging behavior.
+
     General Model Architecture:
          -------------------------------------------------------------------------------
         | Stage                  | Layer                       | Output Shape           |
@@ -35,8 +52,7 @@
         | Stage 3                | fire_module8                | (None, 13, 13, 512)    |
         |                        | ConvolutionBlock (1x1, s=1) | (None, 13, 13, 1000)   |
         |------------------------+-----------------------------+------------------------|
-        | CLS Logics             | AveragePooling              | (None, 1, 1, 1000)     |
-        |                        | Flatten                     | (None, 1000)           |
+        | CLS Logics             | GlobalAveragePooling2D      | (None, 1000)           |
         |                        | fc (Logics)                 | (None, 1000)           |
          -------------------------------------------------------------------------------
          
@@ -59,8 +75,8 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    Conv2D, Flatten, Dropout, Dense,
-    MaxPooling2D, AveragePooling2D,
+    Conv2D, Dropout, Dense,
+    MaxPooling2D, GlobalAveragePooling2D,
     concatenate,
 )
 
@@ -261,10 +277,8 @@ def SqueezeNet(
 
     if include_head:
         x = Sequential([
-            AveragePooling2D(pool_size=(13, 13), strides=(1, 1)),
+            GlobalAveragePooling2D(),
             Dropout(rate=drop_rate),
-            Flatten(),
-            Dropout(drop_rate),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
@@ -282,9 +296,10 @@ def SqueezeNet_backbone(
 ) -> Model:
 
     custom_layers = custom_layers or [
-        "stem.activ",
+        "stem.block1",
         "stage1.block3.fusion",
         "stage2.block4.fusion",
+        "stage3.block2"
     ]
 
     return create_model_backbone(

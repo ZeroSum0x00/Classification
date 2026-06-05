@@ -94,7 +94,7 @@ def AlexNet(
         inputs,
         include_head=include_head,
         default_size=227,
-        min_size=32,
+        min_size=227,
         weights=weights,
     )
 
@@ -204,9 +204,9 @@ def AlexNet_backbone(
 ) -> Model:
 
     custom_layers = custom_layers or [
-        "stem.norm",
-        "stage1.norm",
-        "stage3.activ",
+        "stem.block1",
+        "stage1.block1",
+        "stage2.block3",
     ]
 
     return create_model_backbone(

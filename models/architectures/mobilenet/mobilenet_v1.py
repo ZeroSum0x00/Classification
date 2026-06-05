@@ -40,6 +40,30 @@
         • No Residual Connections:
             - Unlike ResNet or MobileNetV2, MobileNetV1 uses a plain feedforward stack
 
+    # Notes:
+        - Modified classifier head:
+            Original paper:
+                Backbone
+                → AveragePooling2D (7×7, s=1)
+                → Conv2D (1×1, num_classes)
+                → Flatten
+
+            This implementation:
+                Backbone
+                → GlobalAveragePooling2D()
+                → Dense(num_classes)
+
+        - The original MobileNetV1 architecture assumes a fixed 224×224 input
+        resolution, producing a final 7×7 feature map before classification.
+
+        - Replacing the fixed-size AveragePooling2D(7×7) with
+        GlobalAveragePooling2D() removes the dependency on a specific feature-map
+        size and enables support for variable input resolutions.
+
+        - Parameter count differences may occur when using Dense(num_classes)
+        instead of the original Conv2D(1×1, num_classes) classifier, although
+        the practical impact is typically negligible.
+
     General Model Architecture:
          ------------------------------------------------------------------------------------
         | Stage                  | Layer                           | Output Shape            |
@@ -63,9 +87,8 @@
         | Stage 5                | depthwise_separable_block (s=2) | (None, 7, 7, 1024)      |
         |                        | depthwise_separable_block (x5)  | (None, 7, 7, 1024)      |
         |------------------------+---------------------------------+-------------------------|
-        | CLS Logics             | AveragePooling2D (7x7, s=1)     | (None, 1, 1, 1024)      |
-        |                        | Conv2D (1x1, s=1)               | (None, 1, 1, 1000)      |
-        |                        | Flatten                         | (None, 1000)            |
+        | CLS Logics             | GlobalAveragePooling2D          | (None, 1024)            |
+        |                        | Dense (1000)                    | (None, 1000)            |
          ------------------------------------------------------------------------------------
 
     Model Parameter Comparison:
@@ -100,15 +123,12 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    ZeroPadding2D, Conv2D, DepthwiseConv2D,
-    Dropout, AveragePooling2D, Flatten,
-    add, multiply, concatenate,
+    ZeroPadding2D, Conv2D, DepthwiseConv2D, Dense,
+    Dropout, GlobalAveragePooling2D,
 )
 
 from models.layers import (
-    get_activation_from_name, get_normalizer_from_name,
-    MLPBlock, DropPathV1, DropPathV2, LinearLayer,
-    OperatorWrapper, UnstackWrapper,
+    get_activation_from_name, get_normalizer_from_name, LinearLayer
 )
 from utils.model_processing import (
     process_model_input, correct_pad, validate_conv_arg,
@@ -380,17 +400,10 @@ def MobileNet_v1(
     )
 
     if include_head:
-        out_dim = 1 if num_classes == 2 else num_classes
         x = Sequential([
-            AveragePooling2D(pool_size=(7, 7), strides=(1, 1)),
+            GlobalAveragePooling2D(),
             Dropout(rate=drop_rate),
-            Conv2D(
-                filters=out_dim, 
-                kernel_size=(1, 1),
-                strides=(1, 1),
-                padding="same",
-            ),
-            Flatten(),
+            Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)
         

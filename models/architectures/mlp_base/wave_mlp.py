@@ -87,6 +87,8 @@ from models.layers import (
 )
 from utils.model_processing import process_model_input, check_regularizer
 
+DropPath = DropPathV1
+
 
 def phase_aware_token_mixing(
     inputs,

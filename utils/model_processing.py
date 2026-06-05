@@ -307,4 +307,7 @@ def create_model_backbone(model_fn, custom_layers=None, *args, **kwargs):
         output_custom_layer.append(model.get_layer(layer).output)
         
     final_output_layer = model.get_layer(model.layers[-1].name).output
+    if output_custom_layer and output_custom_layer[-1] is final_output_layer:
+        output_custom_layer = output_custom_layer[:-1]
+
     return Model(inputs=model.inputs, outputs=[*output_custom_layer, final_output_layer], name=f"{model.name}_backbone")

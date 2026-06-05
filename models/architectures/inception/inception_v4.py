@@ -47,6 +47,35 @@
             - At the end of the network, a GAP layer replaces fully connected layers to reduce overfitting.
             - Final FC + Softmax layer for classification.
 
+    # Notes:
+        - Modified classifier head:
+            Original implementation:
+                Backbone
+                → AveragePooling2D (8×8)
+                → Flatten
+                → Dense(num_classes)
+
+            This implementation:
+                Backbone
+                → GlobalAveragePooling2D()
+                → Dense(num_classes)
+
+        - The original Inception-v4 architecture assumes a fixed input
+        resolution (typically 299×299), producing an 8×8 feature map before
+        the classification stage.
+
+        - Replacing the fixed AveragePooling2D(8×8) layer with
+        GlobalAveragePooling2D() preserves the original global spatial
+        averaging behavior while removing the dependency on a fixed feature-map
+        size.
+
+        - This modification enables variable input resolutions and simplifies
+        the classifier head without altering the Inception-v4 stem,
+        Inception-A/B/C modules, or Reduction-A/B blocks.
+
+        - The overall feature extraction pipeline remains faithful to the
+        original Inception-v4 architecture.
+
     General Model Architecture:
          --------------------------------------------------------------------------------
         | Stage                  | Layer                       | Output Shape            |
@@ -68,8 +97,7 @@
         |------------------------+-----------------------------+-------------------------|
         | Stage 3                | inception_C (3x)            | (None, 8, 8, 1536)      |
         |------------------------+-----------------------------+-------------------------|
-        | CLS Logics             | AveragePooling2D (8x8, s=1) | (None, 1, 1, 1536)      |
-        |                        | Flatten                     | (None, 1536)            |
+        | CLS Logics             | GlobalAveragePooling2D      | (None, 1536)            |
         |                        | fc (Logics)                 | (None, 1000)            |
          --------------------------------------------------------------------------------
          
@@ -94,9 +122,8 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    Flatten, Dense, Dropout,
-    MaxPooling2D, AveragePooling2D,
-    GlobalMaxPooling2D, GlobalAveragePooling2D,
+    Dense, Dropout, MaxPooling2D,
+    AveragePooling2D, GlobalAveragePooling2D,
     concatenate
 )
 
@@ -1132,9 +1159,8 @@ def Inception_v4(
 
     if include_head:
         x = Sequential([
-            AveragePooling2D(pool_size=(8, 8), strides=(1, 1)),
+            GlobalAveragePooling2D(),
             Dropout(rate=drop_rate),
-            Flatten(),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
         ], name="classifier_head")(x)

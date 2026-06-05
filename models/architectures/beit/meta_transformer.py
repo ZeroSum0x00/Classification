@@ -173,7 +173,6 @@ def MetaTransformer_T14(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -193,7 +192,6 @@ def MetaTransformer_T14(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -211,7 +209,6 @@ def MetaTransformer_T16(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -231,7 +228,6 @@ def MetaTransformer_T16(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -249,7 +245,6 @@ def MetaTransformer_S14(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -269,7 +264,6 @@ def MetaTransformer_S14(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -287,7 +281,6 @@ def MetaTransformer_S16(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -307,7 +300,6 @@ def MetaTransformer_S16(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -325,7 +317,6 @@ def MetaTransformer_B14(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -345,7 +336,6 @@ def MetaTransformer_B14(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -363,7 +353,6 @@ def MetaTransformer_B16(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -383,7 +372,6 @@ def MetaTransformer_B16(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -401,7 +389,6 @@ def MetaTransformer_L14(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -421,7 +408,6 @@ def MetaTransformer_L14(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -439,7 +425,6 @@ def MetaTransformer_L16(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -459,7 +444,6 @@ def MetaTransformer_L16(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -477,7 +461,6 @@ def MetaTransformer_H14(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -497,7 +480,6 @@ def MetaTransformer_H14(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -515,7 +497,6 @@ def MetaTransformer_H16(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -535,7 +516,6 @@ def MetaTransformer_H16(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -553,7 +533,6 @@ def MetaTransformer_G14(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -573,7 +552,6 @@ def MetaTransformer_G14(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate
@@ -591,7 +569,6 @@ def MetaTransformer_G16(
     kernel_initializer="glorot_uniform",
     bias_initializer="zeros",
     regularizer_decay=5e-4,
-    sam_rho=0.0,
     norm_eps=1e-6,
     drop_path_rate=0.1,
     drop_rate=0.1
@@ -611,7 +588,6 @@ def MetaTransformer_G16(
         kernel_initializer=kernel_initializer,
         bias_initializer=bias_initializer,
         regularizer_decay=regularizer_decay,
-        sam_rho=sam_rho,
         norm_eps=norm_eps,
         drop_path_rate=drop_path_rate,
         drop_rate=drop_rate

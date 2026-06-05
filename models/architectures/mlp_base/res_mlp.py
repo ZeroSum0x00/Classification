@@ -108,7 +108,7 @@ def res_mlp_block(
         ChannelAffine(use_bias=True, weight_init_value=-1, axis=-1),
         Permute(dims=(2, 1)),
         Dense(
-            units=nn.shape[-1],
+            units=inputs.shape[1],
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
             kernel_regularizer=regularizer_decay,
@@ -209,7 +209,7 @@ def ResMLP(
         Reshape(target_shape=(-1, stem_width)),
     ], name="stem")(inputs)
 
-    drop_connect_s, drop_connect_e = drop_connect_rate if isinstance(drop_rate, (list, tuple)) else [drop_rate, drop_rate]
+    drop_connect_s, drop_connect_e = drop_connect_rate if isinstance(drop_connect_rate, (list, tuple)) else [drop_connect_rate, drop_connect_rate]
     
     for i in range(num_blocks):
         block_drop_rate = drop_connect_s + (drop_connect_e - drop_connect_s) * i / num_blocks
@@ -223,7 +223,7 @@ def ResMLP(
         
     x = ChannelAffine(weight_init_value=-1, axis=-1, name=f"stage{i + 1}.channel_affine")(x)
     
-    if include_top:
+    if include_head:
         x = Sequential([
             GlobalAveragePooling1D(),
             Dropout(rate=drop_rate),
@@ -261,7 +261,7 @@ def ResMLP_S12(
         stem_width=384,
         patch_size=16,
         num_blocks=12,
-        channels_mlp_dim=384 * 4,
+        channels_dim=384 * 4,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -297,7 +297,7 @@ def ResMLP_S24(
         stem_width=384,
         patch_size=16,
         num_blocks=24,
-        channels_mlp_dim=384 * 4,
+        channels_dim=384 * 4,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -333,7 +333,7 @@ def ResMLP_S36(
         stem_width=384,
         patch_size=16,
         num_blocks=36,
-        channels_mlp_dim=384 * 4,
+        channels_dim=384 * 4,
         inputs=inputs,
         include_head=include_head,
         weights=weights,
@@ -369,7 +369,7 @@ def ResMLP_B24(
         stem_width=768,
         patch_size=8,
         num_blocks=24,
-        channels_mlp_dim=768 * 4,
+        channels_dim=768 * 4,
         inputs=inputs,
         include_head=include_head,
         weights=weights,

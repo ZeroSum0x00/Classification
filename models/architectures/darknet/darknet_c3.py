@@ -107,7 +107,7 @@ class Contract(tf.keras.layers.Layer):
         s = self.gain
         x = tf.reshape(inputs, (-1, h // s, s, w // s, s, c))
         x = tf.transpose(x, perm=[0, 1, 3, 2, 4, 5])
-        x = tf.reshape(inputs, (-1, h // s, w // s, c * s * s))
+        x = tf.reshape(x, (-1, h // s, w // s, c * s * s))
         return x
 
     def get_config(self):
@@ -136,9 +136,9 @@ class Expand(tf.keras.layers.Layer):
     def call(self, inputs):
         bs, h, w, c = inputs.shape
         s = self.gain
-        x = tf.reshape(inputs, (-1, h, w, c // s ** 2, s, s))
-        x = tf.transpose(x, perm=[0, 1, 4, 2, 5, 3])
-        x = tf.reshape(inputs, (-1, h * s, w * s, c // s ** 2))
+        x = tf.reshape(inputs, (-1, h, w, s, s, c // s ** 2))
+        x = tf.transpose(x, perm=[0, 1, 3, 2, 4, 5])
+        x = tf.reshape(x, (-1, h * s, w * s, c // s ** 2))
         return x
 
     def get_config(self):
@@ -1419,12 +1419,12 @@ class TransfomerProjection(tf.keras.layers.Layer):
                 for i in range(self.iters)
             ]
         else:
-            mlp_clone = [copy.deepcopy(self.mlp_block) for i in range(self.iters)]
+            mlp_list = [copy.deepcopy(self.mlp_block) for i in range(self.iters)]
 
         self.transfomer_sequence = [
-            TransformerBlock(
-                attention_block=attn_list[i],
-                mlp_block=mlp_list[i],
+            TransformerEncoderBlock(
+                attn_block=attn_list[i],
+                ffn_block=mlp_list[i],
                 activation=self.activation,
                 normalizer=self.normalizer,
                 norm_eps=self.norm_eps,
@@ -1443,7 +1443,7 @@ class TransfomerProjection(tf.keras.layers.Layer):
 
         for transfomer in self.transfomer_sequence:
             x, _ = transfomer(x, training=training)
-        x = tf.reshape(inputs, (-1, h, w, self.mlp_dim))
+        x = tf.reshape(x, (-1, h, w, self.mlp_dim))
         return x
 
     def get_config(self):

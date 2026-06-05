@@ -215,8 +215,8 @@ def ViT(
             mlp_clone = copy.deepcopy(mlp_block)
 
         x, _ = TransformerEncoderBlock(
-            attention_block=attn_clone,
-            mlp_block=mlp_clone,
+            attn_block=attn_clone,
+            ffn_block=mlp_clone,
             activation=activation,
             normalizer=None,
             norm_eps=norm_eps,

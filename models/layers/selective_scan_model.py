@@ -68,7 +68,7 @@ class SSM(tf.keras.layers.Layer):
         with tf.init_scope():
             A_value = tf.range(1, self.d_state + 1, delta=1, dtype=tf.float32)
             A_value = tf.expand_dims(A_value, axis=0)
-            A_value = tf.repeat(A_value, repeats=256, axis=0)
+            A_value = tf.repeat(A_value, repeats=self.dim_inner, axis=0)
             A_value = tf.math.log(A_value)
             
         self.A_log = self.add_weight(

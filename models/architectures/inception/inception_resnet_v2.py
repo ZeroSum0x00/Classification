@@ -56,6 +56,35 @@
             - Each block adds its output with the input multiplied by a small scalar (e.g., 0.1),
               which stabilizes training even with very deep models.
 
+    # Notes:
+        - Modified classifier head:
+            Original implementation:
+                Backbone
+                → AveragePooling2D (8×8)
+                → Flatten
+                → Dense(num_classes)
+
+            This implementation:
+                Backbone
+                → GlobalAveragePooling2D()
+                → Dense(num_classes)
+
+        - The original Inception-ResNet-v2 architecture assumes a fixed input
+        resolution that produces an 8×8 feature map before the classification
+        stage.
+
+        - Replacing the fixed-size AveragePooling2D(8×8) with
+        GlobalAveragePooling2D() preserves the original global spatial
+        averaging behavior while removing the dependency on a fixed feature-map
+        size.
+
+        - This modification enables variable input resolutions and simplifies
+        the classifier head without affecting the Inception-ResNet backbone,
+        residual scaling mechanism, or Inception block design.
+
+        - The overall feature extraction pipeline remains faithful to the
+        original Inception-ResNet-v2 architecture.
+        
     General Model Architecture:
          --------------------------------------------------------------------------------
         | Stage                  | Layer                       | Output Shape            |
@@ -77,9 +106,8 @@
         |------------------------+-----------------------------+-------------------------|
         | Stage 3                | inception_resnet_C (5x)     | (None, 8, 8, 2144)      |
         |------------------------+-----------------------------+-------------------------|
-        | CLS Logics             | AveragePooling2D (8x8, s=1) | (None, 1, 1, 2144)      |
-        |                        | Flatten                     | (None, 2144)            |
-        |                        | fc (Logics)                 | (None, 1000)            |
+        | CLS Logics             | GlobalAveragePooling2D      | (None, 2144)            |
+        |                        | Dense (1000)                | (None, 1000)            |
          --------------------------------------------------------------------------------
          
     Model Parameter Comparison:
@@ -105,8 +133,8 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
-    Conv2D, Lambda, Flatten, Dense,
-    Dropout, MaxPooling2D, AveragePooling2D,
+    Lambda, Dense, Dropout,
+    MaxPooling2D, GlobalAveragePooling2D,
     concatenate, add,
 )
 
@@ -807,9 +835,8 @@ def Inception_Resnet_v2(
 
     if include_head:
         x = Sequential([
-            AveragePooling2D(pool_size=(8, 8), strides=(1, 1)),
+            GlobalAveragePooling2D(),
             Dropout(rate=drop_rate),
-            Flatten(),
             Dropout(rate=drop_rate),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),

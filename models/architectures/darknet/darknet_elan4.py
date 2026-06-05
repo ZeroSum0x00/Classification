@@ -88,7 +88,7 @@ from .darknet_elan import BottleneckCSPA
 
 from models.layers import get_activation_from_name, LinearLayer
 from utils.model_processing import (
-    process_model_input, create_layer_instance,
+    process_model_input, create_model_backbone, create_layer_instance,
     validate_conv_arg, check_regularizer,
 )
 

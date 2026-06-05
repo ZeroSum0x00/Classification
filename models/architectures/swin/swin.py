@@ -97,10 +97,12 @@ def window_partition(x, window_size):
 def window_reverse(windows, window_size, H, W, C):
     Wh, Ww = window_size
     # assert H % Wh == 0 and W % Ww == 0, "Input dimensions must be divisible by window size"
-    
-    x = tf.reshape(windows, shape=(-1, H // Wh, W // Ww, Wh, Ww, C))
+
+    num_windows = (H // Wh) * (W // Ww)
+    batch_size = tf.shape(windows)[0] // num_windows
+    x = tf.reshape(windows, shape=(batch_size, H // Wh, W // Ww, Wh, Ww, C))
     x = tf.transpose(x, perm=[0, 1, 3, 2, 4, 5])
-    x = tf.reshape(x, shape=(-1, H, W, C))
+    x = tf.reshape(x, shape=(batch_size, H, W, C))
     return x
 
 
@@ -135,6 +137,7 @@ class PatchEmbed(tf.keras.layers.Layer):
         self.bias_initializer = bias_initializer
         self.regularizer_decay = check_regularizer(regularizer_decay)
         self.norm_eps = norm_eps
+        self.attn_drop_rate = attn_drop_rate
         self.drop_rate = drop_rate
 
     def build(self, input_shape):
@@ -175,7 +178,8 @@ class PatchEmbed(tf.keras.layers.Layer):
             ], mode='CONSTANT', constant_values=0)
 
         x = self.proj_conv(inputs, training=training)
-        x = tf.reshape(x, [B, -1, self.embed_dim])
+        num_patches = x.shape[1] * x.shape[2]
+        x = tf.reshape(x, [B, num_patches, self.embed_dim])
         x = self.norm(x, training=training)
         x = self.dropout(x, training=training)
         return x
@@ -412,7 +416,6 @@ class WindowAttention(tf.keras.layers.Layer):
         if mask is not None:
             nW = mask.shape[0]
             attn = tf.reshape(attn, shape=[-1, nW, self.num_heads, N, N]) + tf.cast(tf.expand_dims(tf.expand_dims(mask, axis=1), axis=0), tf.float32)
-            attn = tf.nn.softmax(attn, axis=-1)
             attn = tf.reshape(attn, shape=[-1, self.num_heads, N, N])
             attn = tf.nn.softmax(attn, axis=-1)
         else:
@@ -545,7 +548,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
             drop_rate=self.drop_rate
         )
         
-        self.drop_path = DropPath(self.drop_path_rate) if self.drop_path_rate > 0. else LinearLayer()
+        self.drop_path = DropPathV1(self.drop_path_rate) if self.drop_path_rate > 0. else LinearLayer()
         self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
 

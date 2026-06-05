@@ -238,7 +238,7 @@ def ConvNeXt_v2_backbone(
 
 
 def ConvNeXt_v2_atto(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -274,7 +274,7 @@ def ConvNeXt_v2_atto(
 
 
 def ConvNeXt_v2_atto_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -414,7 +414,7 @@ def ConvNeXt_v2_kecam_atto_backbone(
 
 
 def ConvNeXt_v2_femto(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -450,7 +450,7 @@ def ConvNeXt_v2_femto(
 
 
 def ConvNeXt_v2_femto_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -590,7 +590,7 @@ def ConvNeXt_v2_kecam_femto_backbone(
 
 
 def ConvNeXt_v2_pico(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -626,7 +626,7 @@ def ConvNeXt_v2_pico(
 
 
 def ConvNeXt_v2_pico_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -766,7 +766,7 @@ def ConvNeXt_v2_kecam_pico_backbone(
 
 
 def ConvNeXt_v2_nano(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -802,7 +802,7 @@ def ConvNeXt_v2_nano(
 
 
 def ConvNeXt_v2_nano_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -942,7 +942,7 @@ def ConvNeXt_v2_kecam_nano_backbone(
 
 
 def ConvNeXt_v2_tiny(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -978,7 +978,7 @@ def ConvNeXt_v2_tiny(
 
 
 def ConvNeXt_v2_tiny_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -1118,7 +1118,7 @@ def ConvNeXt_v2_kecam_tiny_backbone(
 
 
 def ConvNeXt_v2_base(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -1154,7 +1154,7 @@ def ConvNeXt_v2_base(
 
 
 def ConvNeXt_v2_base_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -1294,7 +1294,7 @@ def ConvNeXt_v2_kecam_base_backbone(
 
 
 def ConvNeXt_v2_large(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -1330,7 +1330,7 @@ def ConvNeXt_v2_large(
 
 
 def ConvNeXt_v2_large_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",
@@ -1470,7 +1470,7 @@ def ConvNeXt_v2_kecam_large_backbone(
 
 
 def ConvNeXt_v2_huge(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     include_head=True,
     weights="imagenet",
@@ -1506,7 +1506,7 @@ def ConvNeXt_v2_huge(
 
 
 def ConvNeXt_v2_huge_backbone(
-    block,
+    block=convnext_kecam_block,
     inputs=[224, 224, 3],
     weights="imagenet",
     activation="gelu",

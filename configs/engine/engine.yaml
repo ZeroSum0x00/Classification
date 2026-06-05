@@ -1,6 +1,6 @@
 Dataset:
     overall:
-        source_paths: "/home/vbpo-101386/Desktop/TuNIT/Datasets/Datasets/Classification/tiny_animals"
+        source_paths: "/home/vbpo-101386/Desktop/TuNIT/Datasets/Datasets/Classification/full_animals"
         data_type: "dirname"
         dataloader_mode: "sequence"
         sampler: ""
@@ -129,9 +129,3 @@ Callbacks:
         extend_path: "logs/training_log.log"
     - TrainSummary:
         extend_path: "summary/train_summary.txt"
-    - EarlyStopping:
-        monitor: "val_loss"
-        patience: 10
-        verbose: 1
-        mode: "min"
-        restore_best_weights: True

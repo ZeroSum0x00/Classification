@@ -155,6 +155,21 @@ class ResidualBlock(tf.keras.layers.Layer):
     def from_config(cls, config):
         return cls(**config)
 
+
+def _darknet53_backbone_layers(num_blocks, pyramid_pooling=None):
+    custom_layers = [
+        f"stage{i + 1}.block{j}"
+        for i, j in enumerate(num_blocks[1:-1])
+    ]
+
+    if pyramid_pooling:
+        extra_blocks = len(pyramid_pooling) if isinstance(pyramid_pooling, (list, tuple)) else 1
+    else:
+        extra_blocks = 1
+
+    custom_layers.append(f"stage{len(num_blocks) - 1}.block{num_blocks[-1] + extra_blocks}")
+    return custom_layers
+
     
 def DarkNet53(
     feature_extractor,
@@ -268,7 +283,7 @@ def DarkNet53(
                     fusion_block1 if i == 0 else fusion_block2,
                     filters=f2,
                     **layer_constant_dict,
-                    name=f"{block_name_prefix}.block{b + 2}"
+                    name=f"{block_name_prefix}.block{b + 1}"
                 )(x)
                 
     block_name_prefix = f"stage{len(num_blocks) - 1}"
@@ -282,10 +297,10 @@ def DarkNet53(
                 pooling,
                 filters=final_filters,
                 **layer_constant_dict,
-                name=f"{block_name_prefix}.block{b + p + 3}"
+                name=f"{block_name_prefix}.block{b + p + 2}"
             )(x)
     else:
-        x = LinearLayer(name=f"{block_name_prefix}.block{b + 3}")(x)
+        x = LinearLayer(name=f"{block_name_prefix}.block{b + 2}")(x)
         
     if include_head:
         x = Sequential([
@@ -318,7 +333,10 @@ def DarkNet53_backbone(
     custom_layers=[]
 ) -> Model:
 
-    custom_layers = custom_layers or [f"stage{i + 1}.block{j + 1}" for i, j in enumerate(num_blocks[1:-1])]
+    custom_layers = custom_layers or _darknet53_backbone_layers(
+        num_blocks=num_blocks,
+        pyramid_pooling=pyramid_pooling,
+    )
 
     return create_model_backbone(
         model_fn=DarkNet53,
@@ -394,6 +412,7 @@ def DarkNet53_base_backbone(
         "stage2.block3",
         "stage3.block9",
         "stage4.block9",
+        "stage5.block6"
     ]
 
     return create_model_backbone(

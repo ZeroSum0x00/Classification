@@ -3707,8 +3707,8 @@ def DarkNetELAN_tiny_backbone(
     """
 
     custom_layers = custom_layers or [
-        "stem",
-        "stage2.block2",
+        "stage1.block3",
+        "stage2.block3",
         "stage3.block3",
         "stage4.block3",
     ]

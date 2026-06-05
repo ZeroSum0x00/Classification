@@ -231,7 +231,9 @@ class WindowAttention(tf.keras.layers.Layer):
         q, k, v = qkv[0], qkv[1], qkv[2]
 
         # cosine attention
-        attn = (tf.linalg.normalize(q, axis=-1)[0] @ tf.transpose(tf.linalg.normalize(k, axis=-1)[0], perm=[0, 1, 3, 2]))
+        q = tf.nn.l2_normalize(q, axis=-1, epsilon=1e-12)
+        k = tf.nn.l2_normalize(k, axis=-1, epsilon=1e-12)
+        attn = q @ tf.transpose(k, perm=[0, 1, 3, 2])
         logit_scale = tf.clip_by_value(self.logit_scale, clip_value_min=-100, clip_value_max=np.log(1./0.01))
         logit_scale = tf.math.exp(logit_scale)
         attn = attn * logit_scale
@@ -391,7 +393,7 @@ class SwinTransformerBlock(tf.keras.layers.Layer):
             drop_rate=self.drop_rate
         )
         
-        self.drop_path = DropPath(self.drop_path_rate) if self.drop_path_rate > 0. else LinearLayer()
+        self.drop_path = DropPathV1(self.drop_path_rate) if self.drop_path_rate > 0. else LinearLayer()
         self.norm_layer1 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         self.norm_layer2 = get_normalizer_from_name(self.normalizer, epsilon=self.norm_eps)
         

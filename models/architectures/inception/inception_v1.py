@@ -45,6 +45,35 @@
             - The model is built in stages with increasing number of Inception modules.
             - Downsampling is done via stride-2 convolutions or pooling between stages.
     
+    # Notes:
+        - Modified classifier head:
+            Original implementation:
+                Backbone
+                → AveragePooling2D (7×7)
+                → Flatten
+                → Dense(num_classes)
+
+            This implementation:
+                Backbone
+                → GlobalAveragePooling2D()
+                → Dense(num_classes)
+
+        - The original GoogLeNet (Inception V1) architecture performs global
+        spatial aggregation on the final feature map before classification.
+        Some implementations use a fixed AveragePooling2D(7×7) layer,
+        assuming a final 7×7 feature map for 224×224 inputs.
+
+        - This implementation replaces the fixed pooling operation with
+        GlobalAveragePooling2D(), preserving the original global averaging
+        behavior while removing the dependency on a specific feature-map size.
+
+        - The modification enables variable input resolutions and simplifies
+        the classifier head without changing the Inception module structure
+        proposed in the original paper.
+
+        - All Inception blocks, auxiliary classifiers (if enabled), and the
+        overall GoogLeNet feature extraction pipeline remain unchanged.
+
     General Model Architecture:
          --------------------------------------------------------------------------------
         | Stage                  | Layer                       | Output Shape            |
@@ -72,8 +101,7 @@
         | Stage 4                | inception_block_v1          | (None, 7, 7, 832)       |
         |                        | inception_block_v1          | (None, 7, 7, 1024)      |
         |------------------------+-----------------------------+-------------------------|
-        | CLS Logics             | AveragePooling2D (7x7, s=1) | (None, 1, 1, 1024)      |
-        |                        | Flatten                     | (None, 1024)            |
+        | CLS Logics             | GlobalAveragePooling2D      | (None, 1024)            |
         |                        | fc (Logics)                 | (None, 1000)            |
          --------------------------------------------------------------------------------
          
@@ -109,7 +137,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     Conv2D, Flatten, Dense, Dropout,
-    MaxPooling2D, AveragePooling2D,
+    MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D,
     concatenate
 )
 
@@ -148,6 +176,7 @@ def inception_v1_naive_block(
             filters=filters[0],
             kernel_size=(1, 1),
             strides=(1, 1),
+            use_bias=use_bias,
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
             kernel_regularizer=regularizer_decay,
@@ -163,6 +192,7 @@ def inception_v1_naive_block(
             kernel_size=(3, 3),
             strides=(1, 1),
             padding="same",
+            use_bias=use_bias,
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
             kernel_regularizer=regularizer_decay,
@@ -178,6 +208,7 @@ def inception_v1_naive_block(
             kernel_size=(5, 5),
             strides=(1, 1),
             padding="same",
+            use_bias=use_bias,
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
             kernel_regularizer=regularizer_decay,
@@ -547,9 +578,7 @@ def GoogleNet(
 
     if include_head:
         x = Sequential([
-            AveragePooling2D(pool_size=(7, 7), strides=(1, 1)),
-            Dropout(rate=drop_rate),
-            Flatten(),
+            GlobalAveragePooling2D(),
             Dropout(rate=drop_rate),
             Dense(units=1 if num_classes == 2 else num_classes),
             get_activation_from_name("sigmoid" if num_classes == 2 else "softmax"),
@@ -583,9 +612,11 @@ def GoogleNet_backbone(
 ) -> Model:
 
     custom_layers = custom_layers or [
-        "stem",
+        "stem.conv_block",
+        "stage1.block1",
         "stage2.block2.merger",
         "stage3.block5.merger",
+        "stage4.block2.merger",
     ]
 
     return create_model_backbone(
@@ -643,9 +674,11 @@ def Inception_naive_v1_backbone(
 ) -> Model:
 
     custom_layers = custom_layers or [
-        "stem",
+        "stem.conv_block",
+        "stage1.block1",
         "stage2.block2.merger",
         "stage3.block5.merger",
+        "stage4.block2.merger",
     ]
 
     return create_model_backbone(
@@ -700,9 +733,11 @@ def Inception_base_v1_backbone(
 ) -> Model:
 
     custom_layers = custom_layers or [
-        "stem",
+        "stem.conv_block",
+        "stage1.block1",
         "stage2.block2.merger",
         "stage3.block5.merger",
+        "stage4.block2.merger",
     ]
 
     return create_model_backbone(

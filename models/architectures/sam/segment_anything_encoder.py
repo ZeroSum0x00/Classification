@@ -66,7 +66,7 @@
           https://github.com/facebookresearch/segment-anything
     
 """
-
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model, Sequential
@@ -135,10 +135,12 @@ def nonoverlap_window_reverse(window, window_size, image_size, padding_size):
     H, W = image_size
     Hp, Wp = padding_size
     C = window.shape[-1]
-    
-    x = tf.reshape(window, shape=[-1, Hp // window_size, Wp // window_size, window_size, window_size, C])
+
+    num_windows = (Hp // window_size) * (Wp // window_size)
+    batch_size = tf.shape(window)[0] // num_windows
+    x = tf.reshape(window, shape=[batch_size, Hp // window_size, Wp // window_size, window_size, window_size, C])
     x = tf.transpose(x, perm=[0, 1, 3, 2, 4, 5])
-    x = tf.reshape(x, shape=[-1, Hp, Wp, C])
+    x = tf.reshape(x, shape=[batch_size, Hp, Wp, C])
 
     if Hp > H or Wp > W:
         x = x[:, :H, :W, :]
@@ -182,6 +184,32 @@ class PatchEmbed(tf.keras.layers.Layer):
             "patch_size": self.patch_size,
             "hidden_dim": self.hidden_dim,
         })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+class AbsolutePositionEmbedding2D(tf.keras.layers.Layer):
+    def __init__(self, stddev=0.06, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stddev = stddev
+
+    def build(self, input_shape):
+        self.pos_embedding = self.add_weight(
+            shape=(1, input_shape[1], input_shape[2], input_shape[3]),
+            initializer=tf.random_normal_initializer(stddev=self.stddev),
+            trainable=True,
+            name="pos_embedding",
+        )
+
+    def call(self, inputs, training=False):
+        return inputs + self.pos_embedding
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"stddev": self.stddev})
         return config
 
     @classmethod
@@ -550,15 +578,7 @@ def ViTImageEncoder(
     x = PatchEmbed(patch_size, embed_dim, name="patched_embedding")(inputs)
 
     if use_abs_pos:
-        pe_init = tf.random_normal_initializer(stddev=0.06)
-        pos_embed = tf.Variable(
-            initial_value=pe_init(shape=(1, inputs.shape[1] // patch_size[0], inputs.shape[2] // patch_size[1], embed_dim)),
-            dtype=tf.float32,
-            trainable=True,
-            name="pos_embedding",
-        )
-        
-        x = add([x, pos_embed], name="add_positional_embedding")
+        x = AbsolutePositionEmbedding2D(name="absolute_position_embedding")(x)
 
     for i in range(depth):
         x = SwinTransformerBlock(
@@ -640,7 +660,7 @@ def ViTImageEncoder_B(
         mlp_ratio=4,
         qkv_bias=True,
         use_abs_pos=True,
-        use_rel_pos=False,
+        use_rel_pos=True,
         global_attn_indexes=[2, 5, 8, 11],
         inputs=inputs,
         include_head=include_head,
@@ -681,7 +701,7 @@ def ViTImageEncoder_L(
         mlp_ratio=4,
         qkv_bias=True,
         use_abs_pos=True,
-        use_rel_pos=False,
+        use_rel_pos=True,
         global_attn_indexes=[5, 11, 17, 23],
         inputs=inputs,
         include_head=include_head,
@@ -722,7 +742,7 @@ def ViTImageEncoder_H(
         mlp_ratio=4,
         qkv_bias=True,
         use_abs_pos=True,
-        use_rel_pos=False,
+        use_rel_pos=True,
         global_attn_indexes=[7, 15, 23, 31],
         inputs=inputs,
         include_head=include_head,
